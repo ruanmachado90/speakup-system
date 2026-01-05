@@ -1,0 +1,124 @@
+import { Card, Table, KPI } from '../components';
+
+export const Finance = ({ 
+  students, 
+  filterMonth, 
+  setFilterMonth, 
+  filterYear, 
+  setFilterYear, 
+  filterStatus, 
+  setFilterStatus, 
+  financeStats, 
+  filteredPayments, 
+  setModal 
+}) => {
+  return (
+    <Card>
+      <div className="flex items-center justify-between mb-4">
+        <div>
+          <h3 className="font-bold">Financeiro</h3>
+          <p className="text-xs text-slate-400">Lista de parcelas (filtrada por mês/ano)</p>
+        </div>
+
+        <div className="flex gap-2 items-center">
+          <div className="flex items-center gap-2">
+            <label className="text-xs text-slate-400">Mês</label>
+            <select 
+              value={filterMonth} 
+              onChange={e => setFilterMonth(Number(e.target.value))} 
+              className="border px-2 py-1 rounded"
+            >
+              {Array.from({length: 12}).map((_, i) => (
+                <option key={i} value={i}>
+                  {new Date(0, i).toLocaleString('pt-BR', {month: 'long'})}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <label className="text-xs text-slate-400">Ano</label>
+            <input 
+              type="number" 
+              value={filterYear} 
+              onChange={e => setFilterYear(Number(e.target.value))} 
+              className="border px-2 py-1 rounded w-24" 
+            />
+          </div>
+
+          <div className="flex items-center gap-2">
+            <label className="text-xs text-slate-400">Status</label>
+            <select 
+              value={filterStatus} 
+              onChange={e => setFilterStatus(e.target.value)} 
+              className="border px-2 py-1 rounded"
+            >
+              <option value="all">Todos</option>
+              <option value="pagos">Pagos</option>
+              <option value="pendentes">Pendentes</option>
+              <option value="atrasados">Atrasados</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-4 gap-4 mb-4">
+        <KPI label="Total Previsto" value={financeStats.planned} />
+        <KPI label="Total Realizado" value={financeStats.paid} positive />
+        <KPI label="Pendente" value={financeStats.pending} warn />
+        <KPI label="Atrasado" value={financeStats.overdue} />
+      </div>
+
+      <Table
+        header={["Nome / Responsável", "Vencimento", "Mensalidade", "Status", "Ações"]}
+        data={filteredPayments}
+        render={p => {
+          const student = students.find(s => s.id === p.studentId);
+          const name = p.studentName || student?.name || '-';
+          const responsible = student?.responsibleName || '-';
+          return (
+            <>
+              <td className="px-6 py-3 font-bold">
+                {name}
+                <div className="text-xs text-slate-400">{responsible}</div>
+              </td>
+              <td className="px-6 py-3">
+                {p.dueDate ? new Date(p.dueDate).toLocaleDateString('pt-BR') : '-'}
+              </td>
+              <td className="px-6 py-3">
+                R$ {Number(p.valuePlanned || 0).toLocaleString('pt-BR', {minimumFractionDigits: 2})}
+              </td>
+              <td className="px-6 py-3">
+                <span 
+                  className={`px-2 py-1 rounded-full text-xs ${
+                    p.status === 'Pago' 
+                      ? 'bg-emerald-100 text-emerald-700' 
+                      : (p.dueDate && new Date(p.dueDate) < new Date() 
+                          ? 'bg-rose-100 text-rose-700' 
+                          : 'bg-amber-100 text-amber-700')
+                  }`}
+                >
+                  {p.status}
+                </span>
+              </td>
+              <td className="px-6 py-3">
+                <button 
+                  onClick={() => setModal({open: true, type: 'payment', data: p})} 
+                  className="mr-2 px-3 py-1 rounded bg-emerald-500 text-white"
+                >
+                  Dar baixa
+                </button>
+                <button 
+                  onClick={() => setModal({open: true, type: 'view', data: student || {id: p.studentId, name: p.studentName}})} 
+                  className="px-3 py-1 rounded bg-slate-100"
+                >
+                  Visualizar
+                </button>
+              </td>
+            </>
+          );
+        }}
+      />
+    </Card>
+  );
+};

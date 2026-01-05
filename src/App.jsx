@@ -6,7 +6,8 @@ import {
   PieChart,
   PlusCircle,
   Printer,
-  ClipboardList
+  ClipboardList,
+  Calendar
 } from "lucide-react";
 
 import { 
@@ -16,6 +17,7 @@ import {
 } from './components';
 import { StudentForm, PaymentForm, ExpenseForm } from './components/forms';
 import { Dashboard, Students, Finance, Reports, Expenses } from './pages';
+import CalendarPage from './pages/Calendar';
 import { AppProvider, useAppContext } from './context';
 import { useStudentActions, usePaymentActions, useExpenseActions, usePrintActions } from './hooks';
 
@@ -99,6 +101,7 @@ function AppContent() {
         <Nav icon={<FileText />} label="Financeiro" active={page==="finance"} onClick={()=>setPage("finance")} />
         <Nav icon={<PieChart />} label="Despesas" active={page==="expenses"} onClick={()=>setPage("expenses")} />
         <Nav icon={<ClipboardList />} label="Relatórios" active={page==="reports"} onClick={()=>setPage("reports")} />
+        <Nav icon={<Calendar />} label="Calendário" active={page==="calendar"} onClick={()=>setPage("calendar")} />
       </aside>
 
       {/* MAIN */}
@@ -113,6 +116,7 @@ function AppContent() {
             {page === "finance" && "Financeiro"}
             {page === "expenses" && "Despesas"}
             {page === "reports" && "Relatórios"}
+            {page === "calendar" && "Calendário"}
           </h1>
         </div>
 
@@ -195,6 +199,8 @@ function AppContent() {
             setModal={setModal}
             handleDeleteExpense={handleDeleteExpense}
           />}
+
+          {page === "calendar" && <CalendarPage />}
 
         </div>
       </main>

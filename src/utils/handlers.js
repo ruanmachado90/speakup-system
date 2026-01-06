@@ -43,6 +43,36 @@ export const saveStudent = async (e, user, modal, toastMsg, setModal, setSaving)
         data
       );
 
+      // Se alterou a data de vencimento, atualizar parcelas pendentes
+      if (data.dueDate && data.dueDate !== modal.data.dueDate) {
+        const q = query(
+          col("payments"), 
+          where("studentId", "==", modal.data.id),
+          where("status", "==", "Pendente")
+        );
+        const snap = await getDocs(q);
+        
+        if (!snap.empty) {
+          const batch = writeBatch(db);
+          const newDueDay = new Date(data.dueDate).getDate();
+          
+          snap.forEach(paymentDoc => {
+            const payment = paymentDoc.data();
+            const currentDueDate = new Date(payment.dueDate);
+            
+            // Manter o mês/ano, alterar apenas o dia
+            currentDueDate.setDate(newDueDay);
+            
+            batch.update(
+              doc(col("payments"), paymentDoc.id),
+              { dueDate: currentDueDate.toISOString() }
+            );
+          });
+          
+          await batch.commit();
+        }
+      }
+
       toastMsg("Aluno atualizado com sucesso");
       setModal({ open: false, type: null, data: null });
       return;

@@ -276,8 +276,6 @@ export const handleExcelUpload = async (e, toastMsg, setSaving) => {
 
         for (const row of jsonData) {
           try {
-            console.log('Processando linha:', JSON.stringify(row, null, 2));
-            
             // Extrair valores brutos
             const rawName = String(row['Nome'] || row['nome'] || row['Nome do aluno'] || row['nome do aluno'] || '').trim();
             const rawCpf = String(row['CPF'] || row['cpf'] || row['CPF do aluno'] || row['cpf do aluno'] || '').trim();
@@ -289,7 +287,6 @@ export const handleExcelUpload = async (e, toastMsg, setSaving) => {
                 rawName.match(/^(Coluna|Column)\s*\d+$/i) || 
                 rawCourse.match(/^(Coluna|Column)\s*\d+$/i) ||
                 rawContact.match(/^(Coluna|Column)\s*\d+$/i)) {
-              console.warn('Linha ignorada - placeholder detectado');
               errors++;
               continue;
             }
@@ -345,10 +342,7 @@ export const handleExcelUpload = async (e, toastMsg, setSaving) => {
               status: 'ativo'
             };
 
-            console.log('Dados processados:', JSON.stringify(studentData, null, 2));
-
             if (!studentData.name || !studentData.cpf || studentData.cpf === '') {
-              console.warn('Linha ignorada - faltando nome ou CPF:', JSON.stringify(studentData, null, 2));
               errors++;
               continue;
             }
@@ -365,10 +359,9 @@ export const handleExcelUpload = async (e, toastMsg, setSaving) => {
               studentData.createdAt = Date.now();
               const ref = await addDoc(col('students'), studentData);
 
-              console.log('Aluno criado, gerando parcelas. Fee:', studentData.fee, 'Installments:', studentData.installments, 'DueDate:', studentData.dueDate);
-
-              // Criar parcelas de pagamento apenas para novos alunos
+              // Criar parcelas de pagamento apenas para novos alunos usando batch
               if (studentData.fee > 0 && studentData.installments > 0) {
+                const batch = writeBatch(db);
                 const start = new Date(studentData.dueDate);
 
                 for (let i = 0; i < studentData.installments; i++) {
@@ -387,19 +380,17 @@ export const handleExcelUpload = async (e, toastMsg, setSaving) => {
                     dueDate: d.toISOString()
                   };
 
-                  console.log(`Criando parcela ${i + 1}:`, payment);
-                  await addDoc(col('payments'), payment);
+                  const paymentRef = doc(col('payments'));
+                  batch.set(paymentRef, payment);
                 }
-                console.log(`${studentData.installments} parcelas criadas para ${studentData.name}`);
-              } else {
-                console.warn('Parcelas não criadas. Fee:', studentData.fee, 'Installments:', studentData.installments);
+                
+                await batch.commit();
               }
               imported++;
             }
 
           } catch (err) {
             console.error('Erro ao importar linha:', err);
-            console.error('Detalhes do erro:', err.message, err.stack);
             errors++;
           }
         }

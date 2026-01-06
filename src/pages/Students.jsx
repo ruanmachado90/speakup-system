@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Search, Edit, Trash2, FileText, CheckSquare, Square } from 'lucide-react';
 import { Card, Table } from '../components';
 
@@ -43,7 +43,10 @@ export const Students = ({
     setModal({ open: true, type: 'bulk-payment', data: { studentIds: selectedStudents } });
   };
 
-  const filteredStudents = students.filter(s => s.name?.toLowerCase().includes(searchTerm.toLowerCase()));
+  const filteredStudents = useMemo(() => 
+    students.filter(s => s.name?.toLowerCase().includes(searchTerm.toLowerCase())),
+    [students, searchTerm]
+  );
 
   return (
     <Card>

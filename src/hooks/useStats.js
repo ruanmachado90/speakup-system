@@ -3,7 +3,7 @@ import { useMemo } from 'react';
 export const useStats = (students, payments, expenses, dashboardRange) => {
   return useMemo(() => {
     const now = new Date();
-    const currentMonth = now.getMonth();
+    const currentMonth = now.getMonth() + 1; // Ajustar para 1-12
     const currentYear = now.getFullYear();
 
     let p = [];
@@ -27,7 +27,8 @@ export const useStats = (students, payments, expenses, dashboardRange) => {
       if (!ts) return false;
       const d = new Date(Number(ts));
       if (dashboardRange === 'month') {
-        return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
+        // d.getMonth() retorna 0-11, mas currentMonth agora é 1-12
+        return (d.getMonth() + 1) === currentMonth && d.getFullYear() === currentYear;
       }
       return d.getFullYear() === currentYear;
     };
@@ -72,7 +73,7 @@ export const useTeacherStats = (students) => {
 export const useFilteredExpenses = (expenses, dashboardRange) => {
   return useMemo(() => {
     const now = new Date();
-    const currentMonth = now.getMonth();
+    const currentMonth = now.getMonth() + 1; // Ajustar para 1-12
     const currentYear = now.getFullYear();
 
     let filtered = [];
@@ -92,18 +93,19 @@ export const useMonthlyData = (payments, expenses) => {
     const months = Array.from({length: 12}, (_, i) => i);
     const labels = months.map(i => new Date(0, i).toLocaleString('pt-BR', {month: 'short'}));
 
+    // Parcelas são salvas com month 1-12, então ajustamos com m + 1
     const planned = months.map(m => payments
-      .filter(x => Number(x.year) === currentYear && Number(x.month) === m)
+      .filter(x => Number(x.year) === currentYear && Number(x.month) === (m + 1))
       .reduce((a, x) => a + Number(x.valuePlanned || 0), 0)
     );
 
     const paid = months.map(m => payments
-      .filter(x => Number(x.year) === currentYear && Number(x.month) === m && x.status === 'Pago')
+      .filter(x => Number(x.year) === currentYear && Number(x.month) === (m + 1) && x.status === 'Pago')
       .reduce((a, x) => a + Number(x.valuePaid || x.valuePlanned || 0), 0)
     );
 
     const expensesByMonth = months.map(m => expenses
-      .filter(x => Number(x.year) === currentYear && Number(x.month) === m)
+      .filter(x => Number(x.year) === currentYear && Number(x.month) === (m + 1))
       .reduce((a, x) => a + Number(x.value || 0), 0)
     );
 
@@ -115,7 +117,8 @@ export const useMonthlyData = (payments, expenses) => {
 
 export const useFinanceStats = (payments, filterMonth, filterYear) => {
   return useMemo(() => {
-    const filtered = payments.filter(x => Number(x.year) === filterYear && Number(x.month) === filterMonth);
+    // filterMonth vem como 0-11, mas parcelas são salvas como 1-12
+    const filtered = payments.filter(x => Number(x.year) === filterYear && Number(x.month) === (filterMonth + 1));
     const planned = filtered.reduce((a, x) => a + Number(x.valuePlanned || 0), 0);
     const paid = filtered.filter(x => x.status === 'Pago').reduce((a, x) => a + Number(x.valuePaid || x.valuePlanned || 0), 0);
     const pending = filtered.filter(x => x.status !== 'Pago').reduce((a, x) => a + Number(x.valuePlanned || 0), 0);
@@ -127,7 +130,8 @@ export const useFinanceStats = (payments, filterMonth, filterYear) => {
 
 export const useFilteredPayments = (payments, filterMonth, filterYear, filterStatus) => {
   return useMemo(() => {
-    let filtered = payments.filter(x => Number(x.year) === filterYear && Number(x.month) === filterMonth);
+    // filterMonth vem como 0-11, mas parcelas são salvas como 1-12
+    let filtered = payments.filter(x => Number(x.year) === filterYear && Number(x.month) === (filterMonth + 1));
 
     if (filterStatus === 'pagos') {
       filtered = filtered.filter(x => x.status === 'Pago');

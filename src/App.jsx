@@ -7,7 +7,8 @@ import {
   PlusCircle,
   Printer,
   ClipboardList,
-  Calendar
+  Calendar,
+  ClipboardCheck
 } from "lucide-react";
 
 import { 
@@ -18,6 +19,7 @@ import {
 import { StudentForm, PaymentForm, ExpenseForm } from './components/forms';
 import { Dashboard, Students, Finance, Reports, Expenses } from './pages';
 import CalendarPage from './pages/Calendar';
+import AgendaProfessoresPage from './pages/AgendaProfessores';
 import { AppProvider, useAppContext } from './context';
 import { useStudentActions, usePaymentActions, useExpenseActions, usePrintActions } from './hooks';
 
@@ -102,6 +104,7 @@ function AppContent() {
         <Nav icon={<PieChart />} label="Despesas" active={page==="expenses"} onClick={()=>setPage("expenses")} />
         <Nav icon={<ClipboardList />} label="Relatórios" active={page==="reports"} onClick={()=>setPage("reports")} />
         <Nav icon={<Calendar />} label="Calendário" active={page==="calendar"} onClick={()=>setPage("calendar")} />
+        <Nav icon={<ClipboardCheck />} label="Agenda" active={page==="agenda"} onClick={()=>setPage("agenda")} />
       </aside>
 
       {/* MAIN */}
@@ -117,6 +120,7 @@ function AppContent() {
             {page === "expenses" && "Despesas"}
             {page === "reports" && "Relatórios"}
             {page === "calendar" && "Calendário"}
+            {page === "agenda" && "Agenda"}
           </h1>
         </div>
 
@@ -201,6 +205,8 @@ function AppContent() {
           />}
 
           {page === "calendar" && <CalendarPage />}
+
+          {page === "agenda" && <AgendaProfessoresPage />}
 
         </div>
       </main>

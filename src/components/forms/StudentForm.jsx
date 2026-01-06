@@ -1,5 +1,57 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Form } from '../ui';
+
+const formatCPF = (value) => {
+  const numbers = value.replace(/\D/g, '');
+  if (numbers.length <= 11) {
+    return numbers
+      .replace(/(\d{3})(\d)/, '$1.$2')
+      .replace(/(\d{3})(\d)/, '$1.$2')
+      .replace(/(\d{3})(\d{1,2})$/, '$1-$2');
+  }
+  return value;
+};
+
+const formatPhone = (value) => {
+  const numbers = value.replace(/\D/g, '');
+  if (numbers.length <= 11) {
+    return numbers
+      .replace(/(\d{2})(\d)/, '($1) $2')
+      .replace(/(\d{5})(\d)/, '$1-$2');
+  }
+  return value;
+};
+
+const MaskedInput = ({ label, name, defaultValue, mask, required }) => {
+  const [value, setValue] = useState(defaultValue || '');
+
+  const handleChange = (e) => {
+    const rawValue = e.target.value;
+    let formatted = rawValue;
+    
+    if (mask === 'cpf') {
+      formatted = formatCPF(rawValue);
+    } else if (mask === 'phone') {
+      formatted = formatPhone(rawValue);
+    }
+    
+    setValue(formatted);
+  };
+
+  return (
+    <div className="flex flex-col">
+      <label className="text-sm font-bold text-slate-600 mb-1">{label}</label>
+      <input
+        type="text"
+        name={name}
+        value={value}
+        onChange={handleChange}
+        required={required}
+        className="border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#005DE4]"
+      />
+    </div>
+  );
+};
 
 export const StudentForm = ({ modal, saving, onSubmit, onCancel }) => {
   return (
@@ -10,16 +62,16 @@ export const StudentForm = ({ modal, saving, onSubmit, onCancel }) => {
 
       <div className="grid grid-cols-2 gap-4">
         <Form label="Nome do aluno" name="name" defaultValue={modal.data?.name} required />
-        <Form label="CPF do aluno" name="cpf" defaultValue={modal.data?.cpf} required />
-        <Form label="Contato do aluno" name="contact" defaultValue={modal.data?.contact} required />
+        <MaskedInput label="CPF do aluno" name="cpf" defaultValue={modal.data?.cpf} mask="cpf" required />
+        <MaskedInput label="Contato do aluno" name="contact" defaultValue={modal.data?.contact} mask="phone" required />
       </div>
 
       <div className="bg-slate-50 p-4 rounded-xl space-y-3">
         <p className="text-xs font-bold text-slate-500">Responsável (opcional)</p>
         <div className="grid grid-cols-3 gap-4">
           <Form label="Nome" name="responsibleName" defaultValue={modal.data?.responsibleName} />
-          <Form label="CPF" name="responsibleCpf" defaultValue={modal.data?.responsibleCpf} />
-          <Form label="Contato" name="responsibleContact" defaultValue={modal.data?.responsibleContact} />
+          <MaskedInput label="CPF" name="responsibleCpf" defaultValue={modal.data?.responsibleCpf} mask="cpf" />
+          <MaskedInput label="Contato" name="responsibleContact" defaultValue={modal.data?.responsibleContact} mask="phone" />
         </div>
       </div>
 

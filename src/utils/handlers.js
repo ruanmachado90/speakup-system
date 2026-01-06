@@ -82,7 +82,7 @@ export const saveStudent = async (e, user, modal, toastMsg, setModal, setSaving)
           valuePlanned: fee,
           valuePaid: 0,
           status: "Pendente",
-          month: d.getMonth(),
+          month: d.getMonth() + 1,
           year: d.getFullYear(),
           dueDate: d.toISOString()
         }
@@ -201,7 +201,7 @@ export const saveExpense = async (e, user, toastMsg, setModal, setExpenseSaving)
       category,
       value,
       date: d.toISOString(),
-      month: d.getMonth(),
+      month: d.getMonth() + 1,
       year: d.getFullYear(),
       createdAt: Date.now()
     });
@@ -249,13 +249,12 @@ export const handleExcelUpload = async (e, toastMsg, setSaving) => {
     reader.onload = async (event) => {
       try {
         const data = new Uint8Array(event.target.result);
-        const workbook = await import('https://cdn.sheetjs.com/xlsx-0.20.1/package/xlsx.mjs')
-          .then(m => m.read(data, { type: 'array' }));
+        const XLSX = await import('https://cdn.sheetjs.com/xlsx-0.20.1/package/xlsx.mjs');
         
+        const workbook = XLSX.read(data, { type: 'array' });
         const sheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[sheetName];
-        const jsonData = await import('https://cdn.sheetjs.com/xlsx-0.20.1/package/xlsx.mjs')
-          .then(m => m.utils.sheet_to_json(worksheet));
+        const jsonData = XLSX.utils.sheet_to_json(worksheet);
 
         if (!jsonData || jsonData.length === 0) {
           toastMsg('Nenhum dado encontrado no arquivo');
@@ -264,61 +263,148 @@ export const handleExcelUpload = async (e, toastMsg, setSaving) => {
 
         setSaving(true);
         let imported = 0;
+        let updated = 0;
         let errors = 0;
+
+        // Buscar todos os alunos existentes
+        const studentsSnapshot = await getDocs(col('students'));
+        const existingStudents = {};
+        studentsSnapshot.forEach(doc => {
+          const data = doc.data();
+          if (data.cpf) existingStudents[data.cpf] = { id: doc.id, ...data };
+        });
 
         for (const row of jsonData) {
           try {
+            console.log('Processando linha:', JSON.stringify(row, null, 2));
+            
+            // Extrair valores brutos
+            const rawName = String(row['Nome'] || row['nome'] || row['Nome do aluno'] || row['nome do aluno'] || '').trim();
+            const rawCpf = String(row['CPF'] || row['cpf'] || row['CPF do aluno'] || row['cpf do aluno'] || '').trim();
+            const rawContact = String(row['Contato'] || row['contato'] || row['contato do aluno'] || row['Contato do aluno'] || '').trim();
+            const rawCourse = String(row['Curso'] || row['curso'] || '').trim();
+            
+            // Ignorar linhas com placeholders ou vazias
+            if (!rawName || 
+                rawName.match(/^(Coluna|Column)\s*\d+$/i) || 
+                rawCourse.match(/^(Coluna|Column)\s*\d+$/i) ||
+                rawContact.match(/^(Coluna|Column)\s*\d+$/i)) {
+              console.warn('Linha ignorada - placeholder detectado');
+              errors++;
+              continue;
+            }
+            
+            // Converter data do Excel se necessário
+            let dueDate = row['Data Vencimento'] || row['data_vencimento'] || row['Vencimento'] || row['vencimento'];
+            if (typeof dueDate === 'number') {
+              // Se for número pequeno (1-31), é apenas o dia do mês
+              if (dueDate >= 1 && dueDate <= 31) {
+                const today = new Date();
+                const year = today.getFullYear();
+                const month = String(today.getMonth() + 1).padStart(2, '0');
+                const day = String(Math.floor(dueDate)).padStart(2, '0');
+                dueDate = `${year}-${month}-${day}`;
+              } else {
+                // Número grande - é data serial do Excel (dias desde 1900-01-01)
+                const excelEpoch = new Date(1900, 0, 1);
+                const date = new Date(excelEpoch.getTime() + (dueDate - 2) * 86400000);
+                dueDate = date.toISOString().split('T')[0];
+              }
+            } else if (dueDate) {
+              // Tentar converter string de data DD/MM/YYYY para YYYY-MM-DD
+              const match = String(dueDate).match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
+              if (match) {
+                const [_, day, month, year] = match;
+                dueDate = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+              } else {
+                // Se for apenas número como string, tratar como dia do mês
+                const dayNum = parseInt(String(dueDate).trim());
+                if (!isNaN(dayNum) && dayNum >= 1 && dayNum <= 31) {
+                  const today = new Date();
+                  const year = today.getFullYear();
+                  const month = String(today.getMonth() + 1).padStart(2, '0');
+                  const day = String(dayNum).padStart(2, '0');
+                  dueDate = `${year}-${month}-${day}`;
+                }
+              }
+            }
+            if (!dueDate) dueDate = new Date().toISOString().split('T')[0];
+            
             const studentData = {
-              name: row['Nome'] || row['nome'] || '',
-              contact: row['Contato'] || row['contato'] || '',
-              responsibleName: row['Responsável'] || row['responsavel'] || '',
-              responsibleContact: row['Contato Responsável'] || row['contato_responsavel'] || '',
-              course: row['Curso'] || row['curso'] || '',
-              teacher: row['Professor'] || row['professor'] || '',
+              name: rawName,
+              cpf: rawCpf,
+              contact: rawContact,
+              responsibleName: String(row['Responsável'] || row['responsavel'] || row['Nome responsável'] || row['nome responsável'] || '').trim(),
+              responsibleCpf: String(row['CPF Responsável'] || row['cpf responsável'] || row['CPF responsável'] || row['cpf_responsavel'] || '').trim(),
+              responsibleContact: String(row['Contato Responsável'] || row['contato_responsavel'] || row['Contato responsável'] || row['contato responsável'] || '').trim(),
+              course: rawCourse,
+              teacher: String(row['Professor'] || row['professor'] || '').trim(),
               fee: Number(row['Mensalidade'] || row['mensalidade'] || 0),
               installments: Number(row['Parcelas'] || row['parcelas'] || 12),
-              dueDate: row['Data Vencimento'] || row['data_vencimento'] || row['Vencimento'] || row['vencimento'] || new Date().toISOString().split('T')[0],
-              status: 'ativo',
-              createdAt: Date.now()
+              dueDate: dueDate,
+              status: 'ativo'
             };
 
-            if (!studentData.name || !studentData.fee) {
+            console.log('Dados processados:', JSON.stringify(studentData, null, 2));
+
+            if (!studentData.name || !studentData.cpf || studentData.cpf === '') {
+              console.warn('Linha ignorada - faltando nome ou CPF:', JSON.stringify(studentData, null, 2));
               errors++;
               continue;
             }
 
-            const ref = await addDoc(col('students'), studentData);
+            // Verificar se aluno já existe
+            const existingStudent = existingStudents[studentData.cpf];
+            
+            if (existingStudent) {
+              // ATUALIZAR aluno existente
+              await updateDoc(doc(db, "artifacts", APP_ID, "public", "data", "students", existingStudent.id), studentData);
+              updated++;
+            } else {
+              // CRIAR novo aluno
+              studentData.createdAt = Date.now();
+              const ref = await addDoc(col('students'), studentData);
 
-            const batch = writeBatch(db);
-            const start = new Date(studentData.dueDate);
+              console.log('Aluno criado, gerando parcelas. Fee:', studentData.fee, 'Installments:', studentData.installments, 'DueDate:', studentData.dueDate);
 
-            for (let i = 0; i < studentData.installments; i++) {
-              const d = new Date(start);
-              d.setMonth(start.getMonth() + i);
+              // Criar parcelas de pagamento apenas para novos alunos
+              if (studentData.fee > 0 && studentData.installments > 0) {
+                const start = new Date(studentData.dueDate);
 
-              batch.set(doc(col('payments')), {
-                studentId: ref.id,
-                studentName: studentData.name,
-                installmentNum: i + 1,
-                valuePlanned: studentData.fee,
-                valuePaid: 0,
-                status: 'Pendente',
-                month: d.getMonth(),
-                year: d.getFullYear(),
-                dueDate: d.toISOString()
-              });
+                for (let i = 0; i < studentData.installments; i++) {
+                  const d = new Date(start);
+                  d.setMonth(start.getMonth() + i);
+
+                  const payment = {
+                    studentId: ref.id,
+                    studentName: studentData.name,
+                    installmentNum: i + 1,
+                    valuePlanned: studentData.fee,
+                    valuePaid: 0,
+                    status: 'Pendente',
+                    month: d.getMonth() + 1,
+                    year: d.getFullYear(),
+                    dueDate: d.toISOString()
+                  };
+
+                  console.log(`Criando parcela ${i + 1}:`, payment);
+                  await addDoc(col('payments'), payment);
+                }
+                console.log(`${studentData.installments} parcelas criadas para ${studentData.name}`);
+              } else {
+                console.warn('Parcelas não criadas. Fee:', studentData.fee, 'Installments:', studentData.installments);
+              }
+              imported++;
             }
-
-            await batch.commit();
-            imported++;
 
           } catch (err) {
             console.error('Erro ao importar linha:', err);
+            console.error('Detalhes do erro:', err.message, err.stack);
             errors++;
           }
         }
 
-        toastMsg(`Importação concluída: ${imported} alunos importados${errors > 0 ? `, ${errors} erros` : ''}`);
+        toastMsg(`Importação concluída: ${imported} novos, ${updated} atualizados${errors > 0 ? `, ${errors} erros` : ''}`);
         
       } catch (err) {
         console.error('Erro ao processar Excel:', err);

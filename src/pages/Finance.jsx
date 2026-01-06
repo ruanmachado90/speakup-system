@@ -78,19 +78,19 @@ export const Finance = ({
           const responsible = student?.responsibleName || '-';
           return (
             <>
-              <td className="px-6 py-3 font-bold">
+              <td className="px-6 py-3 text-xs font-bold">
                 {name}
-                <div className="text-xs text-slate-400">{responsible}</div>
+                <div className="text-[10px] text-slate-400">{responsible}</div>
               </td>
-              <td className="px-6 py-3">
+              <td className="px-6 py-3 text-xs">
                 {p.dueDate ? new Date(p.dueDate).toLocaleDateString('pt-BR') : '-'}
               </td>
-              <td className="px-6 py-3">
+              <td className="px-6 py-3 text-xs">
                 R$ {Number(p.valuePlanned || 0).toLocaleString('pt-BR', {minimumFractionDigits: 2})}
               </td>
               <td className="px-6 py-3">
                 <span 
-                  className={`px-2 py-1 rounded-full text-xs ${
+                  className={`px-2 py-1 rounded-full text-[10px] ${
                     p.status === 'Pago' 
                       ? 'bg-emerald-100 text-emerald-700' 
                       : (p.dueDate && new Date(p.dueDate) < new Date() 
@@ -104,13 +104,13 @@ export const Finance = ({
               <td className="px-6 py-3">
                 <button 
                   onClick={() => setModal({open: true, type: 'payment', data: p})} 
-                  className="mr-2 px-3 py-1 rounded bg-emerald-500 text-white"
+                  className="mr-2 px-2 py-1 rounded bg-emerald-500 text-white text-xs"
                 >
                   Dar baixa
                 </button>
                 <button 
                   onClick={() => setModal({open: true, type: 'view', data: student || {id: p.studentId, name: p.studentName}})} 
-                  className="px-3 py-1 rounded bg-slate-100"
+                  className="px-2 py-1 rounded bg-slate-100 text-xs"
                 >
                   Visualizar
                 </button>

@@ -79,8 +79,9 @@ export const Reports = ({
           {/* Resumo Financeiro */}
           <div className="grid grid-cols-4 gap-4 mb-6">
             {(() => {
+              // reportMonth vem como 0-11, mas parcelas são salvas como 1-12
               const p = reportType === 'monthly' 
-                ? payments.filter(x => Number(x.year) === reportYear && Number(x.month) === reportMonth)
+                ? payments.filter(x => Number(x.year) === reportYear && Number(x.month) === (reportMonth + 1))
                 : payments.filter(x => Number(x.year) === reportYear);
               
               const e = reportType === 'monthly'
@@ -118,22 +119,22 @@ export const Reports = ({
               header={["Aluno", "Vencimento", "Valor", "Status", "Data Pagamento"]}
               data={
                 reportType === 'monthly'
-                  ? payments.filter(x => Number(x.year) === reportYear && Number(x.month) === reportMonth)
+                  ? payments.filter(x => Number(x.year) === reportYear && Number(x.month) === (reportMonth + 1))
                   : payments.filter(x => Number(x.year) === reportYear)
               }
               render={p => {
                 const student = students.find(s => s.id === p.studentId);
                 return (
                   <>
-                    <td className="px-6 py-3 font-semibold">{p.studentName || student?.name || '-'}</td>
-                    <td className="px-6 py-3">{p.dueDate ? new Date(p.dueDate).toLocaleDateString('pt-BR') : '-'}</td>
-                    <td className="px-6 py-3">R$ {Number(p.valuePlanned || 0).toLocaleString('pt-BR', {minimumFractionDigits: 2})}</td>
+                    <td className="px-6 py-3 text-xs font-semibold">{p.studentName || student?.name || '-'}</td>
+                    <td className="px-6 py-3 text-xs">{p.dueDate ? new Date(p.dueDate).toLocaleDateString('pt-BR') : '-'}</td>
+                    <td className="px-6 py-3 text-xs">R$ {Number(p.valuePlanned || 0).toLocaleString('pt-BR', {minimumFractionDigits: 2})}</td>
                     <td className="px-6 py-3">
-                      <span className={`px-2 py-1 rounded-full text-xs ${p.status === 'Pago' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
+                      <span className={`px-2 py-1 rounded-full text-[10px] ${p.status === 'Pago' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
                         {p.status}
                       </span>
                     </td>
-                    <td className="px-6 py-3">
+                    <td className="px-6 py-3 text-xs">
                       {p.status === 'Pago' && p.paymentDate ? new Date(p.paymentDate).toLocaleDateString('pt-BR') : '-'}
                     </td>
                   </>
@@ -161,10 +162,10 @@ export const Reports = ({
               }
               render={x => (
                 <>
-                  <td className="px-6 py-3 font-semibold">{x.description}</td>
-                  <td className="px-6 py-3">{x.category}</td>
-                  <td className="px-6 py-3">{x.date ? new Date(x.date).toLocaleDateString('pt-BR') : '-'}</td>
-                  <td className="px-6 py-3">R$ {Number(x.value || 0).toLocaleString('pt-BR', {minimumFractionDigits: 2})}</td>
+                  <td className="px-6 py-3 text-xs font-semibold">{x.description}</td>
+                  <td className="px-6 py-3 text-xs">{x.category}</td>
+                  <td className="px-6 py-3 text-xs">{x.date ? new Date(x.date).toLocaleDateString('pt-BR') : '-'}</td>
+                  <td className="px-6 py-3 text-xs">R$ {Number(x.value || 0).toLocaleString('pt-BR', {minimumFractionDigits: 2})}</td>
                 </>
               )}
             />

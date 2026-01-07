@@ -15,6 +15,17 @@ import { APP_ID } from "./constants";
 const appId = APP_ID;
 const col = (name) => collection(db, "artifacts", appId, "public", "data", name);
 
+// Helper para converter Date para ISO string sem alterar timezone
+const toLocalISOString = (date) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  const seconds = String(date.getSeconds()).padStart(2, '0');
+  return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}.000Z`;
+};
+
 /**
  * Save or update a student
  * @param {Event} e - Form event
@@ -43,34 +54,50 @@ export const saveStudent = async (e, user, modal, toastMsg, setModal, setSaving)
         data
       );
 
-      // Se alterou a data de vencimento, atualizar parcelas pendentes
-      if (data.dueDate && data.dueDate !== modal.data.dueDate) {
-        const q = query(
-          col("payments"), 
-          where("studentId", "==", modal.data.id),
-          where("status", "==", "Pendente")
-        );
-        const snap = await getDocs(q);
-        
-        if (!snap.empty) {
-          const batch = writeBatch(db);
-          const newDueDay = new Date(data.dueDate).getDate();
-          
-          snap.forEach(paymentDoc => {
-            const payment = paymentDoc.data();
-            const currentDueDate = new Date(payment.dueDate);
-            
-            // Manter o mês/ano, alterar apenas o dia
-            currentDueDate.setDate(newDueDay);
-            
+      // Atualizar parcelas pendentes com as novas informações do aluno
+      const q = query(
+        col("payments"),
+        where("studentId", "==", modal.data.id),
+        where("status", "==", "Pendente")
+      );
+      const snap = await getDocs(q);
+
+      if (!snap.empty) {
+        const batch = writeBatch(db);
+        const hasDateChange = data.dueDate && data.dueDate !== modal.data.dueDate;
+        const newBaseDate = hasDateChange ? new Date(data.dueDate + 'T00:00:00') : null;
+
+        snap.forEach(paymentDoc => {
+          const payment = paymentDoc.data();
+          const updates = {};
+
+          // Atualizar nome do aluno se mudou
+          if (data.name && data.name !== modal.data.name) {
+            updates.studentName = data.name;
+          }
+
+          // Atualizar valor planejado se mudou
+          if (data.fee && Number(data.fee) !== Number(modal.data.fee)) {
+            updates.valuePlanned = Number(data.fee);
+          }
+
+          // Recalcular data se mudou
+          if (hasDateChange) {
+            const newDueDate = new Date(newBaseDate);
+            newDueDate.setMonth(newBaseDate.getMonth() + (payment.installmentNum - 1));
+            updates.dueDate = toLocalISOString(newDueDate);
+          }
+
+          // Só atualiza se houver mudanças
+          if (Object.keys(updates).length > 0) {
             batch.update(
               doc(col("payments"), paymentDoc.id),
-              { dueDate: currentDueDate.toISOString() }
+              updates
             );
-          });
-          
-          await batch.commit();
-        }
+          }
+        });
+
+        await batch.commit();
       }
 
       toastMsg("Aluno atualizado com sucesso");
@@ -97,7 +124,7 @@ export const saveStudent = async (e, user, modal, toastMsg, setModal, setSaving)
 
     // 📄 GERAR PARCELAS
     const batch = writeBatch(db);
-    const start = new Date(data.dueDate);
+    const start = new Date(data.dueDate + 'T00:00:00');
 
     for (let i = 0; i < installments; i++) {
       const d = new Date(start);
@@ -114,7 +141,7 @@ export const saveStudent = async (e, user, modal, toastMsg, setModal, setSaving)
           status: "Pendente",
           month: d.getMonth() + 1,
           year: d.getFullYear(),
-          dueDate: d.toISOString()
+          dueDate: toLocalISOString(d)
         }
       );
     }
@@ -153,6 +180,42 @@ export const handleDeleteStudent = async (id, toastMsg) => {
   } catch (err) {
     console.error(err);
     toastMsg('Erro ao remover aluno');
+  }
+};
+
+/**
+ * Cancel student enrollment
+ * @param {string} id - Student ID
+ * @param {Function} toastMsg - Toast notification function
+ */
+export const handleCancelEnrollment = async (id, toastMsg) => {
+  if (!confirm('Cancelar matrícula deste aluno? As parcelas pendentes serão excluídas.')) return;
+
+  try {
+    // Atualizar status do aluno para 'cancelado'
+    await updateDoc(doc(col("students"), id), { 
+      status: 'cancelado',
+      canceledAt: Date.now()
+    });
+
+    // Excluir apenas parcelas pendentes (manter as pagas)
+    const q = query(
+      col("payments"), 
+      where("studentId", "==", id),
+      where("status", "==", "Pendente")
+    );
+    const snap = await getDocs(q);
+    
+    if (!snap.empty) {
+      const batch = writeBatch(db);
+      snap.forEach(d => batch.delete(doc(col("payments"), d.id)));
+      await batch.commit();
+    }
+
+    toastMsg('Matrícula cancelada com sucesso');
+  } catch (err) {
+    console.error(err);
+    toastMsg('Erro ao cancelar matrícula');
   }
 };
 
@@ -392,7 +455,7 @@ export const handleExcelUpload = async (e, toastMsg, setSaving) => {
               // Criar parcelas de pagamento apenas para novos alunos usando batch
               if (studentData.fee > 0 && studentData.installments > 0) {
                 const batch = writeBatch(db);
-                const start = new Date(studentData.dueDate);
+                const start = new Date(studentData.dueDate + 'T00:00:00');
 
                 for (let i = 0; i < studentData.installments; i++) {
                   const d = new Date(start);
@@ -407,7 +470,7 @@ export const handleExcelUpload = async (e, toastMsg, setSaving) => {
                     status: 'Pendente',
                     month: d.getMonth() + 1,
                     year: d.getFullYear(),
-                    dueDate: d.toISOString()
+                    dueDate: toLocalISOString(d)
                   };
 
                   const paymentRef = doc(col('payments'));

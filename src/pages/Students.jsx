@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
-import { Search, Edit, Trash2, FileText, CheckSquare, Square } from 'lucide-react';
-import { Card, Table } from '../components';
+import { Search, Edit, X, FileText, CheckSquare, Square } from 'lucide-react';
+import { Card, Table, KPI } from '../components';
 
 export const Students = ({ 
   students, 
@@ -8,10 +8,14 @@ export const Students = ({
   searchTerm, 
   setSearchTerm, 
   setModal, 
-  handleDeleteStudent, 
+  handleCancelEnrollment, 
   handleExcelUpload 
 }) => {
   const [selectedStudents, setSelectedStudents] = useState([]);
+  const [statusFilter, setStatusFilter] = useState('all'); // 'all', 'ativo', 'cancelado'
+
+  const activeStudents = students.filter(s => s.status !== 'cancelado').length;
+  const inactiveStudents = students.filter(s => s.status === 'cancelado').length;
 
   const toggleStudent = (studentId) => {
     setSelectedStudents(prev => 
@@ -44,17 +48,76 @@ export const Students = ({
   };
 
   const filteredStudents = useMemo(() => 
-    students.filter(s => s.name?.toLowerCase().includes(searchTerm.toLowerCase())),
-    [students, searchTerm]
+    students
+      .filter(s => s.name?.toLowerCase().includes(searchTerm.toLowerCase()))
+      .filter(s => {
+        if (statusFilter === 'all') return true;
+        if (statusFilter === 'ativo') return s.status !== 'cancelado';
+        if (statusFilter === 'cancelado') return s.status === 'cancelado';
+        return true;
+      }),
+    [students, searchTerm, statusFilter]
   );
 
   return (
-    <Card>
-      <div className="flex items-center justify-between mb-4">
-        <div className="text-xs text-slate-400">
-          Dados salvos em: <code>artifacts/speakup-manager/public/data/students</code>
+    <>
+      <div className="grid grid-cols-2 gap-4 mb-4">
+        <KPI 
+          label="ATIVO"
+          value={activeStudents}
+          format="number"
+          accent="blue"
+        />
+        <KPI
+          label="INATIVO"
+          value={inactiveStudents}
+          format="number"
+          accent="red"
+        />
+      </div>
+
+      <Card>
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex gap-2">
+            <button
+              onClick={() => setStatusFilter('all')}
+              className={`px-4 py-2 rounded-full font-bold text-xs ${
+                statusFilter === 'all' 
+                  ? 'bg-[#005DE4] text-white' 
+                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+              }`}
+            >
+              Todos ({students.length})
+            </button>
+            <button
+              onClick={() => setStatusFilter('ativo')}
+              className={`px-4 py-2 rounded-full font-bold text-xs ${
+                statusFilter === 'ativo' 
+                  ? 'bg-emerald-500 text-white' 
+                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+              }`}
+            >
+              Ativos ({activeStudents})
+            </button>
+            <button
+              onClick={() => setStatusFilter('cancelado')}
+              className={`px-4 py-2 rounded-full font-bold text-xs ${
+                statusFilter === 'cancelado' 
+                  ? 'bg-red-500 text-white' 
+                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+              }`}
+            >
+              Inativos ({inactiveStudents})
+            </button>
+          </div>
+          <div className="text-xs text-slate-400">
+            Dados salvos em: <code>artifacts/speakup-manager/public/data/students</code>
+          </div>
         </div>
-        <div className="flex gap-2">
+        
+        <div className="flex items-center justify-between mb-4">
+          <div></div>
+          <div className="flex gap-2">
           {selectedStudents.length > 0 && (
             <>
               <button 
@@ -64,10 +127,10 @@ export const Students = ({
                 Dar Baixa ({selectedStudents.length})
               </button>
               <button 
-                onClick={handleBulkDelete}
+                onClick={handleBulkCancel}
                 className="bg-red-500 text-white px-4 py-2 rounded-full font-bold flex gap-2 items-center hover:bg-red-600"
               >
-                <Trash2 size={16}/> Excluir ({selectedStudents.length})
+                <X size={16}/> Cancelar Matrícula ({selectedStudents.length})
               </button>
             </>
           )}
@@ -135,7 +198,11 @@ export const Students = ({
             <td className="px-6 py-3 text-xs">{s.course}</td>
             <td className="px-6 py-3 text-xs">{s.teacher}</td>
             <td className="px-6 py-3 text-xs">
-              R$ {Number(s.fee || 0).toLocaleString('pt-BR', {minimumFractionDigits: 2})}
+              {s.status === 'cancelado' ? (
+                <span className="text-red-600 font-bold">INATIVO</span>
+              ) : (
+                `R$ ${Number(s.fee || 0).toLocaleString('pt-BR', {minimumFractionDigits: 2})}`
+              )}
             </td>
             <td className="px-6 py-3 text-xs">
               {(() => {
@@ -154,22 +221,24 @@ export const Students = ({
                 <Search size={16}/>
               </button>
               <button 
-                onClick={() => setModal({open: true, type: 'student', data: s})} 
-                aria-label="Editar aluno" 
+                onClick={() => setModal({open: true, type: 'student', data: s})}
+                aria-label="Editar aluno"
                 className="mr-2"
               >
                 <Edit size={16}/>
               </button>
-              <button 
-                onClick={() => handleDeleteStudent(s.id)} 
-                aria-label="Remover aluno"
+              <button
+                onClick={() => handleCancelEnrollment(s.id)}
+                aria-label="Cancelar matrícula"
+                className="text-red-500 hover:text-red-700"
               >
-                <Trash2 size={16}/>
+                <X size={16}/>
               </button>
             </td>
           </>
         )}
       />
     </Card>
+    </>
   );
 };

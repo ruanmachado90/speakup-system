@@ -75,7 +75,7 @@ function AppContent() {
   } = useAppContext();
 
   /* ================= ACTIONS ================= */
-  const { saveStudent, handleDeleteStudent, handleExcelUpload } = useStudentActions(user, modal, toastMsg, setModal, setSaving);
+  const { saveStudent, handleCancelEnrollment, handleExcelUpload } = useStudentActions(user, modal, toastMsg, setModal, setSaving);
   const { savePayment } = usePaymentActions(modal, toastMsg, setModal);
   const { saveExpense, handleDeleteExpense } = useExpenseActions(user, modal, toastMsg, setModal);
   const { printDashboard, printFicha, generateContract } = usePrintActions(dashboardRange, stats, monthlyData, teacherStats, filteredExpenses, modal, payments);
@@ -162,7 +162,7 @@ function AppContent() {
             searchTerm={searchTerm}
             setSearchTerm={setSearchTerm}
             setModal={setModal}
-            handleDeleteStudent={handleDeleteStudent}
+            handleCancelEnrollment={handleCancelEnrollment}
             handleExcelUpload={handleExcelUpload}
           />}
 

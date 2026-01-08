@@ -1,7 +1,7 @@
 import { Printer } from 'lucide-react';
 import { Card, Table, KPI } from '../components';
 
-export const Reports = ({ 
+const Reports = ({ 
   reportType, 
   setReportType, 
   reportMonth, 
@@ -175,3 +175,6 @@ export const Reports = ({
     </>
   );
 };
+
+export { Reports };
+export default Reports;

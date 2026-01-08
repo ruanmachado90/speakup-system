@@ -1,6 +1,6 @@
 import { Card, Table, KPI } from '../components';
 
-export const Finance = ({ 
+const Finance = ({ 
   students, 
   filterMonth, 
   setFilterMonth, 
@@ -122,3 +122,6 @@ export const Finance = ({
     </Card>
   );
 };
+
+export { Finance };
+export default Finance;

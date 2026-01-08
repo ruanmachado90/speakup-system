@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { Search, Edit, X, FileText, CheckSquare, Square } from 'lucide-react';
+import { Search, Edit, X, FileText, CheckSquare, Square, Trash2 } from 'lucide-react';
 import { Card, Table, KPI } from '../components';
 
 export const Students = ({ 
@@ -8,7 +8,8 @@ export const Students = ({
   searchTerm, 
   setSearchTerm, 
   setModal, 
-  handleCancelEnrollment, 
+  handleCancelEnrollment,
+  handleDeleteStudent, 
   handleExcelUpload 
 }) => {
   const [selectedStudents, setSelectedStudents] = useState([]);
@@ -45,6 +46,14 @@ export const Students = ({
   const handleBulkPayment = () => {
     if (selectedStudents.length === 0) return;
     setModal({ open: true, type: 'bulk-payment', data: { studentIds: selectedStudents } });
+  };
+
+  const handleBulkCancel = () => {
+    if (selectedStudents.length === 0) return;
+    if (!confirm(`Cancelar matrícula de ${selectedStudents.length} aluno(s) selecionado(s)?`)) return;
+    
+    selectedStudents.forEach(id => handleCancelEnrollment(id));
+    setSelectedStudents([]);
   };
 
   const filteredStudents = useMemo(() => 
@@ -131,6 +140,12 @@ export const Students = ({
                 className="bg-red-500 text-white px-4 py-2 rounded-full font-bold flex gap-2 items-center hover:bg-red-600"
               >
                 <X size={16}/> Cancelar Matrícula ({selectedStudents.length})
+              </button>
+              <button 
+                onClick={handleBulkDelete}
+                className="bg-red-700 text-white px-4 py-2 rounded-full font-bold flex gap-2 items-center hover:bg-red-800"
+              >
+                <Trash2 size={16}/> Excluir ({selectedStudents.length})
               </button>
             </>
           )}
@@ -242,3 +257,5 @@ export const Students = ({
     </>
   );
 };
+
+export default Students;

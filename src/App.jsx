@@ -1,4 +1,4 @@
-import React, { lazy, Suspense } from "react";
+import React from "react";
 import {
   Users,
   LayoutDashboard,
@@ -20,22 +20,13 @@ import PerformanceMonitor from './components/PerformanceMonitor';
 import { StudentForm, PaymentForm, ExpenseForm } from './components/forms';
 import { AppProvider, useAppContext } from './context';
 import { useStudentActions, usePaymentActions, useExpenseActions, usePrintActions } from './hooks';
-
-// Code-splitting: Lazy load de páginas para reduzir bundle inicial
-const Dashboard = lazy(() => import('./pages/Dashboard'));
-const Students = lazy(() => import('./pages/Students'));
-const Finance = lazy(() => import('./pages/Finance'));
-const Reports = lazy(() => import('./pages/Reports'));
-const Expenses = lazy(() => import('./pages/Expenses'));
-const CalendarPage = lazy(() => import('./pages/Calendar'));
-const AgendaProfessoresPage = lazy(() => import('./pages/AgendaProfessores'));
-
-// Loading component otimizado
-const PageLoader = () => (
-  <div className="flex items-center justify-center h-screen">
-    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#005DE4]"></div>
-  </div>
-);
+import { Dashboard } from './pages/Dashboard';
+import { Students } from './pages/Students';
+import { Finance } from './pages/Finance';
+import { Reports } from './pages/Reports';
+import { Expenses } from './pages/Expenses';
+import CalendarPage from './pages/Calendar';
+import AgendaProfessoresPage from './pages/AgendaProfessores';
 
 function AppContent() {
   const {
@@ -89,7 +80,7 @@ function AppContent() {
   } = useAppContext();
 
   /* ================= ACTIONS ================= */
-  const { saveStudent, handleCancelEnrollment, handleExcelUpload } = useStudentActions(user, modal, toastMsg, setModal, setSaving);
+  const { saveStudent, handleCancelEnrollment, handleDeleteStudent, handleExcelUpload } = useStudentActions(user, modal, toastMsg, setModal, setSaving);
   const { savePayment } = usePaymentActions(modal, toastMsg, setModal);
   const { saveExpense, handleDeleteExpense } = useExpenseActions(user, modal, toastMsg, setModal);
   const { printDashboard, printFicha, generateContract } = usePrintActions(dashboardRange, stats, monthlyData, teacherStats, filteredExpenses, modal, payments);
@@ -162,7 +153,6 @@ function AppContent() {
 
         {/* CONTENT */}
         <div className="p-8 space-y-8">
-          <Suspense fallback={<PageLoader />}>
             {page === "dashboard" && <Dashboard 
               dashboardRange={dashboardRange}
               setDashboardRange={setDashboardRange}
@@ -180,6 +170,7 @@ function AppContent() {
               setSearchTerm={setSearchTerm}
               setModal={setModal}
               handleCancelEnrollment={handleCancelEnrollment}
+              handleDeleteStudent={handleDeleteStudent}
               handleExcelUpload={handleExcelUpload}
             />}
 
@@ -224,7 +215,6 @@ function AppContent() {
             {page === "calendar" && <CalendarPage />}
 
             {page === "agenda" && <AgendaProfessoresPage />}
-          </Suspense>
         </div>
       </main>
 

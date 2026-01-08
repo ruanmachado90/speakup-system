@@ -1,6 +1,7 @@
 import { 
   saveStudent as saveStudentHandler,
   handleCancelEnrollment as cancelEnrollmentHandler,
+  handleDeleteStudent as deleteStudentHandler,
   savePayment as savePaymentHandler,
   saveExpense as saveExpenseHandler,
   handleDeleteExpense as deleteExpenseHandler,
@@ -15,9 +16,10 @@ import {
 export const useStudentActions = (user, modal, toastMsg, setModal, setSaving) => {
   const saveStudent = (e) => saveStudentHandler(e, user, modal, toastMsg, setModal, setSaving);
   const handleCancelEnrollment = (id) => cancelEnrollmentHandler(id, toastMsg);
+  const handleDeleteStudent = (id) => deleteStudentHandler(id, toastMsg);
   const handleExcelUpload = (e) => excelUploadHandler(e, toastMsg, setSaving);
 
-  return { saveStudent, handleCancelEnrollment, handleExcelUpload };
+  return { saveStudent, handleCancelEnrollment, handleDeleteStudent, handleExcelUpload };
 };
 
 export const usePaymentActions = (modal, toastMsg, setModal, setPaymentSaving) => {

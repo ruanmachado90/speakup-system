@@ -1,7 +1,7 @@
 import { PlusCircle } from 'lucide-react';
 import { Card, Table, DonutChart, ExpenseEvolutionChart } from '../components';
 
-export const Expenses = ({ 
+const Expenses = ({ 
   expenseView, 
   setExpenseView, 
   expenseMonth, 
@@ -126,3 +126,6 @@ export const Expenses = ({
     </>
   );
 };
+
+export { Expenses };
+export default Expenses;

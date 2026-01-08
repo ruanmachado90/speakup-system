@@ -43,7 +43,7 @@ export const Dashboard = ({
         <KPI label="Receita Prevista" value={stats.planned} accent="blue" />
         <KPI label="Receita Recebida" value={stats.paid} positive accent="green" />
         <KPI label="Pendências" value={stats.pending} warn accent="yellow" />
-        <KPI label="Lucro" value={stats.profit} positive />
+        <KPI label="Cobranças Vencidas" value={stats.overdue} accent="red" />
         <KPI label="Alunos Ativos" value={stats.students} format="number" accent="blue" />
         <KPI label="Matrículas" value={stats.registrations} format="number" accent="green" />
         <KPI label="Cancelamentos" value={stats.cancellations} format="number" accent="red" />

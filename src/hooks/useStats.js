@@ -38,12 +38,14 @@ export const useStats = (students, payments, expenses, dashboardRange) => {
 
     const totalPayments = p.length;
     const overdueCount = p.filter(x => x.status !== 'Pago' && x.dueDate && new Date(x.dueDate) < now).length;
+    const overdue = p.filter(x => x.status !== 'Pago' && x.dueDate && new Date(x.dueDate) < now).reduce((a, x) => a + Number(x.valuePlanned || 0), 0);
     const inadimplenciaPercent = totalPayments ? Math.round((overdueCount / totalPayments) * 100) : 0;
 
     return {
       planned,
       paid,
       pending: planned - paid,
+      overdue,
       profit: paid - exp,
       students: activeStudents,
       registrations,

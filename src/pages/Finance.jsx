@@ -98,7 +98,12 @@ const Finance = ({
                           : 'bg-amber-100 text-amber-700')
                   }`}
                 >
-                  {p.status}
+                  {p.status === 'Pago' 
+                    ? 'Pago' 
+                    : (p.dueDate && new Date(p.dueDate) < new Date() 
+                        ? 'VENCIDO' 
+                        : p.status)
+                  }
                 </span>
               </td>
               <td className="px-6 py-3">

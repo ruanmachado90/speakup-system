@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { Search, Edit, X, FileText, CheckSquare, Square, Trash2 } from 'lucide-react';
+import { Search, Edit, X, FileText, CheckSquare, Square, Trash2, ArrowUpDown } from 'lucide-react';
 import { Card, Table, KPI } from '../components';
 
 export const Students = ({ 
@@ -14,9 +14,17 @@ export const Students = ({
 }) => {
   const [selectedStudents, setSelectedStudents] = useState([]);
   const [statusFilter, setStatusFilter] = useState('all'); // 'all', 'ativo', 'cancelado'
+  const [sortOrder, setSortOrder] = useState('asc'); // 'asc' ou 'desc'
+  const [teacherFilter, setTeacherFilter] = useState('all'); // 'all' ou nome do professor
 
   const activeStudents = students.filter(s => s.status !== 'cancelado').length;
   const inactiveStudents = students.filter(s => s.status === 'cancelado').length;
+
+  // Lista de professores únicos
+  const teachers = useMemo(() => {
+    const uniqueTeachers = [...new Set(students.map(s => s.teacher).filter(Boolean))];
+    return uniqueTeachers.sort();
+  }, [students]);
 
   const toggleStudent = (studentId) => {
     setSelectedStudents(prev => 
@@ -58,14 +66,30 @@ export const Students = ({
 
   const filteredStudents = useMemo(() => 
     students
-      .filter(s => s.name?.toLowerCase().includes(searchTerm.toLowerCase()))
+      .filter(s => {
+        const searchLower = searchTerm.toLowerCase();
+        const studentName = (s.name || '').toLowerCase();
+        const responsibleName = (s.responsibleName || '').toLowerCase();
+        return studentName.includes(searchLower) || responsibleName.includes(searchLower);
+      })
       .filter(s => {
         if (statusFilter === 'all') return true;
         if (statusFilter === 'ativo') return s.status !== 'cancelado';
         if (statusFilter === 'cancelado') return s.status === 'cancelado';
         return true;
+      })
+      .filter(s => {
+        if (teacherFilter === 'all') return true;
+        return s.teacher === teacherFilter;
+      })
+      .sort((a, b) => {
+        const nameA = (a.name || '').toLowerCase();
+        const nameB = (b.name || '').toLowerCase();
+        return sortOrder === 'asc' 
+          ? nameA.localeCompare(nameB)
+          : nameB.localeCompare(nameA);
       }),
-    [students, searchTerm, statusFilter]
+    [students, searchTerm, statusFilter, teacherFilter, sortOrder]
   );
 
   return (
@@ -118,9 +142,27 @@ export const Students = ({
             >
               Inativos ({inactiveStudents})
             </button>
+            <button
+              onClick={() => setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc')}
+              className="px-4 py-2 rounded-full font-bold text-xs bg-gray-200 text-gray-700 hover:bg-gray-300 flex items-center gap-1"
+              title={sortOrder === 'asc' ? 'Ordenar Z-A' : 'Ordenar A-Z'}
+            >
+              <ArrowUpDown size={14} />
+              {sortOrder === 'asc' ? 'A-Z' : 'Z-A'}
+            </button>
           </div>
-          <div className="text-xs text-slate-400">
-            Dados salvos em: <code>artifacts/speakup-manager/public/data/students</code>
+          <div className="flex items-center gap-2">
+            <label className="text-xs text-slate-400">Professor:</label>
+            <select 
+              value={teacherFilter} 
+              onChange={e => setTeacherFilter(e.target.value)}
+              className="border px-3 py-2 rounded-lg text-xs"
+            >
+              <option value="all">Todos</option>
+              {teachers.map(teacher => (
+                <option key={teacher} value={teacher}>{teacher}</option>
+              ))}
+            </select>
           </div>
         </div>
         
@@ -228,27 +270,27 @@ export const Students = ({
               })()}
             </td>
             <td className="px-6 py-3">
-              <button 
-                onClick={() => setModal({open: true, type: 'view', data: s})} 
-                aria-label="Visualizar aluno" 
-                className="mr-2"
-              >
-                <Search size={16}/>
-              </button>
-              <button 
-                onClick={() => setModal({open: true, type: 'student', data: s})}
-                aria-label="Editar aluno"
-                className="mr-2"
-              >
-                <Edit size={16}/>
-              </button>
-              <button
-                onClick={() => handleCancelEnrollment(s.id)}
-                aria-label="Cancelar matrícula"
-                className="text-red-500 hover:text-red-700"
-              >
-                <X size={16}/>
-              </button>
+              <div className="flex items-center gap-2">
+                <button 
+                  onClick={() => setModal({open: true, type: 'view', data: s})} 
+                  aria-label="Visualizar aluno"
+                >
+                  <Search size={16}/>
+                </button>
+                <button 
+                  onClick={() => setModal({open: true, type: 'student', data: s})}
+                  aria-label="Editar aluno"
+                >
+                  <Edit size={16}/>
+                </button>
+                <button
+                  onClick={() => handleCancelEnrollment(s.id)}
+                  aria-label="Cancelar matrícula"
+                  className="text-red-500 hover:text-red-700"
+                >
+                  <X size={16}/>
+                </button>
+              </div>
             </td>
           </>
         )}

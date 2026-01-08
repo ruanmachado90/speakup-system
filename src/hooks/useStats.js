@@ -73,17 +73,30 @@ export const useTeacherStats = (students) => {
 export const useFilteredExpenses = (expenses, dashboardRange) => {
   return useMemo(() => {
     const now = new Date();
-    const currentMonth = now.getMonth() + 1; // Ajustar para 1-12
+    const currentMonth = now.getMonth(); // 0-11
     const currentYear = now.getFullYear();
 
     let filtered = [];
     if (dashboardRange === 'month') {
-      filtered = expenses.filter(x => Number(x.year) === currentYear && Number(x.month) === currentMonth);
+      // Filtrar por date (campo correto das despesas)
+      filtered = expenses.filter(x => {
+        if (!x.date) return false;
+        const expenseDate = new Date(x.date);
+        return expenseDate.getFullYear() === currentYear && expenseDate.getMonth() === currentMonth;
+      });
     } else {
-      filtered = expenses.filter(x => Number(x.year) === currentYear);
+      // Filtrar apenas por ano
+      filtered = expenses.filter(x => {
+        if (!x.date) return false;
+        return new Date(x.date).getFullYear() === currentYear;
+      });
     }
 
-    return filtered.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+    return filtered.sort((a, b) => {
+      const dateA = a.date ? new Date(a.date).getTime() : 0;
+      const dateB = b.date ? new Date(b.date).getTime() : 0;
+      return dateB - dateA; // Mais recente primeiro
+    });
   }, [expenses, dashboardRange]);
 };
 

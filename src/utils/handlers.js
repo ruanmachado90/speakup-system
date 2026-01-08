@@ -385,7 +385,8 @@ export const handleExcelUpload = async (e, toastMsg, setSaving) => {
             }
             
             // Converter data do Excel se necessário
-            let dueDate = row['Data Vencimento'] || row['data_vencimento'] || row['Vencimento'] || row['vencimento'];
+            let dueDate = row['Data Vencimento'] || row['data_vencimento'] || row['Vencimento'] || row['vencimento'] || row['Data'] || row['data'];
+            
             if (typeof dueDate === 'number') {
               // Se for número pequeno (1-31), é apenas o dia do mês
               if (dueDate >= 1 && dueDate <= 31) {
@@ -398,7 +399,10 @@ export const handleExcelUpload = async (e, toastMsg, setSaving) => {
                 // Número grande - é data serial do Excel (dias desde 1900-01-01)
                 const excelEpoch = new Date(1900, 0, 1);
                 const date = new Date(excelEpoch.getTime() + (dueDate - 2) * 86400000);
-                dueDate = date.toISOString().split('T')[0];
+                const year = date.getFullYear();
+                const month = String(date.getMonth() + 1).padStart(2, '0');
+                const day = String(date.getDate()).padStart(2, '0');
+                dueDate = `${year}-${month}-${day}`;
               }
             } else if (dueDate) {
               // Tentar converter string de data DD/MM/YYYY para YYYY-MM-DD
@@ -418,8 +422,26 @@ export const handleExcelUpload = async (e, toastMsg, setSaving) => {
                 }
               }
             }
-            if (!dueDate) dueDate = new Date().toISOString().split('T')[0];
             
+            // Garantir que sempre temos uma data válida
+            if (!dueDate || dueDate === 'Invalid Date') {
+              const today = new Date();
+              const year = today.getFullYear();
+              const month = String(today.getMonth() + 1).padStart(2, '0');
+              const day = '10'; // Dia 10 como padrão
+              dueDate = `${year}-${month}-${day}`;
+            }
+            
+            // Extrair mensalidade e converter corretamente
+            const rawFee = row['Mensalidade'] || row['mensalidade'] || row['Valor'] || row['valor'] || 0;
+            let fee = 0;
+            if (typeof rawFee === 'string') {
+              // Remover R$, pontos e trocar vírgula por ponto
+              fee = parseFloat(rawFee.replace(/[R$\s\.]/g, '').replace(',', '.')) || 0;
+            } else {
+              fee = Number(rawFee) || 0;
+            }
+
             const studentData = {
               name: rawName,
               cpf: rawCpf,
@@ -429,7 +451,7 @@ export const handleExcelUpload = async (e, toastMsg, setSaving) => {
               responsibleContact: String(row['Contato Responsável'] || row['contato_responsavel'] || row['Contato responsável'] || row['contato responsável'] || '').trim(),
               course: rawCourse,
               teacher: String(row['Professor'] || row['professor'] || '').trim(),
-              fee: Number(row['Mensalidade'] || row['mensalidade'] || 0),
+              fee: fee,
               installments: Number(row['Parcelas'] || row['parcelas'] || 12),
               dueDate: dueDate,
               status: 'ativo'

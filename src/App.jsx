@@ -1,4 +1,4 @@
-import React from "react";
+import React, { lazy, Suspense } from "react";
 import {
   Users,
   LayoutDashboard,
@@ -16,12 +16,26 @@ import {
   Logo,
   Nav
 } from './components';
+import PerformanceMonitor from './components/PerformanceMonitor';
 import { StudentForm, PaymentForm, ExpenseForm } from './components/forms';
-import { Dashboard, Students, Finance, Reports, Expenses } from './pages';
-import CalendarPage from './pages/Calendar';
-import AgendaProfessoresPage from './pages/AgendaProfessores';
 import { AppProvider, useAppContext } from './context';
 import { useStudentActions, usePaymentActions, useExpenseActions, usePrintActions } from './hooks';
+
+// Code-splitting: Lazy load de páginas para reduzir bundle inicial
+const Dashboard = lazy(() => import('./pages/Dashboard'));
+const Students = lazy(() => import('./pages/Students'));
+const Finance = lazy(() => import('./pages/Finance'));
+const Reports = lazy(() => import('./pages/Reports'));
+const Expenses = lazy(() => import('./pages/Expenses'));
+const CalendarPage = lazy(() => import('./pages/Calendar'));
+const AgendaProfessoresPage = lazy(() => import('./pages/AgendaProfessores'));
+
+// Loading component otimizado
+const PageLoader = () => (
+  <div className="flex items-center justify-center h-screen">
+    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#005DE4]"></div>
+  </div>
+);
 
 function AppContent() {
   const {
@@ -84,6 +98,9 @@ function AppContent() {
   return (
     <div className="flex min-h-screen bg-slate-50 text-slate-900">
       
+      {/* Performance Monitor - apenas em desenvolvimento */}
+      <PerformanceMonitor />
+      
       {/* Print Styles */}
       <style>{`
         @media print {
@@ -145,69 +162,69 @@ function AppContent() {
 
         {/* CONTENT */}
         <div className="p-8 space-y-8">
+          <Suspense fallback={<PageLoader />}>
+            {page === "dashboard" && <Dashboard 
+              dashboardRange={dashboardRange}
+              setDashboardRange={setDashboardRange}
+              printDashboard={printDashboard}
+              stats={stats}
+              monthlyData={monthlyData}
+              teacherStats={teacherStats}
+              filteredExpenses={filteredExpenses}
+            />}
 
-          {page === "dashboard" && <Dashboard 
-            dashboardRange={dashboardRange}
-            setDashboardRange={setDashboardRange}
-            printDashboard={printDashboard}
-            stats={stats}
-            monthlyData={monthlyData}
-            teacherStats={teacherStats}
-            filteredExpenses={filteredExpenses}
-          />}
+            {page === "students" && <Students 
+              students={students}
+              payments={payments}
+              searchTerm={searchTerm}
+              setSearchTerm={setSearchTerm}
+              setModal={setModal}
+              handleCancelEnrollment={handleCancelEnrollment}
+              handleExcelUpload={handleExcelUpload}
+            />}
 
-          {page === "students" && <Students 
-            students={students}
-            payments={payments}
-            searchTerm={searchTerm}
-            setSearchTerm={setSearchTerm}
-            setModal={setModal}
-            handleCancelEnrollment={handleCancelEnrollment}
-            handleExcelUpload={handleExcelUpload}
-          />}
+            {page === "finance" && <Finance 
+              students={students}
+              filterMonth={filterMonth}
+              setFilterMonth={setFilterMonth}
+              filterYear={filterYear}
+              setFilterYear={setFilterYear}
+              filterStatus={filterStatus}
+              setFilterStatus={setFilterStatus}
+              financeStats={financeStats}
+              filteredPayments={filteredPayments}
+              setModal={setModal}
+            />}
 
-          {page === "finance" && <Finance 
-            students={students}
-            filterMonth={filterMonth}
-            setFilterMonth={setFilterMonth}
-            filterYear={filterYear}
-            setFilterYear={setFilterYear}
-            filterStatus={filterStatus}
-            setFilterStatus={setFilterStatus}
-            financeStats={financeStats}
-            filteredPayments={filteredPayments}
-            setModal={setModal}
-          />}
+            {page === "reports" && <Reports 
+              reportType={reportType}
+              setReportType={setReportType}
+              reportMonth={reportMonth}
+              setReportMonth={setReportMonth}
+              reportYear={reportYear}
+              setReportYear={setReportYear}
+              payments={payments}
+              expenses={expenses}
+              students={students}
+            />}
 
-          {page === "reports" && <Reports 
-            reportType={reportType}
-            setReportType={setReportType}
-            reportMonth={reportMonth}
-            setReportMonth={setReportMonth}
-            reportYear={reportYear}
-            setReportYear={setReportYear}
-            payments={payments}
-            expenses={expenses}
-            students={students}
-          />}
+            {page === "expenses" && <Expenses 
+              expenseView={expenseView}
+              setExpenseView={setExpenseView}
+              expenseMonth={expenseMonth}
+              setExpenseMonth={setExpenseMonth}
+              expenseYear={expenseYear}
+              setExpenseYear={setExpenseYear}
+              filteredExpensesData={filteredExpensesData}
+              expenseEvolutionData={expenseEvolutionData}
+              setModal={setModal}
+              handleDeleteExpense={handleDeleteExpense}
+            />}
 
-          {page === "expenses" && <Expenses 
-            expenseView={expenseView}
-            setExpenseView={setExpenseView}
-            expenseMonth={expenseMonth}
-            setExpenseMonth={setExpenseMonth}
-            expenseYear={expenseYear}
-            setExpenseYear={setExpenseYear}
-            filteredExpensesData={filteredExpensesData}
-            expenseEvolutionData={expenseEvolutionData}
-            setModal={setModal}
-            handleDeleteExpense={handleDeleteExpense}
-          />}
+            {page === "calendar" && <CalendarPage />}
 
-          {page === "calendar" && <CalendarPage />}
-
-          {page === "agenda" && <AgendaProfessoresPage />}
-
+            {page === "agenda" && <AgendaProfessoresPage />}
+          </Suspense>
         </div>
       </main>
 

@@ -1,3 +1,5 @@
+import { useState, useMemo } from 'react';
+import { Search } from 'lucide-react';
 import { Card, Table, KPI } from '../components';
 
 const Finance = ({ 
@@ -12,6 +14,21 @@ const Finance = ({
   filteredPayments, 
   setModal 
 }) => {
+  const [searchTerm, setSearchTerm] = useState('');
+
+  // Filtrar pagamentos por busca de nome
+  const searchedPayments = useMemo(() => {
+    if (!searchTerm) return filteredPayments;
+    
+    const searchLower = searchTerm.toLowerCase();
+    return filteredPayments.filter(p => {
+      const student = students.find(s => s.id === p.studentId);
+      const studentName = (p.studentName || student?.name || '').toLowerCase();
+      const responsibleName = (student?.responsibleName || '').toLowerCase();
+      return studentName.includes(searchLower) || responsibleName.includes(searchLower);
+    });
+  }, [filteredPayments, searchTerm, students]);
+
   return (
     <Card>
       <div className="flex items-center justify-between mb-4">
@@ -62,6 +79,17 @@ const Finance = ({
         </div>
       </div>
 
+      <div className="relative mb-4">
+        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" size={18} />
+        <input
+          type="text"
+          placeholder="Buscar por aluno ou responsável..."
+          className="w-full pl-10 pr-4 py-2 border rounded-xl"
+          value={searchTerm}
+          onChange={e => setSearchTerm(e.target.value)}
+        />
+      </div>
+
       <div className="grid grid-cols-4 gap-4 mb-4">
         <KPI label="Total Previsto" value={financeStats.planned} />
         <KPI label="Total Realizado" value={financeStats.paid} positive />
@@ -71,7 +99,7 @@ const Finance = ({
 
       <Table
         header={["Nome / Responsável", "Vencimento", "Mensalidade", "Status", "Ações"]}
-        data={filteredPayments}
+        data={searchedPayments}
         render={p => {
           const student = students.find(s => s.id === p.studentId);
           const name = p.studentName || student?.name || '-';

@@ -81,7 +81,7 @@ function AppContent() {
 
   /* ================= ACTIONS ================= */
   const { saveStudent, handleCancelEnrollment, handleDeleteStudent, handleExcelUpload } = useStudentActions(user, modal, toastMsg, setModal, setSaving);
-  const { savePayment } = usePaymentActions(modal, toastMsg, setModal);
+  const { savePayment } = usePaymentActions(modal, toastMsg, setModal, setSaving);
   const { saveExpense, handleDeleteExpense } = useExpenseActions(user, modal, toastMsg, setModal);
   const { printDashboard, printFicha, generateContract } = usePrintActions(dashboardRange, stats, monthlyData, teacherStats, filteredExpenses, modal, payments);
 

@@ -109,6 +109,13 @@ export const saveStudent = async (e, user, modal, toastMsg, setModal, setSaving)
     const fee = Number(data.fee || 0);
     const installments = Number(data.installments || 1);
 
+    // Validar data de vencimento
+    if (!data.dueDate) {
+      toastMsg('Data de vencimento é obrigatória');
+      setSaving(false);
+      return;
+    }
+
     setSaving(true);
 
     const ref = await addDoc(
@@ -242,20 +249,48 @@ export const savePayment = async (e, modal, toastMsg, setModal, setPaymentSaving
 
   try {
     setPaymentSaving(true);
-    await updateDoc(doc(col('payments'), modal.data.id), {
+    
+    const updateData = {
       status: 'Pago',
-      valuePaid,
-      paymentDate: paymentDate || new Date().toISOString().split('T')[0],
-      paidAt: Date.now()
-    });
+      valuePaid: valuePaid,
+      paymentDate: paymentDate || new Date().toISOString().split('T')[0]
+    };
+    
+    // Só atualiza paidAt se for um novo pagamento (não tinha paidAt antes)
+    if (!modal.data.paidAt) {
+      updateData.paidAt = Date.now();
+    }
+    
+    await updateDoc(doc(col('payments'), modal.data.id), updateData);
 
-    toastMsg('Pagamento registrado');
+    toastMsg(modal.data.status === 'Pago' ? 'Pagamento atualizado' : 'Pagamento registrado');
     setModal({ open: false, type: null, data: null });
   } catch (err) {
     console.error('Erro ao registrar pagamento:', err);
     toastMsg('Erro ao registrar pagamento');
   } finally {
     setPaymentSaving(false);
+  }
+};
+
+/**
+ * Undo a payment
+ * @param {string} paymentId - Payment ID
+ * @param {Function} toastMsg - Toast notification function
+ */
+export const handleUndoPayment = async (paymentId, toastMsg) => {
+  try {
+    await updateDoc(doc(col('payments'), paymentId), {
+      status: 'Pendente',
+      valuePaid: null,
+      paymentDate: null,
+      paidAt: null
+    });
+
+    toastMsg('Pagamento desfeito');
+  } catch (err) {
+    console.error('Erro ao desfazer pagamento:', err);
+    toastMsg('Erro ao desfazer pagamento');
   }
 };
 

@@ -1,9 +1,9 @@
 import React from 'react';
 
-export const PaymentForm = ({ modal, paymentSaving, onSubmit, onCancel }) => {
+export const PaymentForm = ({ modal, paymentSaving, onSubmit, onCancel, isEdit = false }) => {
   return (
     <form onSubmit={onSubmit} className="space-y-6">
-      <h3 className="text-xl font-bold">Registrar Pagamento</h3>
+      <h3 className="text-xl font-bold">{isEdit ? 'Editar Pagamento' : 'Registrar Pagamento'}</h3>
 
       <div className="grid grid-cols-2 gap-4">
         <div>
@@ -28,7 +28,7 @@ export const PaymentForm = ({ modal, paymentSaving, onSubmit, onCancel }) => {
             name="valuePaid" 
             step="0.01" 
             required 
-            defaultValue={modal.data?.valuePlanned || 0}
+            defaultValue={isEdit ? modal.data?.valuePaid : (modal.data?.valuePlanned || 0)}
             className="w-full px-4 py-3 rounded-xl border focus:outline-none focus:ring-2 focus:ring-[#005DE4]" 
             placeholder="0.00"
           />
@@ -40,7 +40,7 @@ export const PaymentForm = ({ modal, paymentSaving, onSubmit, onCancel }) => {
         <input 
           type="date" 
           name="paymentDate" 
-          defaultValue={new Date().toISOString().split('T')[0]}
+          defaultValue={isEdit ? modal.data?.paymentDate : new Date().toISOString().split('T')[0]}
           className="w-full px-4 py-3 rounded-xl border focus:outline-none focus:ring-2 focus:ring-[#005DE4]" 
         />
       </div>
@@ -58,7 +58,7 @@ export const PaymentForm = ({ modal, paymentSaving, onSubmit, onCancel }) => {
           disabled={paymentSaving} 
           className={`w-full py-3 rounded-xl font-bold ${paymentSaving?"bg-slate-300 text-slate-600":"bg-emerald-500 text-white"}`}
         >
-          {paymentSaving?"Registrando...":"Confirmar Pagamento"}
+          {paymentSaving ? "Salvando..." : (isEdit ? "Salvar Alterações" : "Confirmar Pagamento")}
         </button>
       </div>
     </form>

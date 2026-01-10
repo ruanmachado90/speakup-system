@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { Search } from 'lucide-react';
+import { Search, Edit, X } from 'lucide-react';
 import { Card, Table, KPI } from '../components';
 
 const Finance = ({ 
@@ -12,7 +12,8 @@ const Finance = ({
   setFilterStatus, 
   financeStats, 
   filteredPayments, 
-  setModal 
+  setModal,
+  handleUndoPayment 
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
 
@@ -98,7 +99,7 @@ const Finance = ({
       </div>
 
       <Table
-        header={["Nome / Responsável", "Vencimento", "Mensalidade", "Status", "Ações"]}
+        header={["Nome / Responsável", "Vencimento", "Mensalidade", "Valor Recebido", "Status", "Ações"]}
         data={searchedPayments}
         render={p => {
           const student = students.find(s => s.id === p.studentId);
@@ -115,6 +116,15 @@ const Finance = ({
               </td>
               <td className="px-6 py-3 text-xs">
                 R$ {Number(p.valuePlanned || 0).toLocaleString('pt-BR', {minimumFractionDigits: 2})}
+              </td>
+              <td className="px-6 py-3 text-xs">
+                {p.status === 'Pago' ? (
+                  <span className="font-semibold text-emerald-700">
+                    R$ {Number(p.valuePaid || 0).toLocaleString('pt-BR', {minimumFractionDigits: 2})}
+                  </span>
+                ) : (
+                  <span className="text-slate-400">-</span>
+                )}
               </td>
               <td className="px-6 py-3">
                 <span 
@@ -135,18 +145,50 @@ const Finance = ({
                 </span>
               </td>
               <td className="px-6 py-3">
-                <button 
-                  onClick={() => setModal({open: true, type: 'payment', data: p})} 
-                  className="mr-2 px-2 py-1 rounded bg-emerald-500 text-white text-xs"
-                >
-                  Dar baixa
-                </button>
-                <button 
-                  onClick={() => setModal({open: true, type: 'view', data: student || {id: p.studentId, name: p.studentName}})} 
-                  className="px-2 py-1 rounded bg-slate-100 text-xs"
-                >
-                  Visualizar
-                </button>
+                {p.status === 'Pago' ? (
+                  <div className="flex items-center gap-2">
+                    <button 
+                      onClick={() => setModal({open: true, type: 'view', data: student || {id: p.studentId, name: p.studentName}})} 
+                      aria-label="Visualizar aluno"
+                    >
+                      <Search size={16}/>
+                    </button>
+                    <button 
+                      onClick={() => setModal({open: true, type: 'edit-payment', data: p})} 
+                      aria-label="Editar pagamento"
+                      className="text-blue-500 hover:text-blue-700"
+                    >
+                      <Edit size={16} />
+                    </button>
+                    <button 
+                      onClick={() => {
+                        if (confirm('Desfazer este pagamento?')) {
+                          handleUndoPayment(p.id);
+                        }
+                      }} 
+                      aria-label="Desfazer pagamento"
+                      className="text-red-500 hover:text-red-700"
+                    >
+                      <X size={16} />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <button 
+                      onClick={() => setModal({open: true, type: 'view', data: student || {id: p.studentId, name: p.studentName}})} 
+                      aria-label="Visualizar aluno"
+                    >
+                      <Search size={16}/>
+                    </button>
+                    <button 
+                      onClick={() => setModal({open: true, type: 'payment', data: p})} 
+                      aria-label="Dar baixa no pagamento"
+                      className="text-emerald-500 hover:text-emerald-700"
+                    >
+                      <Edit size={16}/>
+                    </button>
+                  </div>
+                )}
               </td>
             </>
           );

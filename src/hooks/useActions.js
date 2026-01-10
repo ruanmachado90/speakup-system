@@ -3,6 +3,7 @@ import {
   handleCancelEnrollment as cancelEnrollmentHandler,
   handleDeleteStudent as deleteStudentHandler,
   savePayment as savePaymentHandler,
+  handleUndoPayment as undoPaymentHandler,
   saveExpense as saveExpenseHandler,
   handleDeleteExpense as deleteExpenseHandler,
   handleExcelUpload as excelUploadHandler
@@ -24,8 +25,9 @@ export const useStudentActions = (user, modal, toastMsg, setModal, setSaving) =>
 
 export const usePaymentActions = (modal, toastMsg, setModal, setPaymentSaving) => {
   const savePayment = (e) => savePaymentHandler(e, modal, toastMsg, setModal, setPaymentSaving);
+  const handleUndoPayment = (id) => undoPaymentHandler(id, toastMsg);
 
-  return { savePayment };
+  return { savePayment, handleUndoPayment };
 };
 
 export const useExpenseActions = (user, modal, toastMsg, setModal, setExpenseSaving) => {

@@ -120,7 +120,11 @@ export const useMonthlyData = (payments, expenses) => {
     );
 
     const expensesByMonth = months.map(m => expenses
-      .filter(x => Number(x.year) === currentYear && Number(x.month) === (m + 1))
+      .filter(x => {
+        if (!x.date) return false;
+        const d = new Date(x.date);
+        return d.getFullYear() === currentYear && d.getMonth() === m;
+      })
       .reduce((a, x) => a + Number(x.value || 0), 0)
     );
 

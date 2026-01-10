@@ -377,11 +377,13 @@ export const printFicha = (student, payments) => {
   const rows = studentPayments.map(p => {
     const due = p.dueDate ? new Date(p.dueDate).toLocaleDateString('pt-BR') : '-';
     const val = `R$ ${Number(p.valuePlanned||0).toLocaleString('pt-BR',{minimumFractionDigits:2})}`;
+    const valPaid = p.valuePaid ? `R$ ${Number(p.valuePaid).toLocaleString('pt-BR',{minimumFractionDigits:2})}` : '-';
     return `
       <tr>
         <td style="padding:6px;border:1px solid #e5e7eb">${p.installmentNum}</td>
         <td style="padding:6px;border:1px solid #e5e7eb">${due}</td>
         <td style="padding:6px;border:1px solid #e5e7eb">${val}</td>
+        <td style="padding:6px;border:1px solid #e5e7eb">${valPaid}</td>
         <td style="padding:6px;border:1px solid #e5e7eb">${p.status}</td>
         <td style="padding:6px;border:1px solid #e5e7eb">${p.month}/${p.year}</td>
       </tr>`;
@@ -427,7 +429,8 @@ export const printFicha = (student, payments) => {
             <tr>
               <th>#</th>
               <th>Vencimento</th>
-              <th>Valor</th>
+              <th>Valor Previsto</th>
+              <th>Valor Pago</th>
               <th>Status</th>
               <th>Mês/Ano</th>
             </tr>

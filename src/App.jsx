@@ -16,7 +16,6 @@ import {
   Logo,
   Nav
 } from './components';
-import PerformanceMonitor from './components/PerformanceMonitor';
 import { StudentForm, PaymentForm, ExpenseForm } from './components/forms';
 import { AppProvider, useAppContext } from './context';
 import { useStudentActions, usePaymentActions, useExpenseActions, usePrintActions } from './hooks';
@@ -81,16 +80,13 @@ function AppContent() {
 
   /* ================= ACTIONS ================= */
   const { saveStudent, handleCancelEnrollment, handleDeleteStudent, handleExcelUpload } = useStudentActions(user, modal, toastMsg, setModal, setSaving);
-  const { savePayment } = usePaymentActions(modal, toastMsg, setModal, setSaving);
-  const { saveExpense, handleDeleteExpense } = useExpenseActions(user, modal, toastMsg, setModal);
+  const { savePayment, handleUndoPayment } = usePaymentActions(modal, toastMsg, setModal, setSaving);
+  const { saveExpense, handleDeleteExpense } = useExpenseActions(user, modal, toastMsg, setModal, setSaving);
   const { printDashboard, printFicha, generateContract } = usePrintActions(dashboardRange, stats, monthlyData, teacherStats, filteredExpenses, modal, payments);
 
   /* ================= RENDER ================= */
   return (
     <div className="flex min-h-screen bg-slate-50 text-slate-900">
-      
-      {/* Performance Monitor - apenas em desenvolvimento */}
-      <PerformanceMonitor />
       
       {/* Print Styles */}
       <style>{`
@@ -185,6 +181,7 @@ function AppContent() {
               financeStats={financeStats}
               filteredPayments={filteredPayments}
               setModal={setModal}
+              handleUndoPayment={handleUndoPayment}
             />}
 
             {page === "reports" && <Reports 
@@ -236,6 +233,16 @@ function AppContent() {
               paymentSaving={paymentSaving}
               onSubmit={savePayment}
               onCancel={()=>setModal({open:false,type:null,data:null})}
+            />
+          )}
+
+          {modal.type === 'edit-payment' && (
+            <PaymentForm 
+              modal={modal}
+              paymentSaving={paymentSaving}
+              onSubmit={savePayment}
+              onCancel={()=>setModal({open:false,type:null,data:null})}
+              isEdit={true}
             />
           )}
 

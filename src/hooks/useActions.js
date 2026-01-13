@@ -6,7 +6,8 @@ import {
   handleUndoPayment as undoPaymentHandler,
   saveExpense as saveExpenseHandler,
   handleDeleteExpense as deleteExpenseHandler,
-  handleExcelUpload as excelUploadHandler
+  handleExcelUpload as excelUploadHandler,
+  saveLead as saveLeadHandler
 } from '../utils';
 import { 
   printDashboard as printDashboardFn, 
@@ -35,6 +36,12 @@ export const useExpenseActions = (user, modal, toastMsg, setModal, setExpenseSav
   const handleDeleteExpense = (id) => deleteExpenseHandler(id, toastMsg);
 
   return { saveExpense, handleDeleteExpense };
+};
+
+export const useLeadActions = (user, modal, toastMsg, setModal, setSaving) => {
+  const saveLead = (e) => saveLeadHandler(e, user, modal, toastMsg, setModal, setSaving);
+
+  return { saveLead };
 };
 
 export const usePrintActions = (dashboardRange, stats, monthlyData, teacherStats, filteredExpenses, modal, payments) => {

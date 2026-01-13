@@ -563,3 +563,52 @@ export const handleExcelUpload = async (e, toastMsg, setSaving) => {
     toastMsg('Erro ao ler arquivo');
   }
 };
+
+/**
+ * Save a lead
+ */
+export const saveLead = async (e, user, modal, toastMsg, setModal, setSaving) => {
+  e.preventDefault();
+
+  if (!user) {
+    toastMsg('Você não está autenticado. Recarregue a página.');
+    return;
+  }
+
+  const form = new FormData(e.target);
+  const data = Object.fromEntries(form.entries());
+
+  try {
+    setSaving(true);
+
+    if (modal.data?.id) {
+      // Editar lead existente
+      await updateDoc(
+        doc(db, "artifacts", appId, "public", "data", "leads", modal.data.id),
+        {
+          ...data,
+          updatedAt: Date.now()
+        }
+      );
+      toastMsg("Lead atualizado com sucesso");
+    } else {
+      // Criar novo lead
+      await addDoc(
+        col("leads"),
+        {
+          ...data,
+          status: data.status || 'novo',
+          createdAt: Date.now()
+        }
+      );
+      toastMsg("Lead cadastrado com sucesso");
+    }
+
+    setModal({ open: false, type: null, data: null });
+  } catch (err) {
+    console.error("Erro ao salvar lead:", err);
+    toastMsg("Erro ao salvar lead");
+  } finally {
+    setSaving(false);
+  }
+};

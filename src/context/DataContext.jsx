@@ -45,6 +45,7 @@ export const DataProvider = ({ children }) => {
   const students = useFirestore(db, APP_ID, "students", user);
   const payments = useFirestore(db, APP_ID, "payments", user);
   const expenses = useFirestore(db, APP_ID, "expenses", user);
+  const leads = useFirestore(db, APP_ID, "leads", user);
   
   // Calculated Data (Memoized Hooks)
   const stats = useStats(students, payments, expenses, dashboardRange);
@@ -78,6 +79,7 @@ export const DataProvider = ({ children }) => {
     students,
     payments,
     expenses,
+    leads,
     
     // Calculated Data
     stats,
@@ -89,7 +91,7 @@ export const DataProvider = ({ children }) => {
     filteredExpensesData,
     expenseEvolutionData,
   }), [
-    user, students, payments, expenses,
+    user, students, payments, expenses, leads,
     stats, teacherStats, filteredExpenses, monthlyData,
     financeStats, filteredPayments, filteredExpensesData, expenseEvolutionData
   ]);

@@ -8,7 +8,8 @@ import {
   Printer,
   ClipboardList,
   Calendar,
-  ClipboardCheck
+  ClipboardCheck,
+  UserPlus
 } from "lucide-react";
 
 import { 
@@ -16,14 +17,15 @@ import {
   Logo,
   Nav
 } from './components';
-import { StudentForm, PaymentForm, ExpenseForm } from './components/forms';
+import { StudentForm, PaymentForm, ExpenseForm, LeadForm } from './components/forms';
 import { AppProvider, useAppContext } from './context';
-import { useStudentActions, usePaymentActions, useExpenseActions, usePrintActions } from './hooks';
+import { useStudentActions, usePaymentActions, useExpenseActions, useLeadActions, usePrintActions } from './hooks';
 import { Dashboard } from './pages/Dashboard';
 import { Students } from './pages/Students';
 import { Finance } from './pages/Finance';
 import { Reports } from './pages/Reports';
 import { Expenses } from './pages/Expenses';
+import { Leads } from './pages/Leads';
 import CalendarPage from './pages/Calendar';
 import AgendaProfessoresPage from './pages/AgendaProfessores';
 
@@ -68,6 +70,7 @@ function AppContent() {
     students,
     payments,
     expenses,
+    leads,
     stats,
     teacherStats,
     filteredExpenses,
@@ -82,6 +85,7 @@ function AppContent() {
   const { saveStudent, handleCancelEnrollment, handleDeleteStudent, handleExcelUpload } = useStudentActions(user, modal, toastMsg, setModal, setSaving);
   const { savePayment, handleUndoPayment } = usePaymentActions(modal, toastMsg, setModal, setSaving);
   const { saveExpense, handleDeleteExpense } = useExpenseActions(user, modal, toastMsg, setModal, setSaving);
+  const { saveLead } = useLeadActions(user, modal, toastMsg, setModal, setSaving);
   const { printDashboard, printFicha, generateContract } = usePrintActions(dashboardRange, stats, monthlyData, teacherStats, filteredExpenses, modal, payments);
 
   /* ================= RENDER ================= */
@@ -104,6 +108,7 @@ function AppContent() {
         <Logo />
         <Nav icon={<LayoutDashboard />} label="Dashboard" active={page==="dashboard"} onClick={()=>setPage("dashboard")} />
         <Nav icon={<Users />} label="Alunos" active={page==="students"} onClick={()=>setPage("students")} />
+        <Nav icon={<UserPlus />} label="Leads" active={page==="leads"} onClick={()=>setPage("leads")} />
         <Nav icon={<FileText />} label="Financeiro" active={page==="finance"} onClick={()=>setPage("finance")} />
         <Nav icon={<PieChart />} label="Despesas" active={page==="expenses"} onClick={()=>setPage("expenses")} />
         <Nav icon={<ClipboardList />} label="Relatórios" active={page==="reports"} onClick={()=>setPage("reports")} />
@@ -120,6 +125,7 @@ function AppContent() {
           <h1 className="font-black text-xl uppercase">
             {page === "dashboard" && "Painel de Controle"}
             {page === "students" && "Gestão de Alunos"}
+            {page === "leads" && "Leads"}
             {page === "finance" && "Financeiro"}
             {page === "expenses" && "Despesas"}
             {page === "reports" && "Relatórios"}
@@ -209,6 +215,8 @@ function AppContent() {
               handleDeleteExpense={handleDeleteExpense}
             />}
 
+            {page === "leads" && <Leads setModal={setModal} leads={leads} />}
+
             {page === "calendar" && <CalendarPage />}
 
             {page === "agenda" && <AgendaProfessoresPage />}
@@ -254,6 +262,15 @@ function AppContent() {
               setExpenseCategorySelect={setExpenseCategorySelect}
               expenseCategoryOther={expenseCategoryOther}
               onSubmit={saveExpense}
+              onCancel={()=>setModal({open:false,type:null,data:null})}
+            />
+          )}
+
+          {modal.type === 'lead' && (
+            <LeadForm 
+              modal={modal}
+              saving={saving}
+              onSubmit={saveLead}
               onCancel={()=>setModal({open:false,type:null,data:null})}
             />
           )}

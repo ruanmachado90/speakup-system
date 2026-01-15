@@ -1,7 +1,9 @@
 import { useState, useMemo } from 'react';
-import { Search, Edit, X, Printer } from 'lucide-react';
+import { Search, Edit, X, Printer, Trash2 } from 'lucide-react';
 import { Card, Table, KPI } from '../components';
 import { printReceipt } from '../utils/print';
+
+import { usePaymentActions } from '../hooks/useActions';
 
 const Finance = ({ 
   students, 
@@ -16,6 +18,8 @@ const Finance = ({
   setModal,
   handleUndoPayment 
 }) => {
+  // Adiciona hook para deletar cobrança
+  const { handleDeletePayment } = usePaymentActions({}, (msg) => window.toastMsg && window.toastMsg(msg));
   const [searchTerm, setSearchTerm] = useState('');
 
   // Filtrar pagamentos por busca de nome
@@ -146,8 +150,8 @@ const Finance = ({
                 </span>
               </td>
               <td className="px-6 py-3">
-                {p.status === 'Pago' ? (
-                  <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2">
+                  {p.status === 'Pago' && (
                     <button
                       onClick={() => printReceipt(p, student || {id: p.studentId, name: p.studentName})}
                       className="text-emerald-600 hover:text-emerald-800 transition-colors"
@@ -156,19 +160,21 @@ const Finance = ({
                     >
                       <Printer size={16} />
                     </button>
-                    <button
-                      onClick={() => setModal({open: true, type: 'view', data: student || {id: p.studentId, name: p.studentName}})}
-                      aria-label="Visualizar aluno"
-                    >
-                      <Search size={16}/>
-                    </button>
-                    <button 
-                      onClick={() => setModal({open: true, type: 'edit-payment', data: p})} 
-                      aria-label="Editar pagamento"
-                      className="text-blue-500 hover:text-blue-700"
-                    >
-                      <Edit size={16} />
-                    </button>
+                  )}
+                  <button
+                    onClick={() => setModal({open: true, type: 'view', data: student || {id: p.studentId, name: p.studentName}})}
+                    aria-label="Visualizar aluno"
+                  >
+                    <Search size={16}/>
+                  </button>
+                  <button 
+                    onClick={() => setModal({open: true, type: p.status === 'Pago' ? 'edit-payment' : 'payment', data: p})} 
+                    aria-label={p.status === 'Pago' ? 'Editar pagamento' : 'Dar baixa no pagamento'}
+                    className={p.status === 'Pago' ? 'text-blue-500 hover:text-blue-700' : 'text-emerald-500 hover:text-emerald-700'}
+                  >
+                    <Edit size={16}/>
+                  </button>
+                  {p.status === 'Pago' && (
                     <button 
                       onClick={() => {
                         if (confirm('Desfazer este pagamento?')) {
@@ -180,24 +186,15 @@ const Finance = ({
                     >
                       <X size={16} />
                     </button>
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-2">
-                    <button 
-                      onClick={() => setModal({open: true, type: 'view', data: student || {id: p.studentId, name: p.studentName}})} 
-                      aria-label="Visualizar aluno"
-                    >
-                      <Search size={16}/>
-                    </button>
-                    <button 
-                      onClick={() => setModal({open: true, type: 'payment', data: p})} 
-                      aria-label="Dar baixa no pagamento"
-                      className="text-emerald-500 hover:text-emerald-700"
-                    >
-                      <Edit size={16}/>
-                    </button>
-                  </div>
-                )}
+                  )}
+                  <button
+                    onClick={() => handleDeletePayment(p.id)}
+                    aria-label="Excluir cobrança"
+                    className="text-rose-500 hover:text-rose-700"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                </div>
               </td>
             </>
           );

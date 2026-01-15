@@ -1,3 +1,18 @@
+/**
+ * Delete a payment (cobrança)
+ * @param {string} id - Payment ID
+ * @param {Function} toastMsg - Toast notification function
+ */
+export const handleDeletePayment = async (id, toastMsg) => {
+  if (!confirm('Remover esta cobrança?')) return;
+  try {
+    await deleteDoc(doc(col('payments'), id));
+    toastMsg('Cobrança removida');
+  } catch (err) {
+    console.error('Erro ao remover cobrança:', err);
+    toastMsg('Erro ao remover cobrança');
+  }
+};
 import {
   collection,
   doc,

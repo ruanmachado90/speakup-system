@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
-import { Search, Edit, X } from 'lucide-react';
+import { Search, Edit, X, Printer } from 'lucide-react';
 import { Card, Table, KPI } from '../components';
+import { printReceipt } from '../utils/print';
 
 const Finance = ({ 
   students, 
@@ -147,8 +148,16 @@ const Finance = ({
               <td className="px-6 py-3">
                 {p.status === 'Pago' ? (
                   <div className="flex items-center gap-2">
-                    <button 
-                      onClick={() => setModal({open: true, type: 'view', data: student || {id: p.studentId, name: p.studentName}})} 
+                    <button
+                      onClick={() => printReceipt(p, student || {id: p.studentId, name: p.studentName})}
+                      className="text-emerald-600 hover:text-emerald-800 transition-colors"
+                      title="Imprimir Recibo"
+                      aria-label="Imprimir recibo"
+                    >
+                      <Printer size={16} />
+                    </button>
+                    <button
+                      onClick={() => setModal({open: true, type: 'view', data: student || {id: p.studentId, name: p.studentName}})}
                       aria-label="Visualizar aluno"
                     >
                       <Search size={16}/>

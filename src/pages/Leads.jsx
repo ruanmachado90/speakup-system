@@ -1,6 +1,7 @@
 import { Table } from '../components';
-import { useState, useMemo, Fragment } from 'react';
+import { useState, useMemo, useCallback, Fragment } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { StatusBadge } from '../components/ui/StatusBadge';
 
 export const Leads = ({ setModal, leads = [] }) => {
   const [selectedCourse, setSelectedCourse] = useState('all');
@@ -18,13 +19,13 @@ export const Leads = ({ setModal, leads = [] }) => {
     return `${date.getMonth()}-${date.getFullYear()}`;
   };
 
-  const previousMonth = () => {
-    setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1));
-  };
+  const previousMonth = useCallback(() => {
+    setCurrentMonth(prev => new Date(prev.getFullYear(), prev.getMonth() - 1));
+  }, []);
 
-  const nextMonth = () => {
-    setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1));
-  };
+  const nextMonth = useCallback(() => {
+    setCurrentMonth(prev => new Date(prev.getFullYear(), prev.getMonth() + 1));
+  }, []);
 
   const filteredLeads = useMemo(() => {
     if (!leads) return [];
@@ -195,38 +196,15 @@ export const Leads = ({ setModal, leads = [] }) => {
               <span key="acoes">Ações</span>
             ]}
             data={filteredLeads}
-            render={(lead, index) => {
-              const getStatusColor = (status) => {
-                const colors = {
-                  novo: 'bg-blue-100 text-blue-700',
-                  contato: 'bg-yellow-100 text-yellow-700',
-                  matriculado: 'bg-green-100 text-green-700',
-                  perdido: 'bg-red-100 text-red-700'
-                };
-                return colors[status] || 'bg-slate-100 text-slate-700';
-              };
-
-              const getStatusLabel = (status) => {
-                const labels = {
-                  novo: 'Novo',
-                  contato: 'Em Contato',
-                  matriculado: 'Matriculado',
-                  perdido: 'Perdido'
-                };
-                return labels[status] || status;
-              };
-
-              return (
-                <Fragment key={lead.id || index}>
-                  <td className="px-6 py-3 font-medium text-xs">{lead.name}</td>
-                  <td className="px-6 py-3 text-xs">{lead.contact || '-'}</td>
-                  <td className="px-6 py-3 text-xs">{lead.interest || '-'}</td>
-                  <td className="px-6 py-3 text-xs">{lead.level || '-'}</td>
-                  <td className="px-6 py-3">
-                    <span className={`px-2 py-1 rounded-full text-[10px] font-medium whitespace-nowrap ${getStatusColor(lead.status)}`}>
-                      {getStatusLabel(lead.status)}
-                    </span>
-                  </td>
+            render={(lead, index) => (
+              <Fragment key={lead.id || index}>
+                <td className="px-6 py-3 font-medium text-xs">{lead.name}</td>
+                <td className="px-6 py-3 text-xs">{lead.contact || '-'}</td>
+                <td className="px-6 py-3 text-xs">{lead.interest || '-'}</td>
+                <td className="px-6 py-3 text-xs">{lead.level || '-'}</td>
+                <td className="px-6 py-3">
+                  <StatusBadge status={lead.status} />
+                </td>
                   <td className="px-6 py-3 text-xs">{formatDate(lead.createdAt)}</td>
                   <td className="px-6 py-3 text-xs text-slate-600 max-w-xs truncate">
                     {lead.notes || '-'}
@@ -244,8 +222,8 @@ export const Leads = ({ setModal, leads = [] }) => {
                     </button>
                   </td>
                 </Fragment>
-              );
-            }}
+              )
+            }
           />
         )}
       </div>

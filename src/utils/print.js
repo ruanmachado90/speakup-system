@@ -477,28 +477,39 @@ export const generateContract = (student, payments) => {
       <meta charset="utf-8">
       <title>Contrato - ${student.name}</title>
       <style>
-        body{font-family:Arial,Helvetica,sans-serif;padding:28px;color:#0f172a}
-        .header{display:flex;justify-content:space-between;align-items:center}
-        .logo{width:180px;filter:brightness(0);}
-        .box{border:1px solid #e5e7eb;padding:12px;border-radius:6px;margin-bottom:12px}
-        h1,h2{margin:0}
-        p{margin:6px 0}
-        .clause{margin-top:12px}
-        .signature{margin-top:36px;display:flex;justify-content:space-between}
-        .sigline{width:45%;text-align:center}
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: Arial, Helvetica, sans-serif; padding: 20px 32px; color: #0f172a; font-size: 9px; line-height: 1.3; }
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+        .logo { width: 120px; filter: brightness(0); }
+        h1 { font-size: 14px; margin-bottom: 3px; }
+        .emissao { font-size: 7px; color: #94a3b8; }
+        .box { border: 1px solid #e5e7eb; padding: 8px; border-radius: 4px; margin-bottom: 10px; background: #f8fafc; }
+        .box h2 { font-size: 11px; margin-bottom: 4px; }
+        .box p { margin: 2px 0; font-size: 8.5px; }
+        .box strong { font-weight: 600; }
+        .clauses { margin-top: 8px; }
+        .clauses p { margin: 3px 0 3px 0; text-align: justify; }
+        h3 { font-size: 10px; margin-top: 8px; margin-bottom: 3px; font-weight: bold; }
+        .signature { margin-top: 24px; display: flex; justify-content: space-between; page-break-inside: avoid; }
+        .sigline { width: 45%; text-align: center; font-size: 8px; }
+        .sigline .line { border-top: 1px solid #000; margin-top: 32px; padding-top: 3px; }
+        @media print {
+          body { padding: 15px 25px; }
+          .signature { page-break-inside: avoid; }
+        }
       </style>
     </head>
     <body>
       <div class="header">
         <div>
           <h1>CONTRATO DE PRESTAÇÃO DE SERVIÇOS EDUCACIONAIS</h1>
-          <p class="text-xs text-slate-400">Emitido em: ${todayStr}</p>
+          <p class="emissao">Emitido em: ${todayStr}</p>
         </div>
         <div><img class="logo" src="https://www.speakupcataguases.com/wp-content/uploads/2025/11/logo-speakup-brancal-1.png" alt="Logo"></div>
       </div>
 
       <div class="box">
-        <h2 class="font-bold">Quadro Resumo</h2>
+        <h2>Quadro Resumo</h2>
         <p><strong>CONTRATANTE:</strong> ${contratanteName} • CPF: ${contratanteCpf} • Contato: ${contratanteContact}</p>
         <p><strong>ALUNO:</strong> ${student.name}</p>
         <p><strong>CURSO / PROFESSOR:</strong> ${student.course || '-'} / ${student.teacher || '-'}</p>
@@ -506,67 +517,63 @@ export const generateContract = (student, payments) => {
         <p><strong>CONTRATADA:</strong> SpeakUp English Language Academy, pessoa jurídica de direito privado, inscrita no CNPJ sob o n.º 28.649.636/0001-88, sediada na Praça Governador Valadares, 119, Centro - Cataguases, MG.</p>
       </div>
 
-      <div class="clause">
-        <h3>CLÁUSULA 1 – DO OBJETO</h3>
-        <p>1.1. O presente contrato tem por objeto a prestação de serviços educacionais de ensino de língua inglesa, pela CONTRATADA, em favor do(a) aluno(a) indicado no Quadro Resumo, conforme o plano pedagógico da escola, calendário letivo e modalidade contratada.</p>
-        <p>1.2. As informações específicas do curso (nível, carga horária, modalidade, plano, valor, vencimento e material didático) constam no Quadro Resumo, que é parte integrante deste contrato.</p>
+      <div class="clauses">
+        <p>As partes acima identificadas têm, entre si, justo e acertado o presente Contrato de Prestação de Serviços Educacionais, que se regerá pelas cláusulas seguintes e pelas condições de preço, forma e termo de pagamento descritas no presente.</p>
 
-        <h3>CLÁUSULA 2 – DA VIGÊNCIA</h3>
-        <p>2.1. O contrato entra em vigor na data de sua assinatura.</p>
-        <p>2.2. A vigência será: Por prazo indeterminado, nos planos mensais; ou Até o término do período letivo contratado, nos planos anuais.</p>
+        <h3>CLÁUSULA PRIMEIRA - OBJETO DO CONTRATO E SUA VIGÊNCIA</h3>
+        <p>1.1. O presente contrato tem por objeto a prestação de serviços educacionais de ensino da Língua Inglesa pela CONTRATADA ao ALUNO, conforme o plano pedagógico e calendário da escola.</p>
+        <p>1.2. A CONTRATADA reserva-se o direito de substituir professores ao longo do curso por razões pedagógicas, administrativas ou de força maior, visando sempre a continuidade do serviço e a manutenção da qualidade de ensino, não havendo vinculação obrigatória do ALUNO a um docente específico.</p>
+        <p>1.3. O contrato entra em vigor na data de sua assinatura.</p>
+        <p>1.4. A vigência será até o término do ano letivo contratado. Podendo ser renovado automaticamente.</p>
 
-        <h3>CLÁUSULA 3 – DA CARGA HORÁRIA E MODALIDADE</h3>
-        <p>3.1. A carga horária padrão será definida pela escola de acordo com o plano escolhido pelo aluno.</p>
-        <p>3.2. As aulas serão ministradas de acordo com o calendário letivo da escola da CONTRATADA.</p>
+        <h3>CLÁUSULA SEGUNDA - OBRIGAÇÕES DA CONTRATADA</h3>
+        <p>2.1. São obrigações da CONTRATADA: a) Prestar os serviços educacionais conforme seu planejamento pedagógico; b) Definir, com autonomia, calendário, professores, critérios de avaliação, metodologia e carga horária; c) Emitir certificado ao final do curso, quando aplicável.</p>
 
-        <h3>CLÁUSULA 4 – DO MATERIAL DIDÁTICO</h3>
-        <p>4.1. O material didático indicado pela CONTRATADA é obrigatório e não está incluso no valor da mensalidade.</p>
-        <p>4.2. O material atualmente adotado é SpeakOut – 3ª Edição, no valor informado no Quadro Resumo, podendo ser parcelado conforme política vigente da escola.</p>
+        <h3>CLÁUSULA TERCEIRA - PAGAMENTO</h3>
+        <p>3.1. O CONTRATANTE realizará o pagamento das mensalidades via PIX, boleto ou cartão até a data de vencimento estipulada no item II.</p>
+        <p>3.2. O não recebimento de notificações ou boletos via canais digitais não isenta o CONTRATANTE do pagamento pontual.</p>
+        <p>3.3. Reajuste: Caso o contrato seja renovado ou se estenda por período superior a 12 (doze) meses, o valor da mensalidade será reajustado anualmente pela variação positiva do IPCA (IBGE), ou outro índice oficial que venha a substituí-lo.</p>
 
-        <h3>CLÁUSULA 5 – DO VALOR E FORMA DE PAGAMENTO</h3>
-        <p>5.1. A CONTRATANTE pagará à CONTRATADA o valor da mensalidade ou anuidade descrito no Quadro Resumo.</p>
-        <p>5.2. O vencimento ocorrerá no dia informado no Quadro Resumo.</p>
-        <p>5.3. Os boletos ou cobranças serão enviados por e-mail e/ou WhatsApp, com antecedência mínima de 5 (cinco) dias.</p>
-        <p>5.4. A ausência do(a) aluno(a) às aulas não isenta o pagamento, tendo em vista a disponibilização do serviço.</p>
+        <h3>CLÁUSULA QUARTA - MORA</h3>
+        <p>4.1. Em caso de atraso, incidirá sobre o valor da parcela multa moratória de 2% (dois por cento) e juros de mora de 1% (um por cento) ao mês, calculados proporcionalmente aos dias de atraso (pro rata die).</p>
+        <p>4.2. O atraso superior a 30 dias autoriza a CONTRATADA a realizar a cobrança via órgãos de proteção ao crédito (SPC/SERASA), após notificação prévia escrita.</p>
 
-        <h3>CLÁUSULA 6 – DO ATRASO E INADIMPLÊNCIA</h3>
-        <p>6.1. O atraso no pagamento implicará: Multa fixa de R$ 3,00 (três reais); Juros moratórios de 2% (dois por cento) ao mês.</p>
-        <p>6.2. O inadimplemento por período igual ou superior a 30 (trinta) dias, após notificação, poderá resultar: Em cobrança judicial; e/ou No registro do débito nos órgãos de proteção ao crédito, nos termos do art. 43 do CDC.</p>
+        <h3>CLÁUSULA QUINTA - MATERIAL DIDÁTICO</h3>
+        <p>5.1. O material didático é indispensável para o aproveitamento pedagógico e não está incluso no valor das mensalidades, devendo ser adquirido separadamente. Uma vez entregue ao ALUNO ou acessado em plataforma digital, não haverá reembolso dos valores pagos pelo material em caso de desistência do curso.</p>
+        <p>5.2. É expressamente proibida a utilização de cópias reprográficas (xerox) ou materiais piratas nas dependências da escola ou ambientes virtuais, sob pena de violação de direitos autorais e desligamento imediato.</p>
 
-        <h3>CLÁUSULA 7 – DAS OBRIGAÇÕES DA CONTRATADA</h3>
-        <p>7.1. São obrigações da CONTRATADA: a) Prestar os serviços educacionais conforme seu planejamento pedagógico; b) Definir, com autonomia, calendário, professores, critérios de avaliação, metodologia e carga horária; c) Emitir certificado ao final do curso, quando aplicável.</p>
-        <p>7.2. Reposição de aulas ocorrerá exclusivamente quando o cancelamento for feito pela CONTRATADA.</p>
-        <p>7.3. Aulas perdidas pelo(a) aluno(a), por qualquer motivo, inclusive atrasos ou saídas antecipadas, não serão repostas.</p>
+        <h3>CLÁUSULA SEXTA - REPOSIÇÕES E FALTAS</h3>
+        <p>6.1. Faltas, atrasos ou saídas antecipadas por iniciativa do ALUNO não dão direito a desconto, reembolso ou reposição de aula.</p>
+        <p>6.2. A reposição de aulas ocorrerá exclusivamente quando o cancelamento da aula for de iniciativa da CONTRATADA.</p>
+        <p>6.3. No caso de aulas online, problemas técnicos decorrentes da conexão de internet do aluno não serão passíveis de reposição.</p>
 
-        <h3>CLÁUSULA 8 – DAS OBRIGAÇÕES DA CONTRATANTE</h3>
-        <p>8.1. São obrigações da CONTRATANTE: a) Efetuar os pagamentos pontualmente; b) Adquirir o material didático indicado; c) Garantir a frequência e o cumprimento das normas internas da escola.</p>
+        <h3>CLÁUSULA SÉTIMA - DA RESCISÃO</h3>
+        <p>7.1. No Plano Mensal: A rescisão pode ocorrer a qualquer tempo, mediante aviso prévio por escrito (ou canal oficial de atendimento) com antecedência mínima de 30 (trinta) dias.</p>
+        <p>7.2. No Plano Anual: Por se tratar de um plano com reserva de vaga e custos operacionais provisionados para o período letivo, a rescisão antecipada pelo CONTRATANTE implicará no pagamento de multa de 10% (10 por cento) sobre o valor total das parcelas restantes do contrato.</p>
+        <p>7.3. Em caso de rescisão, não haverá reembolso de parcelas já pagas ou de aulas já ministradas. O mês em curso será cobrado integralmente.</p>
 
-        <h3>CLÁUSULA 9 – DA RESCISÃO CONTRATUAL</h3>
-        <p>9.1. Pela CONTRATANTE: a) O contrato poderá ser rescindido mediante aviso prévio de 30 (trinta) dias, por escrito; b) Planos mensais: – Não haverá multa se respeitado o aviso prévio; – Não há reembolso de valores já pagos. c) Planos anuais: – A desistência após o início do curso sujeita a CONTRATANTE à multa de 20% (vinte por cento) sobre o valor das parcelas restantes.</p>
-        <p>9.2. Pela CONTRATADA: 9.2.1. A CONTRATADA poderá rescindir o contrato por justa causa, em caso de: Descumprimento contratual; Prática de atos contrários à lei ou ao regimento escolar. 9.2.2. A rescisão não exime a CONTRATANTE do pagamento das parcelas vencidas, incluindo o mês do desligamento.</p>
+        <h3>CLÁUSULA OITAVA - USO DE IMAGEM E DADOS PESSOAIS (LGPD)</h3>
+        <p>8.1. Autorização de uso de imagem e voz: O CONTRATANTE autoriza expressamente a CONTRATADA a utilizar, de forma gratuita, a imagem e a voz do ALUNO para fins exclusivamente pedagógicos e de divulgação institucional, incluindo redes sociais, site oficial e materiais impressos da escola.</p>
+        <p>8.2. ALUNOS MENORES DE IDADE: Caso o ALUNO seja menor de 18 (dezoito) anos, a autorização prevista no item 8.1 é concedida, neste ato, por seu responsável legal (CONTRATANTE), em estrita observância ao Estatuto da Criança e do Adolescente (Lei nº 8.069/1990), garantindo-se que o uso da imagem não seja vexatório nem exponha o menor a situações inadequadas.</p>
+        <p>8.3. Proteção de Dados (LGPD): A CONTRATADA declara que realiza o tratamento de dados pessoais do CONTRATANTE e do ALUNO em conformidade com a Lei Geral de Proteção de Dados (Lei nº 13.709/2018), limitando-se ao estritamente necessário para a execução deste contrato, emissão de notas fiscais e cumprimento de obrigações legais.</p>
+        <p>8.4. Revogação: O consentimento para o uso de imagem poderá ser revogado a qualquer tempo pelo CONTRATANTE, mediante solicitação formal por escrito, sem que isso gere qualquer ônus ou rescisão das demais obrigações contratuais.</p>
+        <p>8.5. A CONTRATADA compromete-se a tratar os dados pessoais em conformidade com a Lei Geral de Proteção de Dados (Lei 13.709/2018), para fins de execução deste contrato e obrigações fiscais.</p>
 
-        <h3>CLÁUSULA 10 – DO DIREITO DE USO DE IMAGEM</h3>
-        <p>10.1. A CONTRATANTE autoriza, de forma gratuita, o uso da imagem, voz e trabalhos escolares do(a) aluno(a) para fins institucionais e promocionais da CONTRATADA, em redes sociais, site e materiais informativos, sempre respeitando a legislação vigente e os bons costumes.</p>
-
-        <h3>CLÁUSULA 11 – DAS DISPOSIÇÕES GERAIS</h3>
-        <p>11.1. Este contrato é regido pelas leis da República Federativa do Brasil, especialmente o Código de Defesa do Consumidor.</p>
-        <p>11.2. Fica eleito o foro da Comarca de Cataguases/MG para dirimir quaisquer controvérsias.</p>
-
+        <h3>CLÁUSULA NONA – FORO</h3>
+        <p>9.1. Fica eleito o foro da Comarca de Cataguases/MG para dirimir quaisquer dúvidas oriundas deste contrato, com renúncia expressa a qualquer outro por mais privilegiado que seja.</p>
+        
+        <p style="margin-top:10px;">Cataguases/MG, ________ de ____________________ de 20________.</p>
       </div>
 
       <div class="signature">
         <div class="sigline">
-          <p>CONTRATANTE</p>
-          <p style="margin-top:56px">_______________________________________</p>
-          <p>${contratanteName}</p>
-          <p>CPF: ${contratanteCpf}</p>
+          <p><strong>CONTRATANTE</strong></p>
+          <div class="line">${contratanteName}<br>CPF: ${contratanteCpf}</div>
         </div>
 
         <div class="sigline">
-          <p>CONTRATADA</p>
-          <p style="margin-top:56px">_______________________________________</p>
-          <p>SpeakUp English Language Academy</p>
-          <p>CNPJ: 28.649.636/0001-88</p>
+          <p><strong>CONTRATADA</strong></p>
+          <div class="line">SPEAKUP ENGLISH LANGUAGE ACADEMY<br>CNPJ: 28.649.636/0001-88</div>
         </div>
       </div>
 
@@ -578,3 +585,220 @@ export const generateContract = (student, payments) => {
   w.document.write(html);
   w.document.close();
 };
+
+/**
+ * Print payment receipt
+ * @param {Object} payment - Payment data
+ * @param {Object} student - Student data
+ */
+export const printReceipt = (payment, student) => {
+  if (!payment || !student) return;
+
+  const today = new Date();
+  const todayStr = today.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' });
+  
+  const valorPago = Number(payment.valuePaid || 0);
+  const valorExtenso = numeroParaExtenso(valorPago);
+  
+  // Determinar período de referência (mês/ano da mensalidade)
+  const mesReferencia = payment.month || (payment.dueDate ? new Date(payment.dueDate).getMonth() + 1 : new Date().getMonth() + 1);
+  const anoReferencia = payment.year || (payment.dueDate ? new Date(payment.dueDate).getFullYear() : new Date().getFullYear());
+  const meses = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+  const periodoReferencia = `${meses[mesReferencia - 1]}/${anoReferencia}`;
+  
+  // Data do pagamento
+  const dataPagamento = payment.paymentDate ? new Date(payment.paymentDate).toLocaleDateString('pt-BR') : todayStr;
+  
+  // Método de pagamento
+  const metodoPagamento = payment.paymentMethod || 'Não especificado';
+  
+  // Número do recibo (ID ou data)
+  const numeroRecibo = payment.id || Date.now();
+
+  const html = `<!doctype html>
+  <html>
+    <head>
+      <meta charset="utf-8">
+      <title>Recibo - ${student.name}</title>
+      <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: Arial, sans-serif; padding: 40px; color: #1e293b; max-width: 800px; margin: 0 auto; }
+        .header { text-align: center; margin-bottom: 30px; border-bottom: 3px solid #005DE4; padding-bottom: 20px; }
+        .logo { width: 180px; margin-bottom: 15px; filter: brightness(0); }
+        h1 { font-size: 28px; color: #005DE4; margin-bottom: 8px; }
+        .numero-recibo { font-size: 12px; color: #64748b; margin-top: 5px; }
+        .empresa-info { text-align: center; font-size: 11px; color: #64748b; margin-bottom: 30px; line-height: 1.6; }
+        .valor-box { background: linear-gradient(135deg, #005DE4 0%, #003d99 100%); color: white; padding: 25px; border-radius: 12px; text-align: center; margin: 30px 0; box-shadow: 0 4px 6px rgba(0,93,228,0.2); }
+        .valor-box .label { font-size: 14px; opacity: 0.9; margin-bottom: 8px; }
+        .valor-box .valor { font-size: 36px; font-weight: bold; margin-bottom: 5px; }
+        .valor-box .extenso { font-size: 13px; opacity: 0.95; font-style: italic; }
+        .info-section { background: #f8fafc; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #005DE4; }
+        .info-row { display: flex; justify-content: space-between; margin-bottom: 12px; font-size: 13px; }
+        .info-row:last-child { margin-bottom: 0; }
+        .info-label { font-weight: 600; color: #475569; }
+        .info-value { color: #1e293b; }
+        .periodo-destaque { background: #fff; padding: 15px; border-radius: 6px; border: 2px dashed #005DE4; margin: 20px 0; text-align: center; }
+        .periodo-destaque .label { font-size: 11px; color: #64748b; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 5px; }
+        .periodo-destaque .valor { font-size: 20px; font-weight: bold; color: #005DE4; }
+        .footer { margin-top: 40px; padding-top: 20px; border-top: 2px solid #e2e8f0; text-align: center; font-size: 11px; color: #64748b; line-height: 1.6; }
+        .assinatura { margin-top: 50px; text-align: center; }
+        .assinatura .linha { border-top: 1px solid #000; width: 300px; margin: 0 auto 8px; padding-top: 5px; }
+        @media print {
+          body { padding: 20px; }
+          .valor-box { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+        }
+      </style>
+    </head>
+    <body>
+      <div class="header">
+        <img class="logo" src="https://www.speakupcataguases.com/wp-content/uploads/2025/11/logo-speakup-brancal-1.png" alt="SpeakUp Logo">
+        <h1>RECIBO DE PAGAMENTO</h1>
+        <div class="numero-recibo">Recibo Nº ${numeroRecibo}</div>
+      </div>
+
+      <div class="empresa-info">
+        <strong>SPEAKUP ENGLISH LANGUAGE ACADEMY</strong><br>
+        CNPJ: 28.649.636/0001-88<br>
+        Praça Governador Valadares, 119 - Centro - Cataguases/MG
+      </div>
+
+      <div class="valor-box">
+        <div class="label">VALOR RECEBIDO</div>
+        <div class="valor">R$ ${valorPago.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</div>
+        <div class="extenso">(${valorExtenso})</div>
+      </div>
+
+      <div class="periodo-destaque">
+        <div class="label">Período de Referência</div>
+        <div class="valor">${periodoReferencia}</div>
+      </div>
+
+      <div class="info-section">
+        <div class="info-row">
+          <span class="info-label">Aluno(a):</span>
+          <span class="info-value">${student.name}</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">Responsável:</span>
+          <span class="info-value">${student.responsibleName || '-'}</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">CPF:</span>
+          <span class="info-value">${student.responsibleCpf || student.cpf || '-'}</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">Curso:</span>
+          <span class="info-value">${student.course || '-'}</span>
+        </div>
+      </div>
+
+      <div class="info-section">
+        <div class="info-row">
+          <span class="info-label">Data do Pagamento:</span>
+          <span class="info-value">${dataPagamento}</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">Forma de Pagamento:</span>
+          <span class="info-value">${metodoPagamento}</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">Parcela:</span>
+          <span class="info-value">${payment.installmentNum || '-'} de ${student.installments || '-'}</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">Referente a:</span>
+          <span class="info-value">Mensalidade do curso de Inglês - ${periodoReferencia}</span>
+        </div>
+      </div>
+
+      <div class="footer">
+        Declaro ter recebido o valor acima especificado referente à mensalidade do curso de Inglês<br>
+        do(a) aluno(a) mencionado, correspondente ao período de <strong>${periodoReferencia}</strong>.<br>
+        Este documento é válido como comprovante de pagamento.
+      </div>
+
+      <div class="assinatura">
+        <div class="linha">SpeakUp English Language Academy</div>
+        <div style="font-size: 11px; color: #64748b;">Cataguases/MG, ${todayStr}</div>
+      </div>
+
+      <script>
+        window.onload = function(){ window.print(); setTimeout(()=>window.close(), 200); };
+      </script>
+    </body>
+  </html>`;
+
+  const w = window.open('', '_blank', 'width=850,height=900');
+  w.document.write(html);
+  w.document.close();
+};
+
+// Função auxiliar para converter número em extenso
+function numeroParaExtenso(numero) {
+  const unidades = ['', 'um', 'dois', 'três', 'quatro', 'cinco', 'seis', 'sete', 'oito', 'nove'];
+  const especiais = ['dez', 'onze', 'doze', 'treze', 'quatorze', 'quinze', 'dezesseis', 'dezessete', 'dezoito', 'dezenove'];
+  const dezenas = ['', '', 'vinte', 'trinta', 'quarenta', 'cinquenta', 'sessenta', 'setenta', 'oitenta', 'noventa'];
+  const centenas = ['', 'cento', 'duzentos', 'trezentos', 'quatrocentos', 'quinhentos', 'seiscentos', 'setecentos', 'oitocentos', 'novecentos'];
+
+  if (numero === 0) return 'zero reais';
+  
+  const partes = numero.toFixed(2).split('.');
+  const reais = parseInt(partes[0]);
+  const centavos = parseInt(partes[1]);
+
+  let extenso = '';
+
+  // Milhares
+  if (reais >= 1000) {
+    const mil = Math.floor(reais / 1000);
+    if (mil === 1) extenso += 'mil';
+    else extenso += converterCentena(mil) + ' mil';
+    
+    const resto = reais % 1000;
+    if (resto > 0) {
+      if (resto < 100) extenso += ' e ';
+      else extenso += ' ';
+      extenso += converterCentena(resto);
+    }
+  } else {
+    extenso = converterCentena(reais);
+  }
+
+  extenso += reais === 1 ? ' real' : ' reais';
+
+  if (centavos > 0) {
+    extenso += ' e ' + converterCentena(centavos);
+    extenso += centavos === 1 ? ' centavo' : ' centavos';
+  }
+
+  return extenso;
+
+  function converterCentena(num) {
+    if (num === 0) return '';
+    if (num === 100) return 'cem';
+    
+    let resultado = '';
+    const c = Math.floor(num / 100);
+    const d = Math.floor((num % 100) / 10);
+    const u = num % 10;
+
+    if (c > 0) resultado += centenas[c];
+    
+    if (d === 1) {
+      if (resultado) resultado += ' e ';
+      resultado += especiais[u];
+    } else {
+      if (d > 0) {
+        if (resultado) resultado += ' e ';
+        resultado += dezenas[d];
+      }
+      if (u > 0) {
+        if (resultado && d > 0) resultado += ' e ';
+        else if (resultado) resultado += ' e ';
+        resultado += unidades[u];
+      }
+    }
+
+    return resultado;
+  }
+}

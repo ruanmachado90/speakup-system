@@ -1,4 +1,5 @@
 import React from "react";
+import { useNavigate } from 'react-router-dom';
 import {
   Users,
   LayoutDashboard,
@@ -28,8 +29,11 @@ import { Expenses } from './pages/Expenses';
 import { Leads } from './pages/Leads';
 import CalendarPage from './pages/Calendar';
 import AgendaProfessoresPage from './pages/AgendaProfessores';
+import ContratoAssinatura from './pages/ContratoAssinatura';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 
 function AppContent() {
+  const navigate = useNavigate();
   const {
     page,
     setPage,
@@ -114,6 +118,7 @@ function AppContent() {
         <Nav icon={<ClipboardList />} label="Relatórios" active={page==="reports"} onClick={()=>setPage("reports")} />
         <Nav icon={<Calendar />} label="Calendário" active={page==="calendar"} onClick={()=>setPage("calendar")} />
         <Nav icon={<ClipboardCheck />} label="Agenda" active={page==="agenda"} onClick={()=>setPage("agenda")} />
+        <Nav icon={<PieChart />} label="Pedagógico" active={page==="pedagogico"} onClick={()=>setPage("pedagogico")} />
       </aside>
 
       {/* MAIN */}
@@ -220,6 +225,8 @@ function AppContent() {
             {page === "calendar" && <CalendarPage />}
 
             {page === "agenda" && <AgendaProfessoresPage />}
+
+            {page === "pedagogico" && <Pedagogico />}
         </div>
       </main>
 
@@ -377,7 +384,18 @@ function AppContent() {
 
               <div className="flex justify-end gap-2">
                 <button onClick={printFicha} className="px-4 py-2 rounded bg-[#005DE4] text-white">Imprimir ficha</button>
-                <button onClick={generateContract} className="px-4 py-2 rounded bg-amber-500 text-white">Gerar contrato</button>
+                <button
+                  onClick={() => {
+                    if (modal.data?.id) {
+                      navigate(`/contrato/${modal.data.id}`);
+                    } else {
+                      alert('ID do aluno não encontrado.');
+                    }
+                  }}
+                  className="px-4 py-2 rounded bg-amber-500 text-white"
+                >
+                  Gerar contrato
+                </button>
                 <button onClick={()=>setModal({open:false,type:null,data:null})} className="px-4 py-2 rounded bg-slate-100">Fechar</button>
               </div>
             </div>
@@ -397,10 +415,16 @@ function AppContent() {
 }
 
 
+
 export default function App() {
   return (
     <AppProvider>
-      <AppContent />
+      <Router>
+        <Routes>
+          <Route path="/contrato/:id" element={<ContratoAssinatura />} />
+          <Route path="*" element={<AppContent />} />
+        </Routes>
+      </Router>
     </AppProvider>
   );
 }

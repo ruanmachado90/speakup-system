@@ -37,14 +37,18 @@ export const useStats = (students, payments, expenses, dashboardRange) => {
     const cancellations = students.filter(s => (s.status === 'cancelado') && inPeriod(s.createdAt)).length;
 
     const totalPayments = p.length;
+    // Corrigir: pendente = não pago e vencimento no futuro; atrasado = não pago e vencido
+    const pending = p.filter(x => x.status !== 'Pago' && x.dueDate && new Date(x.dueDate) >= now)
+      .reduce((a, x) => a + Number(x.valuePlanned || 0), 0);
+    const overdue = p.filter(x => x.status !== 'Pago' && x.dueDate && new Date(x.dueDate) < now)
+      .reduce((a, x) => a + Number(x.valuePlanned || 0), 0);
     const overdueCount = p.filter(x => x.status !== 'Pago' && x.dueDate && new Date(x.dueDate) < now).length;
-    const overdue = p.filter(x => x.status !== 'Pago' && x.dueDate && new Date(x.dueDate) < now).reduce((a, x) => a + Number(x.valuePlanned || 0), 0);
     const inadimplenciaPercent = totalPayments ? Math.round((overdueCount / totalPayments) * 100) : 0;
 
     return {
       planned,
       paid,
-      pending: planned - paid,
+      pending,
       overdue,
       profit: paid - exp,
       students: activeStudents,
@@ -137,12 +141,25 @@ export const useMonthlyData = (payments, expenses) => {
 export const useFinanceStats = (payments, filterMonth, filterYear) => {
   return useMemo(() => {
     // filterMonth vem como 0-11, mas parcelas são salvas como 1-12
+    const now = new Date();
     const filtered = payments.filter(x => Number(x.year) === filterYear && Number(x.month) === (filterMonth + 1));
     const planned = filtered.reduce((a, x) => a + Number(x.valuePlanned || 0), 0);
-    const paid = filtered.filter(x => x.status === 'Pago').reduce((a, x) => a + Number(x.valuePaid || x.valuePlanned || 0), 0);
-    const pending = filtered.filter(x => x.status !== 'Pago').reduce((a, x) => a + Number(x.valuePlanned || 0), 0);
-    const overdue = filtered.filter(x => x.status !== 'Pago' && x.dueDate && new Date(x.dueDate) < new Date()).reduce((a, x) => a + Number(x.valuePlanned || 0), 0);
-
+    // Cada cobrança só entra em um grupo, considerando pagamentos parciais:
+    let paid = 0, pending = 0, overdue = 0;
+    filtered.forEach(x => {
+      const plannedValue = Number(x.valuePlanned || 0);
+      const paidValue = Number(x.valuePaid || 0);
+      paid += paidValue;
+      const saldo = plannedValue - paidValue;
+      if (saldo > 0 && x.dueDate) {
+        if (new Date(x.dueDate) >= now) {
+          pending += saldo;
+        } else {
+          overdue += saldo;
+        }
+      }
+      // Cobranças sem dueDate e não pagas não entram em nenhum grupo
+    });
     return { planned, paid, pending, overdue };
   }, [payments, filterMonth, filterYear]);
 };
@@ -152,12 +169,13 @@ export const useFilteredPayments = (payments, filterMonth, filterYear, filterSta
     // filterMonth vem como 0-11, mas parcelas são salvas como 1-12
     let filtered = payments.filter(x => Number(x.year) === filterYear && Number(x.month) === (filterMonth + 1));
 
+    const now = new Date();
     if (filterStatus === 'pagos') {
       filtered = filtered.filter(x => x.status === 'Pago');
     } else if (filterStatus === 'pendentes') {
-      filtered = filtered.filter(x => x.status !== 'Pago');
+      filtered = filtered.filter(x => x.status !== 'Pago' && x.dueDate && new Date(x.dueDate) >= now);
     } else if (filterStatus === 'atrasados') {
-      filtered = filtered.filter(x => x.status !== 'Pago' && x.dueDate && new Date(x.dueDate) < new Date());
+      filtered = filtered.filter(x => x.status !== 'Pago' && x.dueDate && new Date(x.dueDate) < now);
     }
 
     return filtered.sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate));

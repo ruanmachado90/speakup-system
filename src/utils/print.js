@@ -493,10 +493,13 @@ export const generateContract = (student, payments) => {
         .signature { margin-top: 24px; display: flex; justify-content: space-between; page-break-inside: avoid; }
         .sigline { width: 45%; text-align: center; font-size: 8px; }
         .sigline .line { border-top: 1px solid #000; margin-top: 32px; padding-top: 3px; }
-        @media print {
-          body { padding: 15px 25px; }
-          .signature { page-break-inside: avoid; }
-        }
+        .digital-signature-box { margin-top: 32px; border: 1px solid #e5e7eb; border-radius: 6px; padding: 16px; background: #f1f5f9; max-width: 420px; margin-left: auto; margin-right: auto; }
+        .digital-signature-box label { display: block; margin-bottom: 6px; font-size: 10px; }
+        .digital-signature-box input[type="text"] { width: 100%; padding: 6px; margin-bottom: 10px; border-radius: 4px; border: 1px solid #cbd5e1; font-size: 10px; }
+        .digital-signature-box input[type="checkbox"] { margin-right: 6px; }
+        .digital-signature-box button { background: #005DE4; color: #fff; border: none; border-radius: 4px; padding: 8px 18px; font-size: 11px; cursor: pointer; margin-top: 8px; }
+        .digital-signature-box button:disabled { background: #94a3b8; cursor: not-allowed; }
+        .digital-signature-success { color: #059669; font-size: 11px; margin-top: 10px; text-align: center; }
       </style>
     </head>
     <body>
@@ -577,7 +580,31 @@ export const generateContract = (student, payments) => {
         </div>
       </div>
 
-      <script>window.onload = function(){ window.print(); setTimeout(()=>window.close(),200); };</script>
+      <div class="digital-signature-box">
+        <label for="signerName">Nome completo</label>
+        <input type="text" id="signerName" placeholder="Digite seu nome completo" />
+        <label for="signerDoc">Documento (CPF ou RG)</label>
+        <input type="text" id="signerDoc" placeholder="Digite seu CPF ou RG" />
+        <label><input type="checkbox" id="signerAgree" /> Li e concordo com os termos do contrato</label>
+        <button id="signButton">Assinar digitalmente</button>
+        <div id="signSuccess" class="digital-signature-success" style="display:none;">Assinatura registrada com sucesso!</div>
+      </div>
+      <script>
+        document.getElementById('signButton').onclick = function() {
+          var name = document.getElementById('signerName').value.trim();
+          var doc = document.getElementById('signerDoc').value.trim();
+          var agree = document.getElementById('signerAgree').checked;
+          if (!name || !doc || !agree) {
+            alert('Preencha todos os campos e marque o aceite.');
+            return;
+          }
+          document.getElementById('signButton').disabled = true;
+          document.getElementById('signerName').disabled = true;
+          document.getElementById('signerDoc').disabled = true;
+          document.getElementById('signerAgree').disabled = true;
+          document.getElementById('signSuccess').style.display = 'block';
+        };
+      </script>
     </body>
   </html>`;
 

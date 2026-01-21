@@ -30,6 +30,7 @@ import { Leads } from './pages/Leads';
 import CalendarPage from './pages/Calendar';
 import AgendaProfessoresPage from './pages/AgendaProfessores';
 import ContratoAssinatura from './pages/ContratoAssinatura';
+// import Pedagogico from './pages/Pedagogico';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 
 function AppContent() {
@@ -118,7 +119,7 @@ function AppContent() {
         <Nav icon={<ClipboardList />} label="Relatórios" active={page==="reports"} onClick={()=>setPage("reports")} />
         <Nav icon={<Calendar />} label="Calendário" active={page==="calendar"} onClick={()=>setPage("calendar")} />
         <Nav icon={<ClipboardCheck />} label="Agenda" active={page==="agenda"} onClick={()=>setPage("agenda")} />
-        <Nav icon={<PieChart />} label="Pedagógico" active={page==="pedagogico"} onClick={()=>setPage("pedagogico")} />
+        {/* <Nav icon={<PieChart />} label="Pedagógico" active={page==="pedagogico"} onClick={()=>setPage("pedagogico")} /> */}
       </aside>
 
       {/* MAIN */}
@@ -136,6 +137,7 @@ function AppContent() {
             {page === "reports" && "Relatórios"}
             {page === "calendar" && "Calendário"}
             {page === "agenda" && "Agenda"}
+            {/* {page === "pedagogico" && "PEDAGÓGICO"} */}
           </h1>
         </div>
 
@@ -226,7 +228,7 @@ function AppContent() {
 
             {page === "agenda" && <AgendaProfessoresPage />}
 
-            {page === "pedagogico" && <Pedagogico />}
+            {/* {page === "pedagogico" && <Pedagogico />} */}
         </div>
       </main>
 

@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { Form } from '../ui';
+import { useModal } from '../../context/selectors';
+import { useGeneralLoading } from '../../context/selectors';
 
 const formatCPF = (value) => {
   const numbers = value.replace(/\D/g, '');
@@ -53,7 +55,9 @@ const MaskedInput = ({ label, name, defaultValue, mask, required }) => {
   );
 };
 
-export const StudentForm = ({ modal, saving, onSubmit, onCancel }) => {
+export const StudentForm = ({ onSubmit }) => {
+  const { modal, closeModal } = useModal();
+  const [saving] = useGeneralLoading();
   return (
     <form onSubmit={onSubmit} className="space-y-6">
       <h3 className="text-2xl font-black text-[#00234b]">
@@ -89,7 +93,7 @@ export const StudentForm = ({ modal, saving, onSubmit, onCancel }) => {
       <div className="grid grid-cols-2 gap-4">
         <button 
           type="button" 
-          onClick={onCancel} 
+          onClick={closeModal} 
           className="w-full py-3 rounded-xl font-bold bg-slate-100 text-slate-700"
         >
           Cancelar

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { enviarContratoPorEmail } from '../utils/email';
 import { useParams } from 'react-router-dom';
 import { useData } from '../context/DataContext';
 
@@ -128,7 +129,7 @@ export default function ContratoAssinatura() {
     setForm(f => ({ ...f, [name]: type === 'checkbox' ? checked : value }));
   };
 
-  const handleAssinar = e => {
+  const handleAssinar = async e => {
     e.preventDefault();
     setErro('');
     if (!form.nome.trim()) {
@@ -144,13 +145,26 @@ export default function ContratoAssinatura() {
       return;
     }
     const now = new Date();
-    setAssinatura({
+    const assinaturaObj = {
       nome: form.nome.trim(),
       cpf: form.cpf.replace(/\D/g, ''),
       timestamp: now.toLocaleString('pt-BR', { hour12: false }),
       ip: ip
-    });
+    };
+    setAssinatura(assinaturaObj);
     setAssinado(true);
+    // Enviar contrato por email
+    try {
+      await enviarContratoPorEmail({
+        aluno_nome: aluno?.name,
+        responsavel_nome: aluno?.responsibleName || aluno?.name,
+        contrato_html: contratoHtml(aluno, true, assinaturaObj),
+        destinatario: aluno?.responsibleEmail || aluno?.email || 'seu-email@dominio.com'
+      });
+    } catch (err) {
+      // Apenas loga, não bloqueia o fluxo
+      console.error('Erro ao enviar contrato por email:', err);
+    }
     setTimeout(() => handleDownload(form.nome.trim(), form.cpf.replace(/\D/g, ''), now, ip), 500);
   };
 

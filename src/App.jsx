@@ -91,7 +91,7 @@ function AppContent() {
   const { savePayment, handleUndoPayment } = usePaymentActions(modal, toastMsg, setModal, setSaving);
   const { saveExpense, handleDeleteExpense } = useExpenseActions(user, modal, toastMsg, setModal, setSaving);
   const { saveLead } = useLeadActions(user, modal, toastMsg, setModal, setSaving);
-  const { printDashboard, printFicha, generateContract } = usePrintActions(dashboardRange, stats, monthlyData, teacherStats, filteredExpenses, modal, payments);
+  const { printDashboard, printFicha } = usePrintActions(dashboardRange, stats, monthlyData, teacherStats, filteredExpenses, modal, payments);
 
   /* ================= RENDER ================= */
   return (

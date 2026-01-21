@@ -1,4 +1,5 @@
 // Script para checklist de deploy automatizado
+/* eslint-env node */
 const fs = require('fs');
 const path = require('path');
 

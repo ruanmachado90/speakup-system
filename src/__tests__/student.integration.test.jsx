@@ -1,3 +1,4 @@
+/* global jest */
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { StudentForm } from '../components/forms/StudentForm';

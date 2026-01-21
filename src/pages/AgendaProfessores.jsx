@@ -389,8 +389,11 @@ export default function AgendaProfessores() {
                             >
                               <div className="flex items-center justify-between gap-1">
                                 <div className="flex-1">
-                                  <div className="font-semibold text-[#005DE4] text-[10px]">
-                                    {event.time} {event.endTime && `- ${event.endTime}`} | {event.description}
+                                  <div className="text-[10px] text-[#005DE4]">
+                                    {event.time} {event.endTime && `- ${event.endTime}`}
+                                  </div>
+                                  <div className="font-extrabold text-[#222] text-[15px] leading-tight mt-0.5 mb-0.5">
+                                    {event.description}
                                   </div>
                                   <div className="text-[9px] text-slate-600 mt-0.5">
                                     Professor: {event.responsible}
@@ -523,11 +526,32 @@ export default function AgendaProfessores() {
                                   style={{ minHeight: '24px' }}
                                 >
                                   <div className="h-full flex flex-col justify-center">
-                                    <div className="text-[9px] font-semibold text-[#005DE4] truncate" title={`${event.time}${event.endTime ? ' - ' + event.endTime : ''} - ${event.description} (${event.responsible})`}>
+                                    <div className="text-[9px] text-[#005DE4]">
                                       {event.time}{event.endTime && ` - ${event.endTime}`}
                                     </div>
-                                    <div className="text-[8px] text-slate-700 truncate">
+                                    <div className="font-extrabold text-[#222] text-[13px] leading-tight mt-0.5 mb-0.5 truncate">
                                       {event.description}
+                                    </div>
+                                    <div className="text-[8px] text-slate-700 truncate">
+                                      Professor: {event.responsible}
+                                    </div>
+                                    <div className="flex gap-1 mt-1">
+                                      <button
+                                        onClick={() => handleEditEvent(event)}
+                                        className="text-blue-600 hover:bg-blue-50 p-1 rounded"
+                                        title="Editar evento"
+                                      >
+                                        <Edit2 className="w-3 h-3" />
+                                      </button>
+                                      <button
+                                        onClick={() => handleDeleteEvent(event.id)}
+                                        className="text-red-600 hover:bg-red-50 p-1 rounded"
+                                        title="Excluir evento"
+                                      >
+                                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                        </svg>
+                                      </button>
                                     </div>
                                   </div>
                                 </div>

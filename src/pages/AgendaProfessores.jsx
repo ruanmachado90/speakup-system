@@ -10,6 +10,76 @@ const EVENT_WIDTH_PERCENTAGE = 95;
 
 
 export default function AgendaProfessores() {
+      // Buscar eventos do Firestore ao carregar a página
+      useEffect(() => {
+        async function fetchEvents() {
+          try {
+            const snapshot = await getDocs(collection(db, 'agendaEventos'));
+            const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            setEvents(data);
+          } catch (err) {
+            console.error('Erro ao buscar eventos do Firestore:', err);
+          }
+        }
+        fetchEvents();
+      }, []);
+    // Estado para visualização da agenda (dia/semana)
+    const [agendaView, setAgendaView] = useState('day');
+  // Estado para os eventos
+  const [events, setEvents] = useState([]);
+  // Lista de professores únicos para o filtro
+  const teachers = Array.from(new Set(events.map(e => e.responsible).filter(Boolean)));
+  // Estado para filtro de professor
+  const [teacherFilter, setTeacherFilter] = useState('all');
+  // Estado para mensagem de sucesso
+  const [showSuccessMsg, setShowSuccessMsg] = useState(false);
+    // Estado para modal de evento
+    const [showEventModal, setShowEventModal] = useState(false);
+    // Estado para evento em edição
+    const [editingEvent, setEditingEvent] = useState(null);
+    // Estado do formulário de evento
+    const [eventForm, setEventForm] = useState({
+      description: '',
+      responsible: '',
+      date: '',
+      time: '',
+      endTime: '',
+      recurrence: 'none'
+    });
+    // Estado para erros do formulário
+    const [formErrors, setFormErrors] = useState({});
+    // Estado para data selecionada
+    const [selectedDate, setSelectedDate] = useState(new Date());
+    // Meses do ano
+    const months = [
+      'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+      'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
+    ];
+    // Data atual
+    const currentDate = new Date();
+    // Funções de navegação da agenda
+    const goToPreviousAgenda = () => {
+      if (agendaView === 'day') {
+        const prev = new Date(selectedDate);
+        prev.setDate(prev.getDate() - 1);
+        setSelectedDate(prev);
+      } else {
+        const prev = new Date(selectedDate);
+        prev.setDate(prev.getDate() - 7);
+        setSelectedDate(prev);
+      }
+    };
+    const goToNextAgenda = () => {
+      if (agendaView === 'day') {
+        const next = new Date(selectedDate);
+        next.setDate(next.getDate() + 1);
+        setSelectedDate(next);
+      } else {
+        const next = new Date(selectedDate);
+        next.setDate(next.getDate() + 7);
+        setSelectedDate(next);
+      }
+    };
   // ...existing code...
   const handleEventSubmit = (e) => {
     e.preventDefault();

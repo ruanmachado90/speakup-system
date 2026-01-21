@@ -436,11 +436,11 @@ export default function AgendaProfessores() {
         {/* Visualização Semana */}
         {agendaView === 'week' && (
           <div className="border rounded-lg overflow-hidden">
-            <div className="grid grid-cols-6 bg-slate-100 border-b">
+            <div className="grid grid-cols-7 bg-slate-100 border-b">
               <div className="border-r px-2 py-2 text-[10px] font-bold text-slate-600">
                 Horário
               </div>
-              {['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta'].map((day, idx) => {
+              {['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'].map((day, idx) => {
                 const weekDay = new Date(selectedDate);
                 const dayOffset = idx + 1;
                 const firstDayOfWeek = selectedDate.getDate() - selectedDate.getDay();
@@ -478,7 +478,7 @@ export default function AgendaProfessores() {
                 return (
                   <div
                     key={hourStr}
-                    className={`grid grid-cols-6 border-b last:border-b-0 ${
+                    className={`grid grid-cols-7 border-b last:border-b-0 ${
                       i % 2 === 0 ? 'bg-white' : 'bg-slate-50'
                     }`}
                     style={{ minHeight: '32px' }}
@@ -486,7 +486,7 @@ export default function AgendaProfessores() {
                     <div className="border-r px-2 py-1 text-[10px] font-medium text-slate-600 flex items-center">
                       {hourStr}
                     </div>
-                    {[1, 2, 3, 4, 5].map((dayIdx) => {
+                    {[1, 2, 3, 4, 5, 6].map((dayIdx) => {
                       const weekDay = new Date(selectedDate);
                       const firstDayOfWeek = selectedDate.getDate() - selectedDate.getDay();
                       weekDay.setDate(firstDayOfWeek + dayIdx);

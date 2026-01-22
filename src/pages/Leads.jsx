@@ -27,19 +27,23 @@ export const Leads = ({ setModal, leads = [] }) => {
     setCurrentMonth(prev => new Date(prev.getFullYear(), prev.getMonth() + 1));
   }, []);
 
+  // Ordena os leads por data de cadastro (mais recente primeiro)
   const filteredLeads = useMemo(() => {
     if (!leads) return [];
-    
-    return leads.filter(lead => {
+    const filtered = leads.filter(lead => {
       const leadDate = lead.createdAt?.toDate ? lead.createdAt.toDate() : new Date(lead.createdAt);
       const leadMonthYear = getMonthYear(leadDate);
       const currentMonthYear = getMonthYear(currentMonth);
-      
       const matchesMonth = viewMode === 'all' || leadMonthYear === currentMonthYear;
       const matchesCourse = selectedCourse === 'all' || lead.interest?.toLowerCase().includes(selectedCourse.toLowerCase());
       const matchesLevel = selectedLevel === 'all' || lead.level === selectedLevel;
-
       return matchesMonth && matchesCourse && matchesLevel;
+    });
+    // Ordena do mais recente para o mais antigo
+    return filtered.sort((a, b) => {
+      const dateA = a.createdAt?.toDate ? a.createdAt.toDate() : new Date(a.createdAt);
+      const dateB = b.createdAt?.toDate ? b.createdAt.toDate() : new Date(b.createdAt);
+      return dateB - dateA;
     });
   }, [leads, currentMonth, selectedCourse, selectedLevel, viewMode]);
 

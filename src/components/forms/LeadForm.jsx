@@ -26,6 +26,7 @@ export const LeadForm = ({ modal, saving, onSubmit, onCancel }) => {
         name="interest" 
         defaultValue={modal.data?.interest} 
         placeholder="Ex: Kids, Teens, Adults..."
+        required
       />
 
       <div className="flex flex-col">
@@ -33,6 +34,7 @@ export const LeadForm = ({ modal, saving, onSubmit, onCancel }) => {
         <select
           name="level"
           defaultValue={modal.data?.level || ''}
+          required
           className="border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#005DE4]"
         >
           <option value="">Selecione...</option>
@@ -48,6 +50,7 @@ export const LeadForm = ({ modal, saving, onSubmit, onCancel }) => {
         <select
           name="status"
           defaultValue={modal.data?.status || 'novo'}
+          required
           className="border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#005DE4]"
         >
           <option value="novo">Novo</option>
@@ -64,6 +67,7 @@ export const LeadForm = ({ modal, saving, onSubmit, onCancel }) => {
           defaultValue={modal.data?.notes}
           rows="4"
           placeholder="Anotações sobre o lead..."
+          required
           className="border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#005DE4] resize-none"
         />
       </div>

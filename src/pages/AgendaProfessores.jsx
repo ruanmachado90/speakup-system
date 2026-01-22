@@ -98,14 +98,13 @@ export default function AgendaProfessores() {
       }
     };
   // ...existing code...
-  const handleEventSubmit = (e) => {
+  const handleEventSubmit = async (e) => {
     e.preventDefault();
     if (!validateForm()) {
       return;
     }
     const eventsToAdd = [];
     const baseEvent = {
-      id: editingEvent ? editingEvent.id : Date.now(),
       description: eventForm.description,
       responsible: eventForm.responsible,
       date: eventForm.date,
@@ -113,37 +112,49 @@ export default function AgendaProfessores() {
       endTime: eventForm.endTime,
       recurrence: eventForm.recurrence
     };
-    if (editingEvent) {
-      setEvents(events.map(e => e.id === editingEvent.id ? baseEvent : e));
-      setShowSuccessMsg(true);
-      setTimeout(() => setShowSuccessMsg(false), 3000);
-    } else {
-      eventsToAdd.push(baseEvent);
-      if (eventForm.recurrence !== 'none') {
-        const startDate = new Date(eventForm.date);
-        const occurrences = 10;
-        for (let i = 1; i <= occurrences; i++) {
-          const newDate = new Date(startDate);
-          if (eventForm.recurrence === 'daily') newDate.setDate(startDate.getDate() + i);
-          else if (eventForm.recurrence === 'weekly') newDate.setDate(startDate.getDate() + (i * 7));
-          else if (eventForm.recurrence === 'monthly') newDate.setMonth(startDate.getMonth() + i);
-          else if (eventForm.recurrence === 'yearly') newDate.setFullYear(startDate.getFullYear() + i);
-          const formattedDate = newDate.toISOString().split('T')[0];
-          eventsToAdd.push({
-            id: Date.now() + i,
-            description: eventForm.description,
-            responsible: eventForm.responsible,
-            date: formattedDate,
-            time: eventForm.time,
-            endTime: eventForm.endTime,
-            recurrence: eventForm.recurrence
-          });
+    try {
+      if (editingEvent) {
+        // Atualizar evento existente no Firestore
+        await updateDoc(doc(db, 'agendaEventos', editingEvent.id), baseEvent);
+        setEvents(events.map(e => e.id === editingEvent.id ? { ...baseEvent, id: editingEvent.id } : e));
+        setShowSuccessMsg(true);
+        setTimeout(() => setShowSuccessMsg(false), 3000);
+      } else {
+        // Adicionar evento(s) novo(s) ao Firestore
+        eventsToAdd.push(baseEvent);
+        if (eventForm.recurrence !== 'none') {
+          const startDate = new Date(eventForm.date);
+          const occurrences = 10;
+          for (let i = 1; i <= occurrences; i++) {
+            const newDate = new Date(startDate);
+            if (eventForm.recurrence === 'daily') newDate.setDate(startDate.getDate() + i);
+            else if (eventForm.recurrence === 'weekly') newDate.setDate(startDate.getDate() + (i * 7));
+            else if (eventForm.recurrence === 'monthly') newDate.setMonth(startDate.getMonth() + i);
+            else if (eventForm.recurrence === 'yearly') newDate.setFullYear(startDate.getFullYear() + i);
+            const formattedDate = newDate.toISOString().split('T')[0];
+            eventsToAdd.push({
+              description: eventForm.description,
+              responsible: eventForm.responsible,
+              date: formattedDate,
+              time: eventForm.time,
+              endTime: eventForm.endTime,
+              recurrence: eventForm.recurrence
+            });
+          }
         }
+        // Salvar todos os eventos no Firestore
+        const addedEvents = [];
+        for (const ev of eventsToAdd) {
+          const docRef = await addDoc(collection(db, 'agendaEventos'), ev);
+          addedEvents.push({ ...ev, id: docRef.id });
+        }
+        setEvents([...events, ...addedEvents]);
+        setShowSuccessMsg(true);
+        setTimeout(() => setShowSuccessMsg(false), 3000);
       }
-      const updatedEvents = [...events, ...eventsToAdd];
-      setEvents(updatedEvents);
-      setShowSuccessMsg(true);
-      setTimeout(() => setShowSuccessMsg(false), 3000);
+    } catch (err) {
+      alert('Erro ao salvar evento no Firebase!');
+      console.error(err);
     }
     setShowEventModal(false);
     setEditingEvent(null);

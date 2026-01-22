@@ -8,8 +8,25 @@ import { Card, Modal } from '../components';
 const HOUR_HEIGHT = 48;
 const EVENT_WIDTH_PERCENTAGE = 95;
 
-
 export default function AgendaProfessores() {
+  // Validação do formulário de evento
+  function validateForm() {
+    const errors = {};
+    if (!eventForm.description || eventForm.description.trim() === '') {
+      errors.description = 'Descrição obrigatória';
+    }
+    if (!eventForm.responsible || eventForm.responsible.trim() === '') {
+      errors.responsible = 'Responsável obrigatório';
+    }
+    if (!eventForm.date) {
+      errors.date = 'Data obrigatória';
+    }
+    if (!eventForm.time) {
+      errors.time = 'Horário obrigatório';
+    }
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
+  }
       // Buscar eventos do Firestore ao carregar a página
       useEffect(() => {
         async function fetchEvents() {

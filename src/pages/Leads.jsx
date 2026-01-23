@@ -1,3 +1,4 @@
+
 import { Table } from '../components';
 import { useState, useMemo, useCallback, Fragment } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
@@ -6,6 +7,8 @@ import { StatusBadge } from '../components/ui/StatusBadge';
 export const Leads = ({ setModal, leads = [] }) => {
   const [selectedCourse, setSelectedCourse] = useState('all');
   const [selectedLevel, setSelectedLevel] = useState('all');
+  const [selectedStatus, setSelectedStatus] = useState('all');
+  const [searchName, setSearchName] = useState('');
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [viewMode, setViewMode] = useState('month'); // 'month' ou 'all'
 
@@ -37,7 +40,9 @@ export const Leads = ({ setModal, leads = [] }) => {
       const matchesMonth = viewMode === 'all' || leadMonthYear === currentMonthYear;
       const matchesCourse = selectedCourse === 'all' || lead.interest?.toLowerCase().includes(selectedCourse.toLowerCase());
       const matchesLevel = selectedLevel === 'all' || lead.level === selectedLevel;
-      return matchesMonth && matchesCourse && matchesLevel;
+      const matchesStatus = selectedStatus === 'all' || lead.status === selectedStatus;
+      const matchesName = searchName.trim() === '' || (lead.name && lead.name.toLowerCase().includes(searchName.trim().toLowerCase()));
+      return matchesMonth && matchesCourse && matchesLevel && matchesStatus && matchesName;
     });
     // Ordena do mais recente para o mais antigo
     return filtered.sort((a, b) => {
@@ -45,7 +50,7 @@ export const Leads = ({ setModal, leads = [] }) => {
       const dateB = b.createdAt?.toDate ? b.createdAt.toDate() : new Date(b.createdAt);
       return dateB - dateA;
     });
-  }, [leads, currentMonth, selectedCourse, selectedLevel, viewMode]);
+  }, [leads, currentMonth, selectedCourse, selectedLevel, selectedStatus, searchName, viewMode]);
 
   const conversionRate = useMemo(() => {
     if (!filteredLeads || filteredLeads.length === 0) return 0;
@@ -63,7 +68,7 @@ export const Leads = ({ setModal, leads = [] }) => {
   }, [leads]);
 
   return (
-    <div>
+    <div className="w-full max-w-6xl mx-auto px-2">
       <div className="flex items-center justify-between mb-6">
         <h2 className="text-3xl font-black text-[#00234b]">Leads</h2>
         <button
@@ -157,6 +162,35 @@ export const Leads = ({ setModal, leads = [] }) => {
                 <option key={course} value={course}>{course}</option>
               ))}
             </select>
+          </div>
+
+          {/* Filtro por Status */}
+          <div className="flex items-center gap-2">
+            <label className="text-sm font-medium text-slate-600">Status:</label>
+            <select
+              value={selectedStatus}
+              onChange={(e) => setSelectedStatus(e.target.value)}
+              className="px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="all">Todos</option>
+              <option value="novo">Novo</option>
+              <option value="em contato">Em contato</option>
+              <option value="matriculado">Matriculado</option>
+              <option value="perdido">Perdido</option>
+            </select>
+          </div>
+
+          {/* Barra de Pesquisa por Nome */}
+          <div className="flex items-center gap-2">
+            <label className="text-sm font-medium text-slate-600">Pesquisar:</label>
+            <input
+              type="text"
+              value={searchName}
+              onChange={e => setSearchName(e.target.value)}
+              placeholder="Nome do lead..."
+              className="px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              style={{ minWidth: 180 }}
+            />
           </div>
 
           {/* Filtro por Nível */}

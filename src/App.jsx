@@ -30,6 +30,8 @@ import { Leads } from './pages/Leads';
 import CalendarPage from './pages/Calendar';
 import AgendaProfessoresPage from './pages/AgendaProfessores';
 import ContratoAssinatura from './pages/ContratoAssinatura';
+import { Vendas } from './pages';
+import Recibo from './pages/Recibo';
 // import Pedagogico from './pages/Pedagogico';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 
@@ -119,6 +121,7 @@ function AppContent() {
         <Nav icon={<ClipboardList />} label="Relatórios" active={page==="reports"} onClick={()=>setPage("reports")} />
         <Nav icon={<Calendar />} label="Calendário" active={page==="calendar"} onClick={()=>setPage("calendar")} />
         <Nav icon={<ClipboardCheck />} label="Agenda" active={page==="agenda"} onClick={()=>setPage("agenda")} />
+        <Nav icon={<FileText />} label="Vendas" active={page==="vendas"} onClick={()=>setPage("vendas")} />
         {/* <Nav icon={<PieChart />} label="Pedagógico" active={page==="pedagogico"} onClick={()=>setPage("pedagogico")} /> */}
       </aside>
 
@@ -228,6 +231,7 @@ function AppContent() {
 
             {page === "agenda" && <AgendaProfessoresPage />}
 
+            {page === "vendas" && <Vendas />}
             {/* {page === "pedagogico" && <Pedagogico />} */}
         </div>
       </main>
@@ -340,7 +344,7 @@ function AppContent() {
                 </div>
 
                 <div className="w-56 flex-shrink-0 text-center">
-                  <img src="https://www.speakupcataguases.com/wp-content/uploads/2025/11/logo-speakup-brancal-1.png" alt="Logo" className="w-full mb-4 filter brightness-0" />
+                  <img src="https://www.speakupcataguases.com/wp-content/uploads/2025/11/logo-speakup-preto.png" alt="Logo" className="w-full mb-4" />
                   <div className="bg-white p-4 rounded-xl border">
                     <p className="text-xs text-slate-400">Mensalidade</p>
                     <p className="font-bold">R$ {Number(modal.data?.fee||0).toLocaleString('pt-BR',{minimumFractionDigits:2})}</p>
@@ -424,6 +428,7 @@ export default function App() {
       <Router>
         <Routes>
           <Route path="/contrato/:id" element={<ContratoAssinatura />} />
+          <Route path="/recibo/:id" element={<Recibo />} />
           <Route path="*" element={<AppContent />} />
         </Routes>
       </Router>

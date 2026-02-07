@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
-import { Search, Edit, X, Printer, Trash2 } from 'lucide-react';
-import { Card, Table, KPI } from '../components';
+import { Search, Edit, X, Printer, Trash2, ChevronUp, ChevronDown } from 'lucide-react';
+import { Card, KPI } from '../components';
 import { printReceipt } from '../utils/print';
 
 import { usePaymentActions } from '../hooks/useActions';
@@ -21,19 +21,68 @@ const Finance = ({
   // Adiciona hook para deletar cobrança
   const { handleDeletePayment } = usePaymentActions({}, (msg) => window.toastMsg && window.toastMsg(msg));
   const [searchTerm, setSearchTerm] = useState('');
+  const [sortField, setSortField] = useState('');
+  const [sortDirection, setSortDirection] = useState('asc');
 
-  // Filtrar pagamentos por busca de nome
-  const searchedPayments = useMemo(() => {
-    if (!searchTerm) return filteredPayments;
+  // Filtrar e ordenar pagamentos
+  const processedPayments = useMemo(() => {
+    let payments = filteredPayments;
     
-    const searchLower = searchTerm.toLowerCase();
-    return filteredPayments.filter(p => {
-      const student = students.find(s => s.id === p.studentId);
-      const studentName = (p.studentName || student?.name || '').toLowerCase();
-      const responsibleName = (student?.responsibleName || '').toLowerCase();
-      return studentName.includes(searchLower) || responsibleName.includes(searchLower);
-    });
-  }, [filteredPayments, searchTerm, students]);
+    // Filtrar por busca
+    if (searchTerm) {
+      const searchLower = searchTerm.toLowerCase();
+      payments = payments.filter(p => {
+        const student = students.find(s => s.id === p.studentId);
+        const studentName = (p.studentName || student?.name || '').toLowerCase();
+        const responsibleName = (student?.responsibleName || '').toLowerCase();
+        return studentName.includes(searchLower) || responsibleName.includes(searchLower);
+      });
+    }
+    
+    // Ordenar
+    if (sortField) {
+      payments = [...payments].sort((a, b) => {
+        let valueA, valueB;
+        
+        switch (sortField) {
+          case 'name':
+            const studentA = students.find(s => s.id === a.studentId);
+            const studentB = students.find(s => s.id === b.studentId);
+            valueA = (a.studentName || studentA?.name || '').toLowerCase();
+            valueB = (b.studentName || studentB?.name || '').toLowerCase();
+            break;
+          case 'dueDate':
+            valueA = a.dueDate ? new Date(a.dueDate) : new Date(0);
+            valueB = b.dueDate ? new Date(b.dueDate) : new Date(0);
+            break;
+          case 'value':
+            valueA = Number(a.valuePlanned || 0);
+            valueB = Number(b.valuePlanned || 0);
+            break;
+          default:
+            return 0;
+        }
+        
+        if (sortField === 'dueDate' || sortField === 'value') {
+          return sortDirection === 'asc' ? valueA - valueB : valueB - valueA;
+        } else {
+          const comparison = valueA.localeCompare(valueB);
+          return sortDirection === 'asc' ? comparison : -comparison;
+        }
+      });
+    }
+    
+    return payments;
+  }, [filteredPayments, searchTerm, students, sortField, sortDirection]);
+  
+  const handleSort = (field) => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection('asc');
+    }
+  };
 
   return (
     <Card>
@@ -96,110 +145,167 @@ const Finance = ({
         />
       </div>
 
-      <div className="grid grid-cols-4 gap-4 mb-4">
-        <KPI label="Total Previsto" value={financeStats.planned} />
-        <KPI label="Total Realizado" value={financeStats.paid} positive />
-        <KPI label="Pendente" value={financeStats.pending} warn />
-        <KPI label="Atrasado" value={financeStats.overdue} />
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <div className="flex justify-center">
+          <KPI label="Total Previsto" value={financeStats.planned} />
+        </div>
+        <div className="flex justify-center">
+          <KPI label="Total Realizado" value={financeStats.paid} positive />
+        </div>
+        <div className="flex justify-center">
+          <KPI label="Pendente" value={financeStats.pending} warn />
+        </div>
+        <div className="flex justify-center">
+          <KPI label="Atrasado" value={financeStats.overdue} />
+        </div>
       </div>
 
-      <Table
-        header={["Nome / Responsável", "Vencimento", "Mensalidade", "Valor Recebido", "Status", "Ações"]}
-        data={searchedPayments}
-        render={p => {
-          const student = students.find(s => s.id === p.studentId);
-          const name = p.studentName || student?.name || '-';
-          const responsible = student?.responsibleName || '-';
-          return (
-            <>
-              <td className="px-6 py-3 text-xs font-bold">
-                {name}
-                <div className="text-[10px] text-slate-400">{responsible}</div>
-              </td>
-              <td className="px-6 py-3 text-xs">
-                {p.dueDate ? new Date(p.dueDate).toLocaleDateString('pt-BR') : '-'}
-              </td>
-              <td className="px-6 py-3 text-xs">
-                R$ {Number(p.valuePlanned || 0).toLocaleString('pt-BR', {minimumFractionDigits: 2})}
-              </td>
-              <td className="px-6 py-3 text-xs">
-                {p.status === 'Pago' ? (
-                  <span className="font-semibold text-emerald-700">
-                    R$ {Number(p.valuePaid || 0).toLocaleString('pt-BR', {minimumFractionDigits: 2})}
-                  </span>
-                ) : (
-                  <span className="text-slate-400">-</span>
-                )}
-              </td>
-              <td className="px-6 py-3">
-                <span 
-                  className={`px-2 py-1 rounded-full text-[10px] ${
-                    p.status === 'Pago' 
-                      ? 'bg-emerald-100 text-emerald-700' 
-                      : (p.dueDate && new Date(p.dueDate) < new Date() 
-                          ? 'bg-rose-100 text-rose-700' 
-                          : 'bg-amber-100 text-amber-700')
-                  }`}
+      <div className="overflow-x-auto">
+        <table className="min-w-full bg-white border border-gray-200">
+          <thead className="bg-gray-50">
+            <tr>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <button 
+                  onClick={() => handleSort('name')} 
+                  className="flex items-center space-x-1 hover:text-gray-700"
                 >
-                  {p.status === 'Pago' 
-                    ? 'Pago' 
-                    : (p.dueDate && new Date(p.dueDate) < new Date() 
-                        ? 'VENCIDO' 
-                        : p.status)
-                  }
-                </span>
-              </td>
-              <td className="px-6 py-3">
-                <div className="flex items-center gap-2">
-                  {p.status === 'Pago' && (
-                    <button
-                      onClick={() => printReceipt(p, student || {id: p.studentId, name: p.studentName})}
-                      className="text-emerald-600 hover:text-emerald-800 transition-colors"
-                      title="Imprimir Recibo"
-                      aria-label="Imprimir recibo"
-                    >
-                      <Printer size={16} />
-                    </button>
+                  <span>Nome / Responsável</span>
+                  {sortField === 'name' && (
+                    sortDirection === 'asc' ? <ChevronUp size={14} /> : <ChevronDown size={14} />
                   )}
-                  <button
-                    onClick={() => setModal({open: true, type: 'view', data: student || {id: p.studentId, name: p.studentName}})}
-                    aria-label="Visualizar aluno"
-                  >
-                    <Search size={16}/>
-                  </button>
-                  <button 
-                    onClick={() => setModal({open: true, type: p.status === 'Pago' ? 'edit-payment' : 'payment', data: p})} 
-                    aria-label={p.status === 'Pago' ? 'Editar pagamento' : 'Dar baixa no pagamento'}
-                    className={p.status === 'Pago' ? 'text-blue-500 hover:text-blue-700' : 'text-emerald-500 hover:text-emerald-700'}
-                  >
-                    <Edit size={16}/>
-                  </button>
-                  {p.status === 'Pago' && (
-                    <button 
-                      onClick={() => {
-                        if (confirm('Desfazer este pagamento?')) {
-                          handleUndoPayment(p.id);
-                        }
-                      }} 
-                      aria-label="Desfazer pagamento"
-                      className="text-red-500 hover:text-red-700"
-                    >
-                      <X size={16} />
-                    </button>
+                </button>
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <button 
+                  onClick={() => handleSort('dueDate')} 
+                  className="flex items-center space-x-1 hover:text-gray-700"
+                >
+                  <span>Vencimento</span>
+                  {sortField === 'dueDate' && (
+                    sortDirection === 'asc' ? <ChevronUp size={14} /> : <ChevronDown size={14} />
                   )}
-                  <button
-                    onClick={() => handleDeletePayment(p.id)}
-                    aria-label="Excluir cobrança"
-                    className="text-rose-500 hover:text-rose-700"
-                  >
-                    <Trash2 size={16} />
-                  </button>
-                </div>
-              </td>
-            </>
-          );
-        }}
-      />
+                </button>
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <button 
+                  onClick={() => handleSort('value')} 
+                  className="flex items-center space-x-1 hover:text-gray-700"
+                >
+                  <span>Mensalidade</span>
+                  {sortField === 'value' && (
+                    sortDirection === 'asc' ? <ChevronUp size={14} /> : <ChevronDown size={14} />
+                  )}
+                </button>
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Valor Recebido
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Status
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Ações
+              </th>
+            </tr>
+          </thead>
+          <tbody className="bg-white divide-y divide-gray-200">
+            {processedPayments.map(p => {
+              const student = students.find(s => s.id === p.studentId);
+              const name = p.studentName || student?.name || '-';
+              const responsible = student?.responsibleName || '-';
+              return (
+                <tr key={p.id} className="hover:bg-gray-50">
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                    <div>{name}</div>
+                    <div className="text-xs text-gray-500">{responsible}</div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    {p.dueDate ? new Date(p.dueDate).toLocaleDateString('pt-BR') : '-'}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    R$ {Number(p.valuePlanned || 0).toLocaleString('pt-BR', {minimumFractionDigits: 2})}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    {p.status === 'Pago' ? (
+                      <span className="font-semibold text-emerald-700">
+                        R$ {Number(p.valuePaid || 0).toLocaleString('pt-BR', {minimumFractionDigits: 2})}
+                      </span>
+                    ) : (
+                      <span className="text-gray-400">-</span>
+                    )}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span 
+                      className={`px-2 py-1 rounded-full text-xs font-medium ${
+                        p.status === 'Pago' 
+                          ? 'bg-emerald-100 text-emerald-800' 
+                          : (p.dueDate && new Date(p.dueDate) < new Date() 
+                              ? 'bg-red-100 text-red-800' 
+                              : 'bg-yellow-100 text-yellow-800')
+                      }`}
+                    >
+                      {p.status === 'Pago' 
+                        ? 'Pago' 
+                        : (p.dueDate && new Date(p.dueDate) < new Date() 
+                            ? 'VENCIDO' 
+                            : p.status)
+                      }
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                    <div className="flex items-center space-x-2">
+                      {p.status === 'Pago' && (
+                        <button
+                          onClick={() => printReceipt(p, student || {id: p.studentId, name: p.studentName})}
+                          className="text-emerald-600 hover:text-emerald-900 transition-colors"
+                          title="Imprimir Recibo"
+                          aria-label="Imprimir recibo"
+                        >
+                          <Printer size={16} />
+                        </button>
+                      )}
+                      <button
+                        onClick={() => setModal({open: true, type: 'view', data: student || {id: p.studentId, name: p.studentName}})}
+                        className="text-gray-600 hover:text-gray-900 transition-colors"
+                        aria-label="Visualizar aluno"
+                      >
+                        <Search size={16}/>
+                      </button>
+                      <button 
+                        onClick={() => setModal({open: true, type: p.status === 'Pago' ? 'edit-payment' : 'payment', data: p})} 
+                        aria-label={p.status === 'Pago' ? 'Editar pagamento' : 'Dar baixa no pagamento'}
+                        className={`transition-colors ${p.status === 'Pago' ? 'text-blue-600 hover:text-blue-900' : 'text-emerald-600 hover:text-emerald-900'}`}
+                      >
+                        <Edit size={16}/>
+                      </button>
+                      {p.status === 'Pago' && (
+                        <button 
+                          onClick={() => {
+                            if (confirm('Desfazer este pagamento?')) {
+                              handleUndoPayment(p.id);
+                            }
+                          }} 
+                          aria-label="Desfazer pagamento"
+                          className="text-red-600 hover:text-red-900 transition-colors"
+                        >
+                          <X size={16} />
+                        </button>
+                      )}
+                      <button
+                        onClick={() => handleDeletePayment(p.id)}
+                        aria-label="Excluir cobrança"
+                        className="text-red-600 hover:text-red-900 transition-colors"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
     </Card>
   );
 };

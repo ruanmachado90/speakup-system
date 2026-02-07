@@ -34,8 +34,11 @@ export default function Vendas() {
       });
       alert('Pagamento cancelado com sucesso!');
     } catch (err) {
-      console.error('Erro ao cancelar pagamento:', err);
-      alert('Erro ao cancelar pagamento. Tente novamente.\n' + (err?.message || err));
+      if (import.meta.env.DEV) {
+        console.error('Erro ao cancelar pagamento:', err);
+      }
+      const errorMessage = err?.message || 'Erro inesperado ao cancelar pagamento';
+      alert(`Erro ao cancelar pagamento: ${errorMessage}`);
     } finally {
       setLoading(false);
     }
@@ -70,8 +73,11 @@ export default function Vendas() {
       setFormBaixa({ valorPago: '', dataPagamento: '' });
       alert('Pagamento registrado com sucesso!');
     } catch (err) {
-      console.error('Erro ao registrar pagamento:', err);
-      alert('Erro ao registrar pagamento. Tente novamente.\n' + (err?.message || err));
+      if (import.meta.env.DEV) {
+        console.error('Erro ao registrar pagamento:', err);
+      }
+      const errorMessage = err?.message || 'Erro inesperado ao registrar pagamento';
+      alert(`Erro ao registrar pagamento: ${errorMessage}`);
     } finally {
       setLoading(false);
     }
@@ -114,8 +120,11 @@ export default function Vendas() {
       setFormView({});
       alert('Venda editada com sucesso!');
     } catch (err) {
-      console.error('Erro ao editar venda:', err);
-      alert('Erro ao editar venda. Tente novamente.\n' + (err?.message || err));
+      if (import.meta.env.DEV) {
+        console.error('Erro ao editar venda:', err);
+      }
+      const errorMessage = err?.message || 'Erro inesperado ao editar venda';
+      alert(`Erro ao editar venda: ${errorMessage}`);
     } finally {
       setLoading(false);
     }
@@ -129,8 +138,11 @@ export default function Vendas() {
       await deleteDoc(doc(db, 'vendas', id));
       alert('Cobrança excluída com sucesso!');
     } catch (err) {
-      console.error('Erro ao excluir cobrança:', err);
-      alert('Erro ao excluir cobrança. Tente novamente.\n' + (err?.message || err));
+      if (import.meta.env.DEV) {
+        console.error('Erro ao excluir cobrança:', err);
+      }
+      const errorMessage = err?.message || 'Erro inesperado ao excluir cobrança';
+      alert(`Erro ao excluir cobrança: ${errorMessage}`);
     } finally {
       setLoading(false);
     }

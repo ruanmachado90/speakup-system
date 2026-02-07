@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
-import { Search, Edit, X, FileText, CheckSquare, Square, Trash2, ArrowUpDown, School } from 'lucide-react';
+import { Search, Edit, X, FileText, CheckSquare, Square, Trash2, ArrowUpDown, School, Printer } from 'lucide-react';
 import { db } from '../firebase';
 import { doc, collection, getDoc, setDoc } from 'firebase/firestore';
 import { Card, Table, KPI } from '../components';
@@ -43,6 +43,94 @@ export const Students = ({
   const [statusFilter, setStatusFilter] = useState('all'); // 'all', 'ativo', 'cancelado'
   const [sortOrder, setSortOrder] = useState('asc'); // 'asc' ou 'desc'
   const [teacherFilter, setTeacherFilter] = useState('all'); // 'all' ou nome do professor
+
+  // Função para imprimir lista de alunos ativos
+  const printActiveStudents = () => {
+    const activeStudentsList = filteredStudents.filter(s => s.status !== 'cancelado');
+    
+    const html = `
+      <!DOCTYPE html>
+      <html lang="pt-BR">
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Lista de Alunos Ativos - SpeakUp</title>
+        <style>
+          * { margin: 0; padding: 0; box-sizing: border-box; }
+          body { font-family: Arial, sans-serif; padding: 15px; font-size: 11px; }
+          .header { text-align: center; margin-bottom: 20px; border-bottom: 1px solid #005DE4; padding-bottom: 15px; }
+          .logo { font-size: 18px; font-weight: bold; color: #005DE4; margin-bottom: 5px; }
+          .subtitle { color: #64748b; font-size: 10px; }
+          .stats { display: flex; justify-content: center; gap: 30px; margin-bottom: 20px; background: #f8fafc; padding: 10px; border-radius: 6px; }
+          .stat { text-align: center; }
+          .stat-value { font-size: 16px; font-weight: bold; color: #005DE4; }
+          .stat-label { font-size: 9px; color: #64748b; text-transform: uppercase; }
+          table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+          th, td { border: 1px solid #e2e8f0; padding: 6px 8px; text-align: left; font-size: 10px; }
+          th { background: #005DE4; color: white; font-weight: bold; }
+          tr:nth-child(even) { background: #f8fafc; }
+          .student-name { font-weight: bold; color: #1e293b; }
+          .responsible { color: #64748b; }
+          .mensalidade { font-weight: 600; color: #059669; }
+          .footer { margin-top: 20px; text-align: center; font-size: 9px; color: #64748b; }
+          @media print { 
+            body { padding: 10px; font-size: 10px; } 
+            th, td { padding: 4px 6px; font-size: 9px; }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <div class="logo">SpeakUp English Language Academy</div>
+          <div class="subtitle">Lista de Alunos Ativos</div>
+          <div class="subtitle">Gerado em: ${new Date().toLocaleDateString('pt-BR')} às ${new Date().toLocaleTimeString('pt-BR')}</div>
+        </div>
+
+        <div class="stats">
+          <div class="stat">
+            <div class="stat-value">${activeStudentsList.length}</div>
+            <div class="stat-label">Alunos Ativos</div>
+          </div>
+          <div class="stat">
+            <div class="stat-value">${teacherFilter !== 'all' ? `Filtro: ${teacherFilter}` : 'Todos'}</div>
+            <div class="stat-label">Filtro Aplicado</div>
+          </div>
+        </div>
+
+        <table>
+          <thead>
+            <tr>
+              <th style="width: 40%">Nome do Aluno</th>
+              <th style="width: 35%">Responsável</th>
+              <th style="width: 25%">Mensalidade</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${activeStudentsList.map(student => `
+              <tr>
+                <td class="student-name">${student.name || '-'}</td>
+                <td class="responsible">${student.responsibleName || '-'}</td>
+                <td class="mensalidade">R$ ${Number(student.monthlyFee || 0).toLocaleString('pt-BR', {minimumFractionDigits: 2})}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+
+        <div class="footer">
+          <p>SpeakUp English Language Academy - Cataguases/MG</p>
+          <p>Total de ${activeStudentsList.length} alunos ativos listados</p>
+        </div>
+
+        <script>
+          window.onload = function(){ window.print(); setTimeout(()=>window.close(), 200); };
+        </script>
+      </body>
+      </html>`;
+    
+    const w = window.open('', '_blank', 'width=900,height=700');
+    w.document.write(html);
+    w.document.close();
+  };
 
   const activeStudents = students.filter(s => s.status !== 'cancelado').length;
   const inactiveStudents = students.filter(s => s.status === 'cancelado').length;
@@ -196,6 +284,13 @@ export const Students = ({
         <div className="flex items-center justify-between mb-4">
           <div></div>
           <div className="flex gap-2">
+          <button 
+            onClick={printActiveStudents}
+            className="bg-gray-600 text-white px-4 py-2 rounded-full font-bold flex gap-2 items-center hover:bg-gray-700"
+            title="Imprimir lista de alunos ativos"
+          >
+            <Printer size={16}/> Imprimir Lista
+          </button>
           {selectedStudents.length > 0 && (
             <>
               <button 

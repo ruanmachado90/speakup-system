@@ -9,7 +9,9 @@ export const handleDeletePayment = async (id, toastMsg) => {
     await deleteDoc(doc(col('payments'), id));
     toastMsg('Cobrança removida');
   } catch (err) {
-    console.error('Erro ao remover cobrança:', err);
+    if (import.meta.env.DEV) {
+      console.error('Erro ao remover cobrança:', err);
+    }
     toastMsg('Erro ao remover cobrança');
   }
 };
@@ -352,7 +354,9 @@ export const saveExpense = async (e, user, toastMsg, setModal, setExpenseSaving)
     toastMsg('Despesa registrada');
     setModal({ open: false, type: null, data: null });
   } catch (err) {
-    console.error('Erro ao salvar despesa:', err);
+    if (import.meta.env.DEV) {
+      console.error('Erro ao salvar despesa:', err);
+    }
     toastMsg('Erro ao salvar despesa');
   } finally {
     setExpenseSaving(false);

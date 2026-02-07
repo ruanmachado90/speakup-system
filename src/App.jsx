@@ -28,12 +28,11 @@ import { Reports } from './pages/Reports';
 import { Expenses } from './pages/Expenses';
 import { Leads } from './pages/Leads';
 import CalendarPage from './pages/Calendar';
-import AgendaProfessoresPage from './pages/AgendaProfessores';
 import ContratoAssinatura from './pages/ContratoAssinatura';
 import { Vendas } from './pages';
 import Recibo from './pages/Recibo';
-// import Pedagogico from './pages/Pedagogico';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import AgendaGoogle from './pages/Agenda';
 
 function AppContent() {
   const navigate = useNavigate();
@@ -139,7 +138,6 @@ function AppContent() {
             {page === "expenses" && "Despesas"}
             {page === "reports" && "Relatórios"}
             {page === "calendar" && "Calendário"}
-            {page === "agenda" && "Agenda"}
             {/* {page === "pedagogico" && "PEDAGÓGICO"} */}
           </h1>
         </div>
@@ -229,7 +227,8 @@ function AppContent() {
 
             {page === "calendar" && <CalendarPage />}
 
-            {page === "agenda" && <AgendaProfessoresPage />}
+            {page === "agenda" && <AgendaGoogle />}
+
 
             {page === "vendas" && <Vendas />}
             {/* {page === "pedagogico" && <Pedagogico />} */}

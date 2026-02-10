@@ -30,9 +30,11 @@ import { Leads } from './pages/Leads';
 import CalendarPage from './pages/Calendar';
 import ContratoAssinatura from './pages/ContratoAssinatura';
 import { Vendas } from './pages';
+import VendasSimple from './pages/VendasSimple';
 import Recibo from './pages/Recibo';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import AgendaGoogle from './pages/Agenda';
+import Turmas from './pages/Turmas';
 
 function AppContent() {
   const navigate = useNavigate();
@@ -120,6 +122,7 @@ function AppContent() {
         <Nav icon={<ClipboardList />} label="Relatórios" active={page==="reports"} onClick={()=>setPage("reports")} />
         <Nav icon={<Calendar />} label="Calendário" active={page==="calendar"} onClick={()=>setPage("calendar")} />
         <Nav icon={<ClipboardCheck />} label="Agenda" active={page==="agenda"} onClick={()=>setPage("agenda")} />
+        <Nav icon={<Users />} label="Turmas" active={page==="turmas"} onClick={()=>setPage("turmas")} />
         <Nav icon={<FileText />} label="Vendas" active={page==="vendas"} onClick={()=>setPage("vendas")} />
         {/* <Nav icon={<PieChart />} label="Pedagógico" active={page==="pedagogico"} onClick={()=>setPage("pedagogico")} /> */}
       </aside>
@@ -138,6 +141,7 @@ function AppContent() {
             {page === "expenses" && "Despesas"}
             {page === "reports" && "Relatórios"}
             {page === "calendar" && "Calendário"}
+            {page === "turmas" && "Turmas"}
             {/* {page === "pedagogico" && "PEDAGÓGICO"} */}
           </h1>
         </div>
@@ -229,6 +233,7 @@ function AppContent() {
 
             {page === "agenda" && <AgendaGoogle />}
 
+            {page === "turmas" && <Turmas students={students} />}
 
             {page === "vendas" && <Vendas />}
             {/* {page === "pedagogico" && <Pedagogico />} */}

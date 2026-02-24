@@ -280,6 +280,51 @@ function Vendas() {
     }
   };
 
+  const reverterPagamento = async (venda) => {
+    const confirmou = await showConfirm({
+      title: 'Reverter Pagamento',
+      message: `Tem certeza que deseja reverter o pagamento de ${venda.aluno}?\nA venda voltará para o status PENDENTE.`,
+      type: 'warning',
+      confirmText: 'Reverter para Pendente',
+      cancelText: 'Cancelar'
+    });
+    
+    if (!confirmou) return;
+
+    try {
+      // Verificar se o documento ainda existe
+      const documentoExiste = await verificarDocumentoExiste('vendas', venda.id);
+      
+      if (!documentoExiste) {
+        showToast('Esta venda não existe mais no sistema. Recarregando dados...', 'error');
+        // Recarregar dados para sincronizar
+        const vendasRef = collection(db, 'vendas');
+        const vendasSnap = await getDocs(vendasRef);
+        const vendasData = vendasSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        setVendas(vendasData);
+        return;
+      }
+
+      await updateDoc(doc(db, 'vendas', venda.id), {
+        status: 'pendente',
+        valorPago: null,
+        dataPagamento: null
+      });
+      
+      setVendas(prev => 
+        prev.map(v => 
+          v.id === venda.id 
+            ? { ...v, status: 'pendente', valorPago: null, dataPagamento: null }
+            : v
+        )
+      );
+      
+      showToast('Pagamento revertido com sucesso! Venda está pendente novamente.', 'success');
+    } catch (err) {
+      handleError(err, 'reverter pagamento');
+    }
+  };
+
   const expandirSecao = (secao) => {
     setExpandedSections(prev => ({
       ...prev,
@@ -1014,42 +1059,6 @@ function Vendas() {
 
           {expandedSections.vendas && (
             <div className="space-y-4">
-              {/* Debug info */}
-              <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg text-sm">
-                <p><strong>Debug:</strong> Total vendas: {vendas.length} | Filtradas: {vendasFiltradas.length}</p>
-                <p>Pendentes: {vendas.filter(v => v.status === 'pendente').length} | Pagas: {vendas.filter(v => v.status === 'pago').length}</p>
-                {vendas.length === 0 && (
-                  <button 
-                    onClick={async () => {
-                      try {
-                        await addDoc(collection(db, 'vendas'), {
-                          aluno: 'Teste Usuario',
-                          tipo: 'Mensalidade',
-                          livro: '',
-                          valor: '100.00',
-                          pagamento: 'PIX',
-                          parcelas: '1/1',
-                          vencimento: '2026-02-15',
-                          status: 'pendente',
-                          createdAt: new Date().toISOString()
-                        });
-                        // Recarregar dados
-                        const vendasRef = collection(db, 'vendas');
-                        const vendasSnap = await getDocs(vendasRef);
-                        const vendasData = vendasSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                        setVendas(vendasData);
-                        showToast('Venda de teste criada!', 'success');
-                      } catch (err) {
-                        handleError(err, 'criar venda teste');
-                      }
-                    }}
-                    className="mt-2 bg-blue-500 text-white px-3 py-1 rounded text-sm"
-                  >
-                    Criar Venda Teste
-                  </button>
-                )}
-              </div>
-
               {/* Filtros */}
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
                 <input
@@ -1244,6 +1253,17 @@ function Vendas() {
                                     </button>
                                   )}
                                   
+                                  {/* Reverter Pagamento */}
+                                  {venda.status === 'pago' && (
+                                    <button
+                                      onClick={() => reverterPagamento(venda)}
+                                      className="text-orange-600 hover:text-orange-800 hover:bg-orange-100 p-2 rounded-full transition-colors text-sm"
+                                      title="Reverter Pagamento"
+                                    >
+                                      ↩️
+                                    </button>
+                                  )}
+                                  
                                   {/* Imprimir Recibo */}
                                   <button
                                     onClick={() => imprimirRecibo(venda)}
@@ -1366,6 +1386,15 @@ function Vendas() {
                                   ✓ Pago
                                 </button>
                               </>
+                            )}
+                            {venda.status === 'pago' && (
+                              <button
+                                onClick={() => reverterPagamento(venda)}
+                                className="bg-orange-500 text-white px-3 py-2 rounded-lg text-xs hover:bg-orange-600 transition-colors flex items-center gap-1"
+                                title="Reverter Pagamento"
+                              >
+                                ↩️ Reverter
+                              </button>
                             )}
                             <button
                               onClick={() => imprimirRecibo(venda)}

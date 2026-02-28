@@ -312,14 +312,15 @@ export const handleUndoPayment = async (paymentId, toastMsg) => {
 };
 
 /**
- * Save an expense
+ * Save or update an expense
  * @param {Event} e - Form event
  * @param {Object} user - Current authenticated user
+ * @param {Object} modal - Modal state with data
  * @param {Function} toastMsg - Toast notification function
  * @param {Function} setModal - Function to update modal state
  * @param {Function} setExpenseSaving - Function to update saving state
  */
-export const saveExpense = async (e, user, toastMsg, setModal, setExpenseSaving) => {
+export const saveExpense = async (e, user, modal, toastMsg, setModal, setExpenseSaving) => {
   e.preventDefault();
   const form = new FormData(e.target);
   const description = form.get('description')?.trim();
@@ -327,6 +328,7 @@ export const saveExpense = async (e, user, toastMsg, setModal, setExpenseSaving)
   const category = categoryRaw === 'Outro' ? (form.get('categoryOther')?.trim() || 'Outro') : categoryRaw;
   const value = Number(form.get('value') || 0);
   const dateStr = form.get('date');
+  const paymentMethod = form.get('paymentMethod')?.trim() || 'Não especificado';
 
   if (!description || isNaN(value) || value <= 0) {
     toastMsg('Descrição e valor são obrigatórios');
@@ -341,17 +343,32 @@ export const saveExpense = async (e, user, toastMsg, setModal, setExpenseSaving)
   try {
     setExpenseSaving(true);
     const d = dateStr ? new Date(dateStr) : new Date();
-    await addDoc(col('expenses'), {
+    const expenseData = {
       description,
       category,
       value,
       date: d.toISOString(),
       month: d.getMonth() + 1,
       year: d.getFullYear(),
-      createdAt: Date.now()
-    });
+      paymentMethod
+    };
 
-    toastMsg('Despesa registrada');
+    if (modal.data?.id) {
+      // ✏️ EDITAR DESPESA
+      await updateDoc(doc(col('expenses'), modal.data.id), {
+        ...expenseData,
+        updatedAt: Date.now()
+      });
+      toastMsg('Despesa atualizada com sucesso!');
+    } else {
+      // ➕ NOVA DESPESA
+      await addDoc(col('expenses'), {
+        ...expenseData,
+        createdAt: Date.now()
+      });
+      toastMsg('Despesa registrada com sucesso!');
+    }
+
     setModal({ open: false, type: null, data: null });
   } catch (err) {
     if (import.meta.env.DEV) {

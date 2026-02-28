@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from 'react-router-dom';
 import {
   Users,
@@ -10,7 +10,9 @@ import {
   ClipboardList,
   Calendar,
   ClipboardCheck,
-  UserPlus
+  UserPlus,
+  Menu,
+  X
 } from "lucide-react";
 
 import { 
@@ -38,6 +40,26 @@ import Turmas from './pages/Turmas';
 
 function AppContent() {
   const navigate = useNavigate();
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+  
+  // Ajustar sidebar baseado no tamanho da tela
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth < 1024) {
+        setSidebarOpen(false);
+      } else {
+        setSidebarOpen(true);
+      }
+    };
+    
+    // Executar na montagem
+    handleResize();
+    
+    // Escutar mudanças de tamanho
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+  
   const {
     page,
     setPage,
@@ -112,7 +134,9 @@ function AppContent() {
       `}</style>
 
       {/* SIDEBAR */}
-      <aside className="w-64 bg-[#005DE4] text-white fixed h-full p-6">
+      <aside className={`w-64 bg-[#005DE4] text-white fixed h-full p-6 transition-transform duration-300 ease-in-out z-20 ${
+        sidebarOpen ? 'translate-x-0' : '-translate-x-full'
+      } shadow-2xl`}>
         <Logo />
         <Nav icon={<LayoutDashboard />} label="Dashboard" active={page==="dashboard"} onClick={()=>setPage("dashboard")} />
         <Nav icon={<Users />} label="Alunos" active={page==="students"} onClick={()=>setPage("students")} />
@@ -127,12 +151,31 @@ function AppContent() {
         {/* <Nav icon={<PieChart />} label="Pedagógico" active={page==="pedagogico"} onClick={()=>setPage("pedagogico")} /> */}
       </aside>
 
+      {/* Overlay para mobile */}
+      {sidebarOpen && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 z-10 lg:hidden transition-opacity duration-300"
+          onClick={() => setSidebarOpen(false)}
+          aria-hidden="true"
+        />
+      )}
+
       {/* MAIN */}
-      <main className="ml-64 flex-1">
+      <main className={`flex-1 transition-all duration-300 ease-in-out ${
+        sidebarOpen ? 'ml-64' : 'ml-0'
+      }`}>
 
         {/* HEADER */}
         <header className="bg-white border-b px-8 py-4 flex justify-between items-center sticky top-0 z-10">
-          <div>
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => setSidebarOpen(!sidebarOpen)}
+              className="p-2 hover:bg-slate-100 rounded-lg transition-colors text-slate-700"
+              aria-label="Toggle menu"
+              title={sidebarOpen ? "Fechar menu" : "Abrir menu"}
+            >
+              {sidebarOpen ? <X size={24} /> : <Menu size={24} />}
+            </button>
           <h1 className="font-black text-xl uppercase">
             {page === "dashboard" && "Painel de Controle"}
             {page === "students" && "Gestão de Alunos"}

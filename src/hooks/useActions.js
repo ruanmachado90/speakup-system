@@ -34,7 +34,7 @@ export const usePaymentActions = (modal, toastMsg, setModal, setPaymentSaving) =
 };
 
 export const useExpenseActions = (user, modal, toastMsg, setModal, setExpenseSaving) => {
-  const saveExpense = (e) => saveExpenseHandler(e, user, toastMsg, setModal, setExpenseSaving);
+  const saveExpense = (e) => saveExpenseHandler(e, user, modal, toastMsg, setModal, setExpenseSaving);
   const handleDeleteExpense = (id) => deleteExpenseHandler(id, toastMsg);
 
   return { saveExpense, handleDeleteExpense };

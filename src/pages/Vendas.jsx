@@ -280,6 +280,43 @@ function Vendas() {
     }
   };
 
+  const excluirVenda = async (venda) => {
+    const confirmou = await showConfirm({
+      title: 'Excluir Venda Definitivamente',
+      message: `Tem certeza que deseja EXCLUIR permanentemente a venda de ${venda.aluno}?\n\nEsta ação é IRREVERSÍVEL e a venda será removida do sistema!`,
+      type: 'danger',
+      confirmText: 'Excluir Permanentemente',
+      cancelText: 'Cancelar'
+    });
+    
+    if (!confirmou) return;
+
+    try {
+      // Verificar se o documento ainda existe
+      const documentoExiste = await verificarDocumentoExiste('vendas', venda.id);
+      
+      if (!documentoExiste) {
+        showToast('Esta venda não existe mais no sistema. Recarregando dados...', 'error');
+        // Recarregar dados para sincronizar
+        const vendasRef = collection(db, 'vendas');
+        const vendasSnap = await getDocs(vendasRef);
+        const vendasData = vendasSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        setVendas(vendasData);
+        return;
+      }
+
+      // Deletar do Firebase
+      await deleteDoc(doc(db, 'vendas', venda.id));
+      
+      // Remover do estado local
+      setVendas(prev => prev.filter(v => v.id !== venda.id));
+      
+      showToast('Venda excluída com sucesso!', 'success');
+    } catch (err) {
+      handleError(err, 'excluir venda');
+    }
+  };
+
   const reverterPagamento = async (venda) => {
     const confirmou = await showConfirm({
       title: 'Reverter Pagamento',
@@ -732,10 +769,13 @@ function Vendas() {
                 
                 console.log('Vendas após filtro de aluno:', vendasComFiltroAluno.length);
                 
+                // Excluir vendas canceladas dos cálculos
+                const vendasNaoCanceladas = vendasComFiltroAluno.filter(v => v.status !== 'cancelado');
+                
                 // Agrupar vendas para identificar vendas únicas (não contar parcelas como vendas separadas)
                 const vendasUnicas = new Map();
                 
-                vendasComFiltroAluno.forEach(venda => {
+                vendasNaoCanceladas.forEach(venda => {
                   // Usar createdAt se disponível, senão usar vencimento como fallback
                   const dataReferencia = venda.createdAt || venda.vencimento || '';
                   const dataBase = dataReferencia.slice(0, 10);
@@ -755,17 +795,21 @@ function Vendas() {
                 });
                 
                 const totalVendasGeradas = vendasUnicas.size;
-                const totalPrevisto = vendasComFiltroAluno.reduce((acc, v) => acc + parseFloat(v.valor || 0), 0);
-                const valorPago = vendasComFiltroAluno.filter(v => v.status === 'pago').reduce((acc, v) => acc + parseFloat(v.valor || 0), 0);
-                const valorPendente = vendasComFiltroAluno.filter(v => v.status === 'pendente').reduce((acc, v) => acc + parseFloat(v.valor || 0), 0);
-                const cobrancasAtrasadas = vendasComFiltroAluno.filter(v => v.status === 'pendente' && v.vencimento < hoje).length;
+                const totalPrevisto = vendasNaoCanceladas.reduce((acc, v) => acc + parseFloat(v.valor || 0), 0);
+                const valorPago = vendasNaoCanceladas.filter(v => v.status === 'pago').reduce((acc, v) => acc + parseFloat(v.valor || 0), 0);
+                const valorPendente = vendasNaoCanceladas.filter(v => v.status === 'pendente').reduce((acc, v) => acc + parseFloat(v.valor || 0), 0);
+                const cobrancasAtrasadas = vendasNaoCanceladas.filter(v => v.status === 'pendente' && v.vencimento < hoje).length;
+                const vendasCanceladas = vendasComFiltroAluno.filter(v => v.status === 'cancelado').length;
+                const valorCancelado = vendasComFiltroAluno.filter(v => v.status === 'cancelado').reduce((acc, v) => acc + parseFloat(v.valor || 0), 0);
                 
                 console.log('KPIs calculados:', {
                   totalVendasGeradas,
                   totalPrevisto: totalPrevisto.toFixed(2),
                   valorPago: valorPago.toFixed(2),
                   valorPendente: valorPendente.toFixed(2),
-                  cobrancasAtrasadas
+                  cobrancasAtrasadas,
+                  vendasCanceladas,
+                  valorCancelado: valorCancelado.toFixed(2)
                 });
                 console.log('Vendas pagas encontradas:', vendasComFiltroAluno.filter(v => v.status === 'pago'));
                 console.log('=== FIM DEBUG ===');
@@ -1114,8 +1158,9 @@ function Vendas() {
                     </div>
                     <div className="text-sm text-blue-600">
                       {(() => {
-                        const totalValor = vendasFiltradas.reduce((sum, venda) => sum + parseFloat(venda.valor), 0);
-                        const totalPago = vendasFiltradas.reduce((sum, venda) => sum + parseFloat(venda.valorPago || 0), 0);
+                        const vendasNaoCanceladas = vendasFiltradas.filter(v => v.status !== 'cancelado');
+                        const totalValor = vendasNaoCanceladas.reduce((sum, venda) => sum + parseFloat(venda.valor), 0);
+                        const totalPago = vendasNaoCanceladas.reduce((sum, venda) => sum + parseFloat(venda.valorPago || 0), 0);
                         return `Total: R$ ${totalValor.toFixed(2)} | Pago: R$ ${totalPago.toFixed(2)}`;
                       })()}
                     </div>
@@ -1303,6 +1348,17 @@ function Vendas() {
                                       ❌
                                     </button>
                                   )}
+                                  
+                                  {/* Excluir Venda Cancelada */}
+                                  {venda.status === 'cancelado' && (
+                                    <button
+                                      onClick={() => excluirVenda(venda)}
+                                      className="text-red-700 hover:text-red-900 hover:bg-red-200 p-2 rounded-full transition-colors text-sm"
+                                      title="Excluir Venda Permanentemente"
+                                    >
+                                      🗑️
+                                    </button>
+                                  )}
                                 </div>
                               </td>
                             </tr>
@@ -1414,6 +1470,14 @@ function Vendas() {
                                 className="bg-yellow-500 text-white px-3 py-2 rounded-lg text-xs hover:bg-yellow-600 transition-colors flex items-center gap-1"
                               >
                                 ✏️ Editar
+                              </button>
+                            )}
+                            {venda.status === 'cancelado' && (
+                              <button
+                                onClick={() => excluirVenda(venda)}
+                                className="bg-red-600 text-white px-3 py-2 rounded-lg text-xs hover:bg-red-700 transition-colors flex items-center gap-1"
+                              >
+                                🗑️ Excluir
                               </button>
                             )}
                           </div>

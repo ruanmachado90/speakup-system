@@ -27,22 +27,43 @@ export const PaymentForm = ({ modal, paymentSaving, onSubmit, onCancel, isEdit =
             type="number" 
             name="valuePaid" 
             step="0.01" 
+            min="0.01"
             required 
             defaultValue={isEdit ? modal.data?.valuePaid : (modal.data?.valuePlanned || 0)}
             className="w-full px-4 py-3 rounded-xl border focus:outline-none focus:ring-2 focus:ring-[#005DE4]" 
             placeholder="0.00"
           />
+          {!isEdit && modal.data?.valuePlanned && (
+            <p className="text-xs text-gray-500 mt-1">
+              Esperado: R$ {Number(modal.data.valuePlanned).toLocaleString('pt-BR', {minimumFractionDigits: 2})}
+            </p>
+          )}
         </div>
       </div>
 
-      <div>
-        <label className="block text-sm font-semibold mb-2">Data do Pagamento</label>
-        <input 
-          type="date" 
-          name="paymentDate" 
-          defaultValue={isEdit ? modal.data?.paymentDate : new Date().toISOString().split('T')[0]}
-          className="w-full px-4 py-3 rounded-xl border focus:outline-none focus:ring-2 focus:ring-[#005DE4]" 
-        />
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <label className="block text-sm font-semibold mb-2">Data do Pagamento</label>
+          <input 
+            type="date" 
+            name="paymentDate" 
+            defaultValue={isEdit ? modal.data?.paymentDate : new Date().toISOString().split('T')[0]}
+            className="w-full px-4 py-3 rounded-xl border focus:outline-none focus:ring-2 focus:ring-[#005DE4]" 
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-semibold mb-2">Forma de Pagamento</label>
+          <select 
+            name="paymentMethod" 
+            defaultValue={isEdit ? modal.data?.paymentMethod : 'PIX'}
+            className="w-full px-4 py-3 rounded-xl border focus:outline-none focus:ring-2 focus:ring-[#005DE4] bg-white"
+          >
+            <option value="PIX">PIX</option>
+            <option value="Cartão">Cartão</option>
+            <option value="Dinheiro">Dinheiro</option>
+            <option value="Boleto">Boleto</option>
+          </select>
+        </div>
       </div>
 
       <div className="grid grid-cols-2 gap-4">

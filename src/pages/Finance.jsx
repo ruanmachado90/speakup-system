@@ -1,7 +1,10 @@
 import { useState, useMemo } from 'react';
-import { Search, Edit, X, Printer, Trash2, ChevronUp, ChevronDown } from 'lucide-react';
+import { Search, Edit, X, Printer, Trash2, ChevronUp, ChevronDown, Link, Check, Settings, CheckCircle } from 'lucide-react';
 import { Card, KPI } from '../components';
 import { printReceipt } from '../utils/print';
+import PixInfoForm from '../components/forms/PixInfoForm';
+import { doc, setDoc } from 'firebase/firestore';
+import { db } from '../firebase';
 
 import { usePaymentActions } from '../hooks/useActions';
 
@@ -23,6 +26,75 @@ const Finance = ({
   const [searchTerm, setSearchTerm] = useState('');
   const [sortField, setSortField] = useState('');
   const [sortDirection, setSortDirection] = useState('asc');
+  const [pixModalOpen, setPixModalOpen] = useState(false);
+  const [selectedPayment, setSelectedPayment] = useState(null);
+  const [copiedLinkId, setCopiedLinkId] = useState(null);
+  const [savingPix, setSavingPix] = useState(false);
+
+  // Função para salvar informações PIX
+  const handleSavePixInfo = async (pixData) => {
+    if (!selectedPayment) {
+      alert('Erro: Nenhum pagamento selecionado.');
+      return;
+    }
+    
+    try {
+      // Buscar dados do aluno
+      const student = students.find(s => s.id === selectedPayment.studentId);
+      const studentName = selectedPayment.studentName || student?.name || '';
+      const responsibleName = student?.responsibleName || '';
+      
+      await setDoc(doc(db, 'payments', selectedPayment.id), {
+        pixQRCode: pixData.pixQRCode,
+        pixCode: pixData.pixCode,
+        studentName: studentName,
+        responsibleName: responsibleName,
+        valuePlanned: selectedPayment.valuePlanned,
+        dueDate: selectedPayment.dueDate,
+        description: selectedPayment.description || ''
+      }, { merge: true });
+      
+      // Fechar modal e limpar sele\u00e7\u00e3o
+      setPixModalOpen(false);
+      setSelectedPayment(null);
+      
+      // Copiar link automaticamente após salvar
+      const paymentLink = `${window.location.origin}/pagamento/${selectedPayment.id}`;
+      await navigator.clipboard.writeText(paymentLink);
+      setCopiedLinkId(selectedPayment.id);
+      setTimeout(() => setCopiedLinkId(null), 2000);
+      
+      if (window.toastMsg) {
+        window.toastMsg('Link de pagamento salvo e copiado!');
+      } else {
+        alert('Link de pagamento salvo e copiado com sucesso!');
+      }
+    } catch (error) {
+      console.error('Erro ao salvar PIX:', error);
+      const msg = 'Erro ao salvar informações PIX: ' + (error.message || 'Erro desconhecido');
+      window.toastMsg ? window.toastMsg(msg) : alert(msg);
+    } finally {
+      setSavingPix(false);
+    }
+  };
+
+  // Função para copiar link de pagamento
+  const handleCopyPaymentLink = async (payment) => {
+    const paymentLink = `${window.location.origin}/pagamento/${payment.id}`;
+    try {
+      await navigator.clipboard.writeText(paymentLink);
+      setCopiedLinkId(payment.id);
+      setTimeout(() => setCopiedLinkId(null), 2000);
+      
+      if (window.toastMsg) {
+        window.toastMsg('Link de pagamento copiado!');
+      }
+    } catch (error) {
+      console.error('Erro ao copiar link:', error);
+      const msg = 'Erro ao copiar link. Tente novamente.';
+      window.toastMsg ? window.toastMsg(msg) : alert(msg);
+    }
+  };
 
   // Filtrar e ordenar pagamentos
   const processedPayments = useMemo(() => {
@@ -227,9 +299,14 @@ const Finance = ({
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                     {p.status === 'Pago' ? (
-                      <span className="font-semibold text-emerald-700">
-                        R$ {Number(p.valuePaid || 0).toLocaleString('pt-BR', {minimumFractionDigits: 2})}
-                      </span>
+                      <div>
+                        <span className="font-semibold text-emerald-700">
+                          R$ {Number(p.valuePaid || 0).toLocaleString('pt-BR', {minimumFractionDigits: 2})}
+                        </span>
+                        {p.paymentMethod && (
+                          <div className="text-xs text-gray-500 mt-1">{p.paymentMethod}</div>
+                        )}
+                      </div>
                     ) : (
                       <span className="text-gray-400">-</span>
                     )}
@@ -239,14 +316,14 @@ const Finance = ({
                       className={`px-2 py-1 rounded-full text-xs font-medium ${
                         p.status === 'Pago' 
                           ? 'bg-emerald-100 text-emerald-800' 
-                          : (p.dueDate && new Date(p.dueDate) < new Date() 
+                          : (p.dueDate && new Date(p.dueDate).setHours(0,0,0,0) < new Date().setHours(0,0,0,0)
                               ? 'bg-red-100 text-red-800' 
                               : 'bg-yellow-100 text-yellow-800')
                       }`}
                     >
                       {p.status === 'Pago' 
                         ? 'Pago' 
-                        : (p.dueDate && new Date(p.dueDate) < new Date() 
+                        : (p.dueDate && new Date(p.dueDate).setHours(0,0,0,0) < new Date().setHours(0,0,0,0)
                             ? 'VENCIDO' 
                             : p.status)
                       }
@@ -265,9 +342,17 @@ const Finance = ({
                         </button>
                       )}
                       <button
-                        onClick={() => setModal({open: true, type: 'view', data: student || {id: p.studentId, name: p.studentName}})}
+                        onClick={() => {
+                          if (!student && !p.studentName) {
+                            const msg = 'Aluno não encontrado no sistema';
+                            window.toastMsg ? window.toastMsg(msg) : alert(msg);
+                            return;
+                          }
+                          setModal({open: true, type: 'view', data: student || {id: p.studentId, name: p.studentName}});
+                        }}
                         className="text-gray-600 hover:text-gray-900 transition-colors"
                         aria-label="Visualizar aluno"
+                        title="Visualizar informações do aluno"
                       >
                         <Search size={16}/>
                       </button>
@@ -275,8 +360,28 @@ const Finance = ({
                         onClick={() => setModal({open: true, type: p.status === 'Pago' ? 'edit-payment' : 'payment', data: p})} 
                         aria-label={p.status === 'Pago' ? 'Editar pagamento' : 'Dar baixa no pagamento'}
                         className={`transition-colors ${p.status === 'Pago' ? 'text-blue-600 hover:text-blue-900' : 'text-emerald-600 hover:text-emerald-900'}`}
+                        title={p.status === 'Pago' ? 'Editar pagamento' : 'Dar baixa no pagamento'}
                       >
-                        <Edit size={16}/>
+                        {p.status === 'Pago' ? <Edit size={16}/> : <CheckCircle size={16}/>}
+                      </button>
+                      <button
+                        onClick={() => {
+                          setSelectedPayment(p);
+                          setPixModalOpen(true);
+                        }}
+                        aria-label="Configurar link de pagamento"
+                        className="text-purple-600 hover:text-purple-900 transition-colors"
+                        title="Configurar informações PIX"
+                      >
+                        <Settings size={16} />
+                      </button>
+                      <button
+                        onClick={() => handleCopyPaymentLink(p)}
+                        aria-label="Copiar link de pagamento"
+                        className={`transition-colors ${copiedLinkId === p.id ? 'text-green-600' : 'text-indigo-600 hover:text-indigo-900'}`}
+                        title={p.pixCode && p.pixQRCode ? 'Copiar link de pagamento' : 'Link não configurado'}
+                      >
+                        {copiedLinkId === p.id ? <Check size={16} /> : <Link size={16} />}
                       </button>
                       {p.status === 'Pago' && (
                         <button 
@@ -292,9 +397,14 @@ const Finance = ({
                         </button>
                       )}
                       <button
-                        onClick={() => handleDeletePayment(p.id)}
+                        onClick={() => {
+                          if (window.confirm(`Tem certeza que deseja excluir esta cobrança?\n\nAluno: ${name}\nValor: R$ ${Number(p.valuePlanned || 0).toLocaleString('pt-BR', {minimumFractionDigits: 2})}`)) {
+                            handleDeletePayment(p.id);
+                          }
+                        }}
                         aria-label="Excluir cobrança"
                         className="text-red-600 hover:text-red-900 transition-colors"
+                        title="Excluir cobrança"
                       >
                         <Trash2 size={16} />
                       </button>
@@ -306,6 +416,17 @@ const Finance = ({
           </tbody>
         </table>
       </div>
+      
+      {/* Modal para configurar PIX */}
+      <PixInfoForm
+        isOpen={pixModalOpen}
+        onClose={() => {
+          setPixModalOpen(false);
+          setSelectedPayment(null);
+        }}
+        onSave={handleSavePixInfo}
+        payment={selectedPayment}
+      />
     </Card>
   );
 };

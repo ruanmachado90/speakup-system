@@ -34,6 +34,7 @@ import ContratoAssinatura from './pages/ContratoAssinatura';
 import { Vendas } from './pages';
 import VendasSimple from './pages/VendasSimple';
 import Recibo from './pages/Recibo';
+import PaymentLink from './pages/PaymentLink';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import AgendaGoogle from './pages/Agenda';
 import Turmas from './pages/Turmas';
@@ -476,6 +477,7 @@ export default function App() {
         <Routes>
           <Route path="/contrato/:id" element={<ContratoAssinatura />} />
           <Route path="/recibo/:id" element={<Recibo />} />
+          <Route path="/pagamento/:paymentId" element={<PaymentLink />} />
           <Route path="*" element={<AppContent />} />
         </Routes>
       </Router>

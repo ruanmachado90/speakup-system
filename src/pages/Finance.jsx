@@ -34,15 +34,22 @@ const Finance = ({
   // Função para salvar informações PIX
   const handleSavePixInfo = async (pixData) => {
     if (!selectedPayment) {
-      alert('Erro: Nenhum pagamento selecionado.');
+      const msg = 'Erro: Nenhum pagamento selecionado.';
+      window.toastMsg ? window.toastMsg(msg) : alert(msg);
       return;
     }
     
+    if (savingPix) return; // Prevenir múltiplos cliques
+    
     try {
+      setSavingPix(true);
+      
       // Buscar dados do aluno
       const student = students.find(s => s.id === selectedPayment.studentId);
       const studentName = selectedPayment.studentName || student?.name || '';
       const responsibleName = student?.responsibleName || '';
+      
+      console.log('Salvando PIX para pagamento ID:', selectedPayment.id);
       
       await setDoc(doc(db, 'payments', selectedPayment.id), {
         pixQRCode: pixData.pixQRCode,
@@ -51,18 +58,22 @@ const Finance = ({
         responsibleName: responsibleName,
         valuePlanned: selectedPayment.valuePlanned,
         dueDate: selectedPayment.dueDate,
-        description: selectedPayment.description || ''
+        description: selectedPayment.description || '',
+        status: selectedPayment.status || 'Pendente'
       }, { merge: true });
       
-      // Fechar modal e limpar sele\u00e7\u00e3o
-      setPixModalOpen(false);
-      setSelectedPayment(null);
+      console.log('PIX salvo com sucesso. ID:', selectedPayment.id);
       
       // Copiar link automaticamente após salvar
       const paymentLink = `${window.location.origin}/pagamento/${selectedPayment.id}`;
+      console.log('Link gerado:', paymentLink);
       await navigator.clipboard.writeText(paymentLink);
       setCopiedLinkId(selectedPayment.id);
       setTimeout(() => setCopiedLinkId(null), 2000);
+      
+      // Fechar modal e limpar seleção
+      setPixModalOpen(false);
+      setSelectedPayment(null);
       
       if (window.toastMsg) {
         window.toastMsg('Link de pagamento salvo e copiado!');

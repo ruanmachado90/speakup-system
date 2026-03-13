@@ -1,6 +1,6 @@
 import { useMemo, useState, useEffect } from 'react';
 import { PlusCircle, AlertCircle, Trash2, TrendingDown, Edit2, Download, FileSpreadsheet, Printer, Filter } from 'lucide-react';
-import { Card, Table, DonutChart, ExpenseEvolutionChart } from '../components';
+import { Card, Table, DonutChart, ExpenseEvolutionChart, PaymentMethodChart } from '../components';
 import { ConfirmDialog, Toast } from '../components/ui/Toast';
 import { formatCurrency, formatDate, exportToExcel, exportToCSV, printExpenses } from '../utils';
 
@@ -238,6 +238,28 @@ const Expenses = ({
         </div>
         {filteredExpensesData.length > 0 ? (
           <DonutChart data={filteredExpensesData} />
+        ) : (
+          <div className="py-12 text-center text-slate-400 text-sm">
+            <AlertCircle size={32} className="mx-auto mb-2 opacity-50" />
+            Sem dados para exibir
+          </div>
+        )}
+      </Card>
+
+      {/* Payment Methods Chart Card */}
+      <Card>
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h3 className="font-bold text-lg">Despesas por Método de Pagamento</h3>
+            <p className="text-xs text-slate-400">
+              {expenseView === 'month' 
+                ? `${MONTHS[expenseMonth]} ${expenseYear}`
+                : `Ano ${expenseYear}`}
+            </p>
+          </div>
+        </div>
+        {filteredExpensesData.length > 0 ? (
+          <PaymentMethodChart data={filteredExpensesData} />
         ) : (
           <div className="py-12 text-center text-slate-400 text-sm">
             <AlertCircle size={32} className="mx-auto mb-2 opacity-50" />

@@ -10,6 +10,7 @@ const PaymentLink = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [copied, setCopied] = useState(false);
+  const [imageError, setImageError] = useState(false);
 
   useEffect(() => {
     const fetchPaymentData = async () => {
@@ -31,6 +32,7 @@ const PaymentLink = () => {
 
         const paymentData = { id: paymentDoc.id, ...paymentDoc.data() };
         console.log('Dados do pagamento:', paymentData);
+        console.log('URL do QR Code:', paymentData.pixQRCode);
         
         // Validar se tem informações de PIX
         if (!paymentData.pixCode || !paymentData.pixQRCode) {
@@ -154,22 +156,33 @@ const PaymentLink = () => {
 
           {/* QR Code */}
           {payment?.pixQRCode && (
-            <div className="bg-white border-2 border-gray-200 rounded-lg p-2 sm:p-4 mb-3 sm:mb-6 flex justify-center">
-              <img 
-                src={payment.pixQRCode} 
-                alt="QR Code PIX" 
-                className="w-full max-w-[220px] sm:max-w-[280px] h-auto aspect-square object-contain"
-                onError={(e) => {
-                  e.target.style.display = 'none';
-                  const container = e.target.parentElement;
-                  if (container && !container.querySelector('.error-message')) {
-                    const errorMsg = document.createElement('p');
-                    errorMsg.className = 'error-message text-red-600 text-xs sm:text-sm text-center p-4';
-                    errorMsg.textContent = 'Erro ao carregar QR Code. Use o código PIX abaixo.';
-                    container.appendChild(errorMsg);
-                  }
-                }}
-              />
+            <div className="bg-white border-2 border-gray-200 rounded-lg p-2 sm:p-4 mb-3 sm:mb-6">
+              {!imageError ? (
+                <div className="flex justify-center">
+                  <img 
+                    src={payment.pixQRCode} 
+                    alt="QR Code PIX" 
+                    className="w-full max-w-[220px] sm:max-w-[280px] h-auto aspect-square object-contain"
+                    onLoad={() => {
+                      console.log('QR Code carregado com sucesso');
+                    }}
+                    onError={(e) => {
+                      console.error('Erro ao carregar QR Code:', payment.pixQRCode);
+                      console.error('Detalhes do erro:', e);
+                      setImageError(true);
+                    }}
+                  />
+                </div>
+              ) : (
+                <div className="text-center p-4">
+                  <p className="text-red-600 text-xs sm:text-sm mb-2">
+                    ⚠️ Erro ao carregar QR Code
+                  </p>
+                  <p className="text-gray-600 text-xs">
+                    Use o código PIX abaixo para realizar o pagamento
+                  </p>
+                </div>
+              )}
             </div>
           )}
 

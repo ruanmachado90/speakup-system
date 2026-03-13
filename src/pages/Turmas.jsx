@@ -12,6 +12,8 @@ export default function Turmas({ students = [] }) {
   const [searchAluno, setSearchAluno] = useState('');
   const [selectedAlunos, setSelectedAlunos] = useState([]);
   const [expandedTurmas, setExpandedTurmas] = useState(new Set());
+  const [showProfessorReport, setShowProfessorReport] = useState(false);
+  const [expandedProfessores, setExpandedProfessores] = useState(new Set());
   
   // Estados de UI e loading
   const [loading, setLoading] = useState(true);
@@ -114,6 +116,15 @@ export default function Turmas({ students = [] }) {
     return errors;
   };
 
+  // Obter alunos da turma baseado nos IDs salvos
+  const getAlunosDaTurma = (turma) => {
+    if (!turma.alunosIds || !Array.isArray(turma.alunosIds)) {
+      return [];
+    }
+    
+    return students.filter(student => turma.alunosIds.includes(student.id));
+  };
+
   // Carregar turmas do Firebase
   useEffect(() => {
     const loadTurmas = async () => {
@@ -136,6 +147,107 @@ export default function Turmas({ students = [] }) {
 
     loadTurmas();
   }, []);
+
+  // Filtrar turmas com dados reais do Firebase
+  const todasTurmasSemFiltro = useMemo(() => {
+    return turmas.map(turma => ({
+      ...turma,
+      alunos: turma.alunosCount || 0 // Compatibilidade
+    }));
+  }, [turmas]);
+
+  // Turmas filtradas com otimização - DEVE VIR ANTES de getProfessorStats
+  const turmasFiltradas = useMemo(() => {
+    return todasTurmasSemFiltro.filter(turma => {
+      // Filtro por professor
+      if (filtros.professor !== 'all' && turma.professor !== filtros.professor) {
+        return false;
+      }
+      
+      // Filtro por dia
+      if (filtros.dia !== 'all' && !turma.dias.includes(filtros.dia)) {
+        return false;
+      }
+      
+      // Filtro por nível
+      if (filtros.nivel !== 'all' && turma.nivel !== filtros.nivel) {
+        return false;
+      }
+      
+      return true;
+    });
+  }, [todasTurmasSemFiltro, filtros]);
+
+  // Função para calcular horas de uma aula baseado no horário (ex: "14:00 - 15:30" = 1.5)
+  const calcularHorasAula = (horario) => {
+    try {
+      const [inicio, fim] = horario.split('-').map(h => h.trim());
+      const [horaInicio, minInicio] = inicio.split(':').map(Number);
+      const [horaFim, minFim] = fim.split(':').map(Number);
+      
+      const minutosInicio = horaInicio * 60 + minInicio;
+      const minutosFim = horaFim * 60 + minFim;
+      
+      return (minutosFim - minutosInicio) / 60;
+    } catch (error) {
+      return 0;
+    }
+  };
+
+  // Função para contar dias de aula na semana
+  const contarDiasAula = (dias) => {
+    if (!dias) return 0;
+    return dias.split(',').map(d => d.trim()).filter(d => d).length;
+  };
+
+  // Calcular estatísticas por professor
+  const getProfessorStats = useMemo(() => {
+    const stats = {};
+    
+    turmasFiltradas.forEach(turma => {
+      if (!stats[turma.professor]) {
+        stats[turma.professor] = {
+          nome: turma.professor,
+          turmas: [],
+          totalTurmas: 0,
+          totalAlunos: 0,
+          horasPorSemana: 0,
+          horasPorMes: 0
+        };
+      }
+      
+      const horasAula = calcularHorasAula(turma.horario);
+      const diasSemana = contarDiasAula(turma.dias);
+      const horasSemanais = horasAula * diasSemana;
+      const alunosDaTurma = getAlunosDaTurma(turma);
+      
+      stats[turma.professor].turmas.push({
+        ...turma,
+        horasAula,
+        diasSemana,
+        horasSemanais,
+        alunos: alunosDaTurma
+      });
+      
+      stats[turma.professor].totalTurmas += 1;
+      stats[turma.professor].totalAlunos += alunosDaTurma.length;
+      stats[turma.professor].horasPorSemana += horasSemanais;
+      stats[turma.professor].horasPorMes = stats[turma.professor].horasPorSemana * 4; // Aproximação: 4 semanas por mês
+    });
+    
+    return Object.values(stats).sort((a, b) => b.horasPorSemana - a.horasPorSemana);
+  }, [turmasFiltradas, students]);
+
+  // Toggle expansão do relatório de professor
+  const toggleProfessorExpansion = (professorNome) => {
+    const newExpanded = new Set(expandedProfessores);
+    if (newExpanded.has(professorNome)) {
+      newExpanded.delete(professorNome);
+    } else {
+      newExpanded.add(professorNome);
+    }
+    setExpandedProfessores(newExpanded);
+  };
 
   // Filtrar alunos ativos para pesquisa
   const alunosAtivos = students.filter(aluno => 
@@ -303,15 +415,6 @@ export default function Turmas({ students = [] }) {
     setExpandedTurmas(newExpanded);
   };
 
-  // Obter alunos da turma baseado nos IDs salvos
-  const getAlunosDaTurma = (turma) => {
-    if (!turma.alunosIds || !Array.isArray(turma.alunosIds)) {
-      return [];
-    }
-    
-    return students.filter(student => turma.alunosIds.includes(student.id));
-  };
-
   // Gerar dias de aula do mês baseado nos dias da semana da turma
   const gerarDiasAulaMes = (turma, mes = new Date().getMonth(), ano = new Date().getFullYear()) => {
     const diasSemana = {
@@ -476,32 +579,6 @@ export default function Turmas({ students = [] }) {
     showToast('Lista de presença gerada com sucesso!', 'success');
   };
 
-  // Filtrar turmas com dados reais do Firebase
-  const todasTurmasSemFiltro = turmas.map(turma => ({
-    ...turma,
-    alunos: turma.alunosCount || 0 // Compatibilidade
-  }));
-
-  // Aplicar filtros
-  const todasTurmas = todasTurmasSemFiltro.filter(turma => {
-    // Filtro por professor
-    if (filtros.professor !== 'all' && turma.professor !== filtros.professor) {
-      return false;
-    }
-    
-    // Filtro por dia
-    if (filtros.dia !== 'all' && !turma.dias.includes(filtros.dia)) {
-      return false;
-    }
-    
-    // Filtro por nível
-    if (filtros.nivel !== 'all' && turma.nivel !== filtros.nivel) {
-      return false;
-    }
-    
-    return true;
-  });
-
   // Abrir modal para nova turma
   const abrirNovoModal = () => {
     setEditingTurma(null);
@@ -517,28 +594,6 @@ export default function Turmas({ students = [] }) {
     setFormErrors({});
     setShowModal(true);
   };
-
-  // Turmas filtradas com otimização
-  const turmasFiltradas = useMemo(() => {
-    return todasTurmasSemFiltro.filter(turma => {
-      // Filtro por professor
-      if (filtros.professor !== 'all' && turma.professor !== filtros.professor) {
-        return false;
-      }
-      
-      // Filtro por dia
-      if (filtros.dia !== 'all' && !turma.dias.includes(filtros.dia)) {
-        return false;
-      }
-      
-      // Filtro por nível
-      if (filtros.nivel !== 'all' && turma.nivel !== filtros.nivel) {
-        return false;
-      }
-      
-      return true;
-    });
-  }, [todasTurmasSemFiltro, filtros]);
 
   return (
     <div className="space-y-6">
@@ -729,6 +784,302 @@ export default function Turmas({ students = [] }) {
                 )}
               </div>
             </div>
+          </div>
+        )}
+      </div>
+      
+      {/* Relatório de Professores */}
+      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+        {/* Header do Relatório - Clicável */}
+        <button
+          onClick={() => setShowProfessorReport(!showProfessorReport)}
+          className="w-full p-6 flex items-center justify-between hover:bg-gray-50 transition-colors"
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl flex items-center justify-center">
+              <UserCheck size={20} className="text-white" />
+            </div>
+            <div className="text-left">
+              <h3 className="text-lg font-bold text-gray-900">Relatório de Professores</h3>
+              <p className="text-sm text-gray-500">
+                Horas trabalhadas, turmas e alunos por professor
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            <span className="px-3 py-1 bg-purple-100 text-purple-700 rounded-lg text-sm font-semibold">
+              {getProfessorStats.length} {getProfessorStats.length === 1 ? 'professor' : 'professores'}
+            </span>
+            <ChevronDown 
+              size={20} 
+              className={`text-gray-400 transform transition-transform duration-200 ${
+                showProfessorReport ? 'rotate-180' : ''
+              }`}
+            />
+          </div>
+        </button>
+
+        {/* Conteúdo do Relatório - Colapsável */}
+        {showProfessorReport && (
+          <div className="border-t border-gray-200 bg-gray-50">
+            {getProfessorStats.length === 0 ? (
+              <div className="p-8 text-center">
+                <div className="inline-flex items-center justify-center w-12 h-12 bg-gray-100 rounded-full mb-3">
+                  <UserCheck size={20} className="text-gray-400" />
+                </div>
+                <p className="text-sm text-gray-500">Nenhum professor com turmas ativas</p>
+              </div>
+            ) : (
+              <div className="p-6 space-y-4">
+                {/* Cards de Professores */}
+                {getProfessorStats.map((prof, index) => {
+                  const isExpanded = expandedProfessores.has(prof.nome);
+                  
+                  return (
+                    <div 
+                      key={`professor-${index}`}
+                      className="bg-white rounded-xl border border-gray-200 overflow-hidden hover:shadow-md transition-all duration-200"
+                    >
+                      {/* Header do Professor - Clicável */}
+                      <button
+                        onClick={() => toggleProfessorExpansion(prof.nome)}
+                        className="w-full p-5 flex items-center justify-between hover:bg-gray-50 transition-colors"
+                      >
+                        <div className="flex items-center gap-4">
+                          {/* Avatar e Nome */}
+                          <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-purple-600 rounded-full flex items-center justify-center">
+                            <span className="text-white font-bold text-lg">
+                              {prof.nome.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase()}
+                            </span>
+                          </div>
+                          <div className="text-left">
+                            <h4 className="font-bold text-gray-900 text-lg">{prof.nome}</h4>
+                            <p className="text-sm text-gray-500">
+                              {prof.totalTurmas} {prof.totalTurmas === 1 ? 'turma' : 'turmas'} • {prof.totalAlunos} {prof.totalAlunos === 1 ? 'aluno' : 'alunos'}
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* Estatísticas Rápidas */}
+                        <div className="flex items-center gap-4">
+                          {/* Horas Semanais */}
+                          <div className="text-right">
+                            <div className="text-2xl font-bold text-purple-600">
+                              {prof.horasPorSemana.toFixed(1)}h
+                            </div>
+                            <div className="text-xs text-gray-500 font-medium">por semana</div>
+                          </div>
+
+                          {/* Horas Mensais */}
+                          <div className="text-right">
+                            <div className="text-2xl font-bold text-blue-600">
+                              {prof.horasPorMes.toFixed(0)}h
+                            </div>
+                            <div className="text-xs text-gray-500 font-medium">por mês</div>
+                          </div>
+
+                          {/* Ícone de Expansão */}
+                          <ChevronDown 
+                            size={20} 
+                            className={`text-gray-400 transform transition-transform duration-200 ${
+                              isExpanded ? 'rotate-180' : ''
+                            }`}
+                          />
+                        </div>
+                      </button>
+
+                      {/* Detalhes Expandidos */}
+                      {isExpanded && (
+                        <div className="border-t border-gray-100 p-5 bg-gray-50/50 space-y-4">
+                          {/* Grid de Estatísticas */}
+                          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                            {/* Total de Turmas */}
+                            <div className="bg-white border border-blue-200 rounded-lg p-4">
+                              <div className="flex items-center gap-2 mb-2">
+                                <School size={16} className="text-blue-600" />
+                                <span className="text-xs font-semibold text-blue-600 uppercase">Turmas</span>
+                              </div>
+                              <div className="text-2xl font-bold text-blue-700">{prof.totalTurmas}</div>
+                              <div className="text-xs text-gray-500 mt-1">turmas ativas</div>
+                            </div>
+
+                            {/* Total de Alunos */}
+                            <div className="bg-white border border-green-200 rounded-lg p-4">
+                              <div className="flex items-center gap-2 mb-2">
+                                <GraduationCap size={16} className="text-green-600" />
+                                <span className="text-xs font-semibold text-green-600 uppercase">Alunos</span>
+                              </div>
+                              <div className="text-2xl font-bold text-green-700">{prof.totalAlunos}</div>
+                              <div className="text-xs text-gray-500 mt-1">
+                                {prof.totalTurmas > 0 ? `${(prof.totalAlunos / prof.totalTurmas).toFixed(1)} por turma` : '-'}
+                              </div>
+                            </div>
+
+                            {/* Horas Semanais */}
+                            <div className="bg-white border border-purple-200 rounded-lg p-4">
+                              <div className="flex items-center gap-2 mb-2">
+                                <Clock size={16} className="text-purple-600" />
+                                <span className="text-xs font-semibold text-purple-600 uppercase">Semanal</span>
+                              </div>
+                              <div className="text-2xl font-bold text-purple-700">{prof.horasPorSemana.toFixed(1)}h</div>
+                              <div className="text-xs text-gray-500 mt-1">horas por semana</div>
+                            </div>
+
+                            {/* Horas Mensais */}
+                            <div className="bg-white border border-orange-200 rounded-lg p-4">
+                              <div className="flex items-center gap-2 mb-2">
+                                <Clock size={16} className="text-orange-600" />
+                                <span className="text-xs font-semibold text-orange-600 uppercase">Mensal</span>
+                              </div>
+                              <div className="text-2xl font-bold text-orange-700">{prof.horasPorMes.toFixed(0)}h</div>
+                              <div className="text-xs text-gray-500 mt-1">horas por mês</div>
+                            </div>
+                          </div>
+
+                          {/* Lista de Turmas do Professor */}
+                          <div>
+                            <h5 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                              <School size={16} className="text-gray-600" />
+                              Turmas ({prof.turmas.length})
+                            </h5>
+                            <div className="space-y-2">
+                              {prof.turmas.map((turma, idx) => (
+                                <div 
+                                  key={`prof-turma-${idx}`}
+                                  className="bg-white border border-gray-200 rounded-lg p-4 hover:border-purple-300 transition-colors"
+                                >
+                                  <div className="flex items-start justify-between">
+                                    {/* Info da Turma */}
+                                    <div className="flex-1">
+                                      <div className="flex items-center gap-3 mb-2">
+                                        <h6 className="font-bold text-gray-900">{turma.nome}</h6>
+                                        <span className="px-2 py-1 bg-purple-100 text-purple-700 rounded text-xs font-semibold">
+                                          {turma.nivel}
+                                        </span>
+                                      </div>
+                                      
+                                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+                                        {/* Horário */}
+                                        <div className="flex items-center gap-2">
+                                          <Clock size={14} className="text-gray-400" />
+                                          <span className="text-gray-700">{turma.horario}</span>
+                                        </div>
+
+                                        {/* Dias */}
+                                        <div className="flex items-center gap-2">
+                                          <span className="text-gray-500 text-xs">📅</span>
+                                          <span className="text-gray-700">{turma.dias}</span>
+                                        </div>
+
+                                        {/* Alunos */}
+                                        <div className="flex items-center gap-2">
+                                          <GraduationCap size={14} className="text-gray-400" />
+                                          <span className="text-gray-700">
+                                            {turma.alunos.length}/{turma.maxAlunos} alunos
+                                          </span>
+                                        </div>
+
+                                        {/* Horas Semanais */}
+                                        <div className="flex items-center gap-2">
+                                          <span className="text-purple-600 font-semibold">
+                                            {turma.horasSemanais.toFixed(1)}h/semana
+                                          </span>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </div>
+
+                                  {/* Lista de Alunos da Turma (se houver) */}
+                                  {turma.alunos.length > 0 && (
+                                    <div className="mt-3 pt-3 border-t border-gray-100">
+                                      <div className="flex flex-wrap gap-2">
+                                        {turma.alunos.slice(0, 5).map((aluno, alunoIdx) => (
+                                          <span 
+                                            key={`turma-aluno-${alunoIdx}`}
+                                            className="px-2 py-1 bg-blue-50 text-blue-700 rounded text-xs"
+                                          >
+                                            {aluno.name}
+                                          </span>
+                                        ))}
+                                        {turma.alunos.length > 5 && (
+                                          <span className="px-2 py-1 bg-gray-100 text-gray-600 rounded text-xs">
+                                            +{turma.alunos.length - 5} mais
+                                          </span>
+                                        )}
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+
+                          {/* Cálculo de Salário Sugerido (exemplo) */}
+                          <div className="bg-gradient-to-r from-purple-50 to-blue-50 border border-purple-200 rounded-lg p-4">
+                            <div className="flex items-start justify-between">
+                              <div>
+                                <h6 className="font-semibold text-gray-900 mb-1">💰 Estimativa de Trabalho</h6>
+                                <p className="text-sm text-gray-600 mb-3">
+                                  Baseado em {prof.horasPorSemana.toFixed(1)} horas semanais
+                                </p>
+                                <div className="grid grid-cols-2 gap-4 text-sm">
+                                  <div>
+                                    <span className="text-gray-500">Horas/Semana:</span>
+                                    <span className="ml-2 font-bold text-purple-700">{prof.horasPorSemana.toFixed(1)}h</span>
+                                  </div>
+                                  <div>
+                                    <span className="text-gray-500">Horas/Mês:</span>
+                                    <span className="ml-2 font-bold text-purple-700">{prof.horasPorMes.toFixed(0)}h</span>
+                                  </div>
+                                </div>
+                              </div>
+                              <div className="text-right">
+                                <div className="text-xs text-gray-500 mb-1">Carga Horária</div>
+                                <div className="text-3xl font-bold text-purple-600">
+                                  {prof.horasPorSemana.toFixed(1)}h
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+
+                {/* Resumo Geral */}
+                <div className="bg-gradient-to-r from-purple-500 to-blue-500 rounded-xl p-6 text-white mt-6">
+                  <h5 className="font-bold text-lg mb-4 flex items-center gap-2">
+                    <span>📊</span>
+                    Resumo Geral
+                  </h5>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div>
+                      <div className="text-white/80 text-sm mb-1">Total de Professores</div>
+                      <div className="text-3xl font-bold">{getProfessorStats.length}</div>
+                    </div>
+                    <div>
+                      <div className="text-white/80 text-sm mb-1">Total de Turmas</div>
+                      <div className="text-3xl font-bold">
+                        {getProfessorStats.reduce((acc, p) => acc + p.totalTurmas, 0)}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-white/80 text-sm mb-1">Total de Alunos</div>
+                      <div className="text-3xl font-bold">
+                        {getProfessorStats.reduce((acc, p) => acc + p.totalAlunos, 0)}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-white/80 text-sm mb-1">Horas Semanais</div>
+                      <div className="text-3xl font-bold">
+                        {getProfessorStats.reduce((acc, p) => acc + p.horasPorSemana, 0).toFixed(1)}h
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>

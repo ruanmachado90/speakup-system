@@ -3,18 +3,36 @@ import { useMemo } from 'react';
 export const useStats = (students, payments, expenses, dashboardRange) => {
   return useMemo(() => {
     const now = new Date();
-    const currentMonth = now.getMonth() + 1; // Ajustar para 1-12
+    const currentMonth = now.getMonth(); // 0-11
     const currentYear = now.getFullYear();
 
     let p = [];
     let e = [];
 
     if (dashboardRange === 'month') {
-      p = payments.filter(x => Number(x.year) === currentYear && Number(x.month) === currentMonth);
-      e = expenses.filter(x => Number(x.year) === currentYear && Number(x.month) === currentMonth);
+      // Filtrar pagamentos por mês/ano usando a data de vencimento real (dueDate)
+      p = payments.filter(x => {
+        if (!x.dueDate) return false;
+        const dueDate = new Date(x.dueDate);
+        return dueDate.getFullYear() === currentYear && dueDate.getMonth() === currentMonth;
+      });
+      e = expenses.filter(x => {
+        if (!x.date) return false;
+        const expDate = new Date(x.date);
+        return expDate.getFullYear() === currentYear && expDate.getMonth() === currentMonth;
+      });
     } else {
-      p = payments.filter(x => Number(x.year) === currentYear);
-      e = expenses.filter(x => Number(x.year) === currentYear);
+      // Filtrar pagamentos por ano usando a data de vencimento real (dueDate)
+      p = payments.filter(x => {
+        if (!x.dueDate) return false;
+        const dueDate = new Date(x.dueDate);
+        return dueDate.getFullYear() === currentYear;
+      });
+      e = expenses.filter(x => {
+        if (!x.date) return false;
+        const expDate = new Date(x.date);
+        return expDate.getFullYear() === currentYear;
+      });
     }
 
     const planned = p.reduce((a, x) => a + Number(x.valuePlanned || 0), 0);
@@ -27,8 +45,7 @@ export const useStats = (students, payments, expenses, dashboardRange) => {
       if (!ts) return false;
       const d = new Date(Number(ts));
       if (dashboardRange === 'month') {
-        // d.getMonth() retorna 0-11, mas currentMonth agora é 1-12
-        return (d.getMonth() + 1) === currentMonth && d.getFullYear() === currentYear;
+        return d.getFullYear() === currentYear && d.getMonth() === currentMonth;
       }
       return d.getFullYear() === currentYear;
     };
@@ -112,14 +129,22 @@ export const useMonthlyData = (payments, expenses) => {
     const months = Array.from({length: 12}, (_, i) => i);
     const labels = months.map(i => new Date(0, i).toLocaleString('pt-BR', {month: 'short'}));
 
-    // Parcelas são salvas com month 1-12, então ajustamos com m + 1
+    // Filtrar pagamentos por mês/ano usando a data de vencimento real (dueDate)
     const planned = months.map(m => payments
-      .filter(x => Number(x.year) === currentYear && Number(x.month) === (m + 1))
+      .filter(x => {
+        if (!x.dueDate) return false;
+        const dueDate = new Date(x.dueDate);
+        return dueDate.getFullYear() === currentYear && dueDate.getMonth() === m;
+      })
       .reduce((a, x) => a + Number(x.valuePlanned || 0), 0)
     );
 
     const paid = months.map(m => payments
-      .filter(x => Number(x.year) === currentYear && Number(x.month) === (m + 1) && x.status === 'Pago')
+      .filter(x => {
+        if (!x.dueDate || x.status !== 'Pago') return false;
+        const dueDate = new Date(x.dueDate);
+        return dueDate.getFullYear() === currentYear && dueDate.getMonth() === m;
+      })
       .reduce((a, x) => a + Number(x.valuePaid || x.valuePlanned || 0), 0)
     );
 
@@ -140,10 +165,18 @@ export const useMonthlyData = (payments, expenses) => {
 
 export const useFinanceStats = (payments, filterMonth, filterYear) => {
   return useMemo(() => {
-    // filterMonth vem como 0-11, mas parcelas são salvas como 1-12
     const now = new Date();
-    const filtered = payments.filter(x => Number(x.year) === filterYear && Number(x.month) === (filterMonth + 1));
+    now.setHours(0, 0, 0, 0); // Comparar apenas a data, não o horário
+    
+    // Filtrar por mês/ano usando a data de vencimento real (dueDate)
+    const filtered = payments.filter(x => {
+      if (!x.dueDate) return false;
+      const dueDate = new Date(x.dueDate);
+      return dueDate.getFullYear() === filterYear && dueDate.getMonth() === filterMonth;
+    });
+    
     const planned = filtered.reduce((a, x) => a + Number(x.valuePlanned || 0), 0);
+    
     // Cada cobrança só entra em um grupo, considerando pagamentos parciais:
     let paid = 0, pending = 0, overdue = 0;
     filtered.forEach(x => {
@@ -152,7 +185,9 @@ export const useFinanceStats = (payments, filterMonth, filterYear) => {
       paid += paidValue;
       const saldo = plannedValue - paidValue;
       if (saldo > 0 && x.dueDate) {
-        if (new Date(x.dueDate) >= now) {
+        const dueDate = new Date(x.dueDate);
+        dueDate.setHours(0, 0, 0, 0);
+        if (dueDate >= now) {
           pending += saldo;
         } else {
           overdue += saldo;
@@ -166,16 +201,34 @@ export const useFinanceStats = (payments, filterMonth, filterYear) => {
 
 export const useFilteredPayments = (payments, filterMonth, filterYear, filterStatus) => {
   return useMemo(() => {
-    // filterMonth vem como 0-11, mas parcelas são salvas como 1-12
-    let filtered = payments.filter(x => Number(x.year) === filterYear && Number(x.month) === (filterMonth + 1));
+    // Filtrar por mês/ano usando a data de vencimento real (dueDate)
+    let filtered = payments.filter(x => {
+      if (!x.dueDate) return false;
+      const dueDate = new Date(x.dueDate);
+      return dueDate.getFullYear() === filterYear && dueDate.getMonth() === filterMonth;
+    });
 
     const now = new Date();
+    now.setHours(0, 0, 0, 0); // Comparar apenas a data, não o horário
+    
     if (filterStatus === 'pagos') {
       filtered = filtered.filter(x => x.status === 'Pago');
     } else if (filterStatus === 'pendentes') {
-      filtered = filtered.filter(x => x.status !== 'Pago' && x.dueDate && new Date(x.dueDate) >= now);
+      filtered = filtered.filter(x => {
+        if (x.status === 'Pago') return false;
+        if (!x.dueDate) return true;
+        const dueDate = new Date(x.dueDate);
+        dueDate.setHours(0, 0, 0, 0);
+        return dueDate >= now;
+      });
     } else if (filterStatus === 'atrasados') {
-      filtered = filtered.filter(x => x.status !== 'Pago' && x.dueDate && new Date(x.dueDate) < now);
+      filtered = filtered.filter(x => {
+        if (x.status === 'Pago') return false;
+        if (!x.dueDate) return false;
+        const dueDate = new Date(x.dueDate);
+        dueDate.setHours(0, 0, 0, 0);
+        return dueDate < now;
+      });
     }
 
     return filtered.sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate));

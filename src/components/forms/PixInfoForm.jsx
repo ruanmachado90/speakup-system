@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
 
-const PixInfoForm = ({ isOpen, onClose, onSave, payment }) => {
+const PixInfoForm = ({ isOpen, onClose, onSave, payment, isSaving = false }) => {
   const [pixQRCode, setPixQRCode] = useState('');
   const [pixCode, setPixCode] = useState('');
-  const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [previewError, setPreviewError] = useState(false);
 
   // Atualizar campos quando payment mudar
   useEffect(() => {
@@ -14,6 +14,11 @@ const PixInfoForm = ({ isOpen, onClose, onSave, payment }) => {
       setPixCode(payment.pixCode || '');
     }
   }, [payment]);
+
+  // Resetar erro de preview quando URL mudar
+  useEffect(() => {
+    setPreviewError(false);
+  }, [pixQRCode]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -32,15 +37,46 @@ const PixInfoForm = ({ isOpen, onClose, onSave, payment }) => {
 
     // Validar se é uma URL válida
     try {
-      new URL(pixQRCode);
+      const url = new URL(pixQRCode);
+      // Verificar se é HTTPS
+      if (url.protocol !== 'https:') {
+        setError('A URL deve usar HTTPS para maior segurança');
+        return;
+      }
+      // Verificar se parece ser uma URL de imagem
+      const pathname = url.pathname.toLowerCase();
+      const isImageUrl = pathname.endsWith('.png') || 
+                         pathname.endsWith('.jpg') || 
+                         pathname.endsWith('.jpeg') || 
+                         pathname.endsWith('.gif') || 
+                         pathname.endsWith('.webp') ||
+                         pathname.includes('image');
+      
+      if (!isImageUrl) {
+        console.warn('URL pode não ser uma imagem válida:', pixQRCode);
+      }
     } catch {
-      setError('URL do QR Code inválida');
+      setError('URL do QR Code inválida. Certifique-se de incluir https://');
       return;
     }
 
-    setLoading(true);
+    setError('');
 
     try {
+      // Testar se a imagem realmente carrega antes de salvar
+      await new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => {
+          resolve();
+        };
+        img.onerror = () => {
+          reject(new Error('Não foi possível carregar a imagem do QR Code. Verifique se a URL está correta e acessível.'));
+        };
+        // Timeout de 10 segundos
+        setTimeout(() => reject(new Error('Tempo esgotado ao carregar imagem. Verifique sua conexão.')), 10000);
+        img.src = pixQRCode.trim();
+      });
+
       await onSave({
         pixQRCode: pixQRCode.trim(),
         pixCode: pixCode.trim()
@@ -49,10 +85,7 @@ const PixInfoForm = ({ isOpen, onClose, onSave, payment }) => {
       // Não limpar campos nem fechar aqui - o pai (Finance.jsx) controla o fechamento
       // Se houver erro no pai, os dados permanecem para nova tentativa
     } catch (err) {
-      console.error('Erro ao salvar informações PIX:', err);
       setError(err.message || 'Erro ao salvar informações. Tente novamente.');
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -117,7 +150,10 @@ const PixInfoForm = ({ isOpen, onClose, onSave, payment }) => {
                     required
                   />
                   <p className="mt-1 text-xs text-gray-500">
-                    Cole a URL da imagem do QR Code gerado pelo seu banco
+                    Cole a URL pública da imagem do QR Code. A imagem deve estar hospedada online e ser acessível publicamente.
+                  </p>
+                  <p className="mt-1 text-xs text-orange-600">
+                    ⚠️ Certifique-se de que a URL começa com https:// e aponta diretamente para uma imagem (.png, .jpg, .jpeg)
                   </p>
                 </div>
 
@@ -145,15 +181,29 @@ const PixInfoForm = ({ isOpen, onClose, onSave, payment }) => {
                   <div className="bg-gray-50 rounded-lg p-4">
                     <h4 className="text-sm font-medium text-gray-700 mb-2">Preview do QR Code:</h4>
                     <div className="flex justify-center">
-                      <img 
-                        src={pixQRCode} 
-                        alt="Preview QR Code" 
-                        className="w-48 h-48 object-contain border border-gray-200 rounded"
-                        onError={(e) => {
-                          e.target.style.display = 'none';
-                          setError('Não foi possível carregar a imagem. Verifique a URL.');
-                        }}
-                      />
+                      {!previewError ? (
+                        <img 
+                          src={pixQRCode} 
+                          alt="Preview QR Code" 
+                          className="w-48 h-48 object-contain border border-gray-200 rounded"
+                          onLoad={() => {
+                            console.log('Preview carregado com sucesso:', pixQRCode);
+                          }}
+                          onError={(e) => {
+                            console.error('Erro no preview da imagem:', pixQRCode);
+                            setPreviewError(true);
+                            setError('Não foi possível carregar a imagem. Verifique se a URL é válida e pública.');
+                          }}
+                        />
+                      ) : (
+                        <div className="w-48 h-48 border-2 border-dashed border-red-300 rounded flex items-center justify-center">
+                          <div className="text-center p-4">
+                            <p className="text-red-600 text-sm mb-1">⚠️</p>
+                            <p className="text-red-600 text-xs">Erro ao carregar</p>
+                            <p className="text-gray-500 text-xs mt-1">Verifique a URL</p>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}
@@ -163,17 +213,17 @@ const PixInfoForm = ({ isOpen, onClose, onSave, payment }) => {
                   <button
                     type="button"
                     onClick={handleClose}
-                    disabled={loading}
+                    disabled={isSaving}
                     className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     Cancelar
                   </button>
                   <button
                     type="submit"
-                    disabled={loading}
+                    disabled={isSaving}
                     className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                   >
-                    {loading ? (
+                    {isSaving ? (
                       <>
                         <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
                         Salvando...

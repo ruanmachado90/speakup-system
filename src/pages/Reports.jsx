@@ -79,10 +79,18 @@ const Reports = ({
           {/* Resumo Financeiro */}
           <div className="grid grid-cols-4 gap-4 mb-6">
             {(() => {
-              // reportMonth vem como 0-11, mas parcelas são salvas como 1-12
+              // Filtrar pagamentos por mês/ano usando a data de vencimento real (dueDate)
               const p = reportType === 'monthly' 
-                ? payments.filter(x => Number(x.year) === reportYear && Number(x.month) === (reportMonth + 1))
-                : payments.filter(x => Number(x.year) === reportYear);
+                ? payments.filter(x => {
+                    if (!x.dueDate) return false;
+                    const dueDate = new Date(x.dueDate);
+                    return dueDate.getFullYear() === reportYear && dueDate.getMonth() === reportMonth;
+                  })
+                : payments.filter(x => {
+                    if (!x.dueDate) return false;
+                    const dueDate = new Date(x.dueDate);
+                    return dueDate.getFullYear() === reportYear;
+                  });
               
               const e = reportType === 'monthly'
                 ? expenses.filter(x => {
@@ -119,8 +127,16 @@ const Reports = ({
               header={["Aluno", "Vencimento", "Valor", "Status", "Data Pagamento"]}
               data={
                 reportType === 'monthly'
-                  ? payments.filter(x => Number(x.year) === reportYear && Number(x.month) === (reportMonth + 1))
-                  : payments.filter(x => Number(x.year) === reportYear)
+                  ? payments.filter(x => {
+                      if (!x.dueDate) return false;
+                      const dueDate = new Date(x.dueDate);
+                      return dueDate.getFullYear() === reportYear && dueDate.getMonth() === reportMonth;
+                    })
+                  : payments.filter(x => {
+                      if (!x.dueDate) return false;
+                      const dueDate = new Date(x.dueDate);
+                      return dueDate.getFullYear() === reportYear;
+                    })
               }
               render={p => {
                 const student = students.find(s => s.id === p.studentId);

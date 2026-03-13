@@ -265,25 +265,21 @@ const Finance = ({
     return {
       paid: {
         total: totalPaid,
-        liquid: totalPaid * 0.95,
         invoices: paidPayments.length,
         percentage: totalPlanned > 0 ? (totalPaid / totalPlanned) * 100 : 0
       },
       confirmed: {
         total: totalPlanned,
-        liquid: totalPlanned * 0.95,
         invoices: filteredPayments.length,
         percentage: 100
       },
       pending: {
         total: totalPending,
-        liquid: totalPending * 0.95,
         invoices: pendingPayments.length,
         percentage: totalPlanned > 0 ? (totalPending / totalPlanned) * 100 : 0
       },
       overdue: {
         total: totalOverdue,
-        liquid: totalOverdue * 0.95,
         invoices: overduePayments.length,
         percentage: totalPlanned > 0 ? (totalOverdue / totalPlanned) * 100 : 0
       }
@@ -293,7 +289,7 @@ const Finance = ({
   // Inline components for better organization
   
   // Enhanced KPI Card Component
-  const EnhancedKPICard = ({ title, total, liquid, invoices, percentage, color }) => {
+  const EnhancedKPICard = ({ title, total, description, invoices, percentage, color }) => {
     const colors = KPI_COLOR_CLASSES[color];
 
     return (
@@ -308,7 +304,7 @@ const Finance = ({
             {formatCurrency(total)}
           </div>
           <div className="text-xs text-gray-500 mt-1">
-            {formatCurrency(liquid)} líquido
+            {description}
           </div>
         </div>
 
@@ -614,7 +610,7 @@ const Finance = ({
             <EnhancedKPICard 
               title="Recebidas"
               total={detailedStats.paid.total}
-              liquid={detailedStats.paid.liquid}
+              description="Cobranças recebidas dentro do período."
               invoices={detailedStats.paid.invoices}
               percentage={detailedStats.paid.percentage}
               color="green"
@@ -622,7 +618,7 @@ const Finance = ({
             <EnhancedKPICard 
               title="Previsto"
               total={detailedStats.confirmed.total}
-              liquid={detailedStats.confirmed.liquid}
+              description="Total Cobranças previstas dentro do período"
               invoices={detailedStats.confirmed.invoices}
               percentage={detailedStats.confirmed.percentage}
               color="blue"
@@ -630,7 +626,7 @@ const Finance = ({
             <EnhancedKPICard 
               title="Aguardando pagamento"
               total={detailedStats.pending.total}
-              liquid={detailedStats.pending.liquid}
+              description="Cobranças dentro do prazo de vencimento no período"
               invoices={detailedStats.pending.invoices}
               percentage={detailedStats.pending.percentage}
               color="orange"
@@ -638,7 +634,7 @@ const Finance = ({
             <EnhancedKPICard 
               title="Vencidas"
               total={detailedStats.overdue.total}
-              liquid={detailedStats.overdue.liquid}
+              description="Cobranças vencidas dentro do período e que não foram pagas."
               invoices={detailedStats.overdue.invoices}
               percentage={detailedStats.overdue.percentage}
               color="red"

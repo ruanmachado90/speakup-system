@@ -219,6 +219,8 @@ function AppContent() {
               monthlyData={monthlyData}
               teacherStats={teacherStats}
               filteredExpenses={filteredExpenses}
+              students={students}
+              payments={payments}
             />}
 
             {page === "students" && <Students 

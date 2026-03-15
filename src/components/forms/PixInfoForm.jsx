@@ -90,7 +90,7 @@ const PixInfoForm = ({ isOpen, onClose, onSave, payment, isSaving = false }) => 
   };
 
   const handleClose = () => {
-    if (!loading) {
+    if (!isSaving) {
       setPixQRCode('');
       setPixCode('');
       setError('');
@@ -107,7 +107,7 @@ const PixInfoForm = ({ isOpen, onClose, onSave, payment, isSaving = false }) => 
           <h3 className="text-xl font-bold text-gray-900">Configurar Informações PIX</h3>
           <button
             onClick={handleClose}
-            disabled={loading}
+            disabled={isSaving}
             className="text-gray-400 hover:text-gray-600 transition-colors disabled:opacity-50"
           >
             <X size={24} />
@@ -146,7 +146,7 @@ const PixInfoForm = ({ isOpen, onClose, onSave, payment, isSaving = false }) => 
                     onChange={(e) => setPixQRCode(e.target.value)}
                     placeholder="https://exemplo.com/qrcode.png"
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                    disabled={loading}
+                    disabled={isSaving}
                     required
                   />
                   <p className="mt-1 text-xs text-gray-500">
@@ -168,7 +168,7 @@ const PixInfoForm = ({ isOpen, onClose, onSave, payment, isSaving = false }) => 
                     placeholder="Cole aqui o código PIX gerado pelo seu banco..."
                     rows={4}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent font-mono text-sm"
-                    disabled={loading}
+                    disabled={isSaving}
                     required
                   />
                   <p className="mt-1 text-xs text-gray-500">

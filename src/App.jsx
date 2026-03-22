@@ -12,7 +12,8 @@ import {
   ClipboardCheck,
   UserPlus,
   Menu,
-  X
+  X,
+  Sparkles
 } from "lucide-react";
 
 import { 
@@ -29,6 +30,7 @@ import { Finance } from './pages/Finance';
 import { Reports } from './pages/Reports';
 import { Expenses } from './pages/Expenses';
 import { Leads } from './pages/Leads';
+import AIManager from './pages/AIManager';
 import CalendarPage from './pages/Calendar';
 import ContratoAssinatura from './pages/ContratoAssinatura';
 import { Vendas } from './pages';
@@ -144,6 +146,7 @@ function AppContent() {
         <Nav icon={<UserPlus />} label="Leads" active={page==="leads"} onClick={()=>setPage("leads")} />
         <Nav icon={<FileText />} label="Financeiro" active={page==="finance"} onClick={()=>setPage("finance")} />
         <Nav icon={<PieChart />} label="Despesas" active={page==="expenses"} onClick={()=>setPage("expenses")} />
+        <Nav icon={<Sparkles />} label="IA Gerencial" active={page==="ia"} onClick={()=>setPage("ia")} />
         <Nav icon={<ClipboardList />} label="Relatórios" active={page==="reports"} onClick={()=>setPage("reports")} />
         <Nav icon={<Calendar />} label="Calendário" active={page==="calendar"} onClick={()=>setPage("calendar")} />
         <Nav icon={<ClipboardCheck />} label="Agenda" active={page==="agenda"} onClick={()=>setPage("agenda")} />
@@ -183,6 +186,7 @@ function AppContent() {
             {page === "leads" && "Leads"}
             {page === "finance" && "Financeiro"}
             {page === "expenses" && "Despesas"}
+            {page === "ia" && "IA Gerencial"}
             {page === "reports" && "Relatórios"}
             {page === "calendar" && "Calendário"}
             {page === "turmas" && "Turmas"}
@@ -246,6 +250,13 @@ function AppContent() {
               filteredPayments={filteredPayments}
               setModal={setModal}
               handleUndoPayment={handleUndoPayment}
+            />}
+
+            {page === "ia" && <AIManager
+              students={students}
+              payments={payments}
+              expenses={expenses}
+              leads={leads}
             />}
 
             {page === "reports" && <Reports 

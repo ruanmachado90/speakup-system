@@ -155,22 +155,28 @@ export default function AIManager({ students = [], payments = [], expenses = [],
         content: m.content,
       }));
 
-      const response = await fetch("https://api.anthropic.com/v1/messages", {
+      // Usar Firebase Cloud Function como proxy seguro (detecta local vs produção)
+      const functionUrl = window.location.hostname === "localhost" 
+        ? "http://127.0.0.1:5001/speakup-system/us-central1/chatWithAI"
+        : "https://us-central1-speakup-system.cloudfunctions.net/chatWithAI";
+      
+      const response = await fetch(functionUrl, {
         method: "POST",
         headers: { 
           "Content-Type": "application/json",
-          "x-api-key": "sk-ant-api03-VqFX6n5dYKWN4_3MgMcfG04GjOCfBIy4-vLJGN0L5L_jmOQCX5kHq74Fg1C7CqbojT5SSnpOxrFV-bZhFHC40Q-5eaWYAAA",
-          "anthropic-version": "2023-06-01"
         },
         body: JSON.stringify({
-          model: "claude-sonnet-4-20250514",
-          max_tokens: 1000,
-          system: systemPrompt,
+          systemPrompt: systemPrompt,
           messages: history,
         }),
       });
 
       const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.error || "Erro ao processar resposta");
+      }
+
       const reply = data.content?.map((b) => b.text || "").join("") || "Não consegui processar sua pergunta.";
       setMessages((prev) => [...prev, { role: "assistant", content: reply }]);
     } catch (err) {

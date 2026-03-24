@@ -21,11 +21,6 @@ export const FilterProvider = ({ children }) => {
   // Dashboard
   const [dashboardRange, setDashboardRange] = useState('month');
   
-  // Reports
-  const [reportMonth, setReportMonth] = useState(currentDate.getMonth());
-  const [reportYear, setReportYear] = useState(currentDate.getFullYear());
-  const [reportType, setReportType] = useState('monthly');
-  
   // Expenses
   const [expenseMonth, setExpenseMonth] = useState(currentDate.getMonth());
   const [expenseYear, setExpenseYear] = useState(currentDate.getFullYear());
@@ -48,14 +43,6 @@ export const FilterProvider = ({ children }) => {
     dashboardRange,
     setDashboardRange,
     
-    // Reports
-    reportMonth,
-    setReportMonth,
-    reportYear,
-    setReportYear,
-    reportType,
-    setReportType,
-    
     // Expenses
     expenseMonth,
     setExpenseMonth,
@@ -72,7 +59,6 @@ export const FilterProvider = ({ children }) => {
   }), [
     filterMonth, filterYear, filterStatus,
     dashboardRange,
-    reportMonth, reportYear, reportType,
     expenseMonth, expenseYear, expenseView,
     expenseCategorySelect, expenseCategoryOther
   ]);

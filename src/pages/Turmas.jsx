@@ -415,15 +415,42 @@ export default function Turmas({ students = [] }) {
     setExpandedTurmas(newExpanded);
   };
 
+  // Função auxiliar para normalizar string (remover acentos)
+  const normalizarString = (str) => {
+    return str.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+  };
+
   // Gerar dias de aula do mês baseado nos dias da semana da turma
   const gerarDiasAulaMes = (turma, mes = new Date().getMonth(), ano = new Date().getFullYear()) => {
+    // Mapeamento robusto: aceita com e sem acento, completo ou abreviado
     const diasSemana = {
-      'domingo': 0, 'segunda': 1, 'terça': 2, 'quarta': 3, 
-      'quinta': 4, 'sexta': 5, 'sábado': 6
+      'domingo': 0, 
+      'segunda': 1, 'segunda-feira': 1, 'seg': 1,
+      'terca': 2, 'terça': 2, 'terca-feira': 2, 'terça-feira': 2, 'ter': 2,
+      'quarta': 3, 'quarta-feira': 3, 'qua': 3,
+      'quinta': 4, 'quinta-feira': 4, 'qui': 4,
+      'sexta': 5, 'sexta-feira': 5, 'sex': 5,
+      'sabado': 6, 'sábado': 6, 'sabado-feira': 6, 'sábado-feira': 6, 'sab': 6
     };
     
-    const diasTurma = turma.dias.toLowerCase().split(',').map(d => d.trim());
-    const numerosDias = diasTurma.map(dia => diasSemana[dia]).filter(n => n !== undefined);
+    if (!turma.dias || typeof turma.dias !== 'string') {
+      console.error('Turma sem dias definidos:', turma);
+      return [];
+    }
+    
+    const diasTurma = turma.dias.split(',').map(d => normalizarString(d));
+    const numerosDias = diasTurma
+      .map(dia => diasSemana[dia])
+      .filter(n => n !== undefined);
+    
+    // Debug: se não encontrou dias, mostrar o problema
+    if (numerosDias.length === 0) {
+      console.error('Nenhum dia válido encontrado para turma:', {
+        turma: turma.nome,
+        diasOriginal: turma.dias,
+        diasNormalizados: diasTurma
+      });
+    }
     
     const diasAula = [];
     const ultimoDiaMes = new Date(ano, mes + 1, 0).getDate();

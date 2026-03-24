@@ -1,76 +1,120 @@
 import { useMemo } from 'react';
 
+/**
+ * Hook otimizado de estatísticas com loops consolidados
+ * Reduz múltiplos filter().reduce() para um único loop
+ */
 export const useStats = (students, payments, expenses, dashboardRange) => {
   return useMemo(() => {
     const now = new Date();
     const currentMonth = now.getMonth(); // 0-11
     const currentYear = now.getFullYear();
 
-    let p = [];
-    let e = [];
+    // ============================================
+    // PROCESSAMENTO DE PAGAMENTOS (1 ÚNICO LOOP)
+    // ============================================
+    const paymentStats = {
+      planned: 0,
+      paid: 0,
+      pending: 0,
+      overdue: 0,
+      totalCount: 0,
+      overdueCount: 0,
+    };
 
-    if (dashboardRange === 'month') {
-      // Filtrar pagamentos por mês/ano usando a data de vencimento real (dueDate)
-      p = payments.filter(x => {
-        if (!x.dueDate) return false;
-        const dueDate = new Date(x.dueDate);
-        return dueDate.getFullYear() === currentYear && dueDate.getMonth() === currentMonth;
-      });
-      e = expenses.filter(x => {
-        if (!x.date) return false;
-        const expDate = new Date(x.date);
-        return expDate.getFullYear() === currentYear && expDate.getMonth() === currentMonth;
-      });
-    } else {
-      // Filtrar pagamentos por ano usando a data de vencimento real (dueDate)
-      p = payments.filter(x => {
-        if (!x.dueDate) return false;
-        const dueDate = new Date(x.dueDate);
-        return dueDate.getFullYear() === currentYear;
-      });
-      e = expenses.filter(x => {
-        if (!x.date) return false;
-        const expDate = new Date(x.date);
-        return expDate.getFullYear() === currentYear;
-      });
-    }
+    payments.forEach(payment => {
+      if (!payment.dueDate) return;
+      
+      const dueDate = new Date(payment.dueDate);
+      const isInPeriod = dashboardRange === 'month'
+        ? dueDate.getFullYear() === currentYear && dueDate.getMonth() === currentMonth
+        : dueDate.getFullYear() === currentYear;
+      
+      if (!isInPeriod) return;
+      
+      // Incrementa contadores
+      paymentStats.totalCount++;
+      paymentStats.planned += Number(payment.valuePlanned || 0);
+      
+      const isPaid = payment.status === "Pago";
+      const isOverdue = new Date(payment.dueDate) < now;
+      
+      if (isPaid) {
+        paymentStats.paid += Number(payment.valuePaid || payment.valuePlanned || 0);
+      } else if (isOverdue) {
+        paymentStats.overdue += Number(payment.valuePlanned || 0);
+        paymentStats.overdueCount++;
+      } else {
+        paymentStats.pending += Number(payment.valuePlanned || 0);
+      }
+    });
 
-    const planned = p.reduce((a, x) => a + Number(x.valuePlanned || 0), 0);
-    const paid = p.filter(x => x.status === "Pago").reduce((a, x) => a + Number(x.valuePaid || x.valuePlanned || 0), 0);
-    const exp = e.reduce((a, x) => a + Number(x.value || 0), 0);
+    // ============================================
+    // PROCESSAMENTO DE DESPESAS (1 ÚNICO LOOP)
+    // ============================================
+    let totalExpenses = 0;
+    
+    expenses.forEach(expense => {
+      if (!expense.date) return;
+      
+      const expDate = new Date(expense.date);
+      const isInPeriod = dashboardRange === 'month'
+        ? expDate.getFullYear() === currentYear && expDate.getMonth() === currentMonth
+        : expDate.getFullYear() === currentYear;
+      
+      if (isInPeriod) {
+        totalExpenses += Number(expense.value || 0);
+      }
+    });
 
-    const activeStudents = students.filter(s => (s.status || 'ativo') === 'ativo').length;
-
+    // ============================================
+    // PROCESSAMENTO DE ALUNOS (1 ÚNICO LOOP)
+    // ============================================
     const inPeriod = (ts) => {
       if (!ts) return false;
       const d = new Date(Number(ts));
-      if (dashboardRange === 'month') {
-        return d.getFullYear() === currentYear && d.getMonth() === currentMonth;
-      }
-      return d.getFullYear() === currentYear;
+      return dashboardRange === 'month'
+        ? d.getFullYear() === currentYear && d.getMonth() === currentMonth
+        : d.getFullYear() === currentYear;
     };
 
-    const registrations = students.filter(s => inPeriod(s.createdAt)).length;
-    const cancellations = students.filter(s => (s.status === 'cancelado') && inPeriod(s.createdAt)).length;
+    const studentStats = {
+      active: 0,
+      registrations: 0,
+      cancellations: 0,
+    };
 
-    const totalPayments = p.length;
-    // Corrigir: pendente = não pago e vencimento no futuro; atrasado = não pago e vencido
-    const pending = p.filter(x => x.status !== 'Pago' && x.dueDate && new Date(x.dueDate) >= now)
-      .reduce((a, x) => a + Number(x.valuePlanned || 0), 0);
-    const overdue = p.filter(x => x.status !== 'Pago' && x.dueDate && new Date(x.dueDate) < now)
-      .reduce((a, x) => a + Number(x.valuePlanned || 0), 0);
-    const overdueCount = p.filter(x => x.status !== 'Pago' && x.dueDate && new Date(x.dueDate) < now).length;
-    const inadimplenciaPercent = totalPayments ? Math.round((overdueCount / totalPayments) * 100) : 0;
+    students.forEach(student => {
+      const status = student.status || 'ativo';
+      
+      if (status === 'ativo') {
+        studentStats.active++;
+      }
+      
+      // Contar matrículas: criados no período
+      if (inPeriod(student.createdAt)) {
+        studentStats.registrations++;
+      }
+      
+      // Contar cancelamentos: cancelados no período
+      if (status === 'cancelado' && inPeriod(student.canceledAt)) {
+        studentStats.cancellations++;
+      }
+    });
+
+    const inadimplenciaPercent = paymentStats.totalCount 
+      ? Math.round((paymentStats.overdueCount / paymentStats.totalCount) * 100) 
+      : 0;
 
     return {
-      planned,
-      paid,
-      pending,
-      overdue,
-      profit: paid - exp,
-      students: activeStudents,
-      registrations,
-      cancellations,
+      planned: paymentStats.planned,
+      paid: paymentStats.paid,
+      pending: paymentStats.pending,
+      overdue: paymentStats.overdue,
+      profit: paymentStats.paid - totalExpenses,
+      students: studentStats.active,
+      registrations: studentStats.registrations,
+      cancellations: studentStats.cancellations,
       inadimplenciaPercent
     };
   }, [students, payments, expenses, dashboardRange]);

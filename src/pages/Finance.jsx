@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import { Search, Edit, X, Printer, Trash2, ChevronUp, ChevronDown, Link, Check, Settings, CheckCircle, DollarSign, AlertCircle, User, Clock, XCircle, Mail, FileText, Info } from 'lucide-react';
 import { Card, KPI, PaymentMethodChart } from '../components';
 import { printReceipt } from '../utils/print';
@@ -113,6 +113,8 @@ const Finance = ({
   const [selectedPayment, setSelectedPayment] = useState(null);
   const [copiedLinkId, setCopiedLinkId] = useState(null);
   const [savingPix, setSavingPix] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(50); // Paginação: 50 itens por página
   const [confirmDialog, setConfirmDialog] = useState({ 
     isVisible: false, 
     paymentId: null, 
@@ -231,6 +233,33 @@ const Finance = ({
     
     return payments;
   }, [filteredPayments, searchTerm, students, sortField, sortDirection]);
+  
+  // Paginação otimizada
+  const paginationInfo = useMemo(() => {
+    const totalItems = processedPayments.length;
+    const totalPages = Math.ceil(totalItems / itemsPerPage);
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    
+    return {
+      totalItems,
+      totalPages,
+      startIndex,
+      endIndex,
+      currentPage,
+      itemsPerPage
+    };
+  }, [processedPayments.length, currentPage, itemsPerPage]);
+  
+  // Payments da página atual
+  const paginatedPayments = useMemo(() => {
+    return processedPayments.slice(paginationInfo.startIndex, paginationInfo.endIndex);
+  }, [processedPayments, paginationInfo.startIndex, paginationInfo.endIndex]);
+  
+  // Reset para página 1 quando filtros mudam
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, filterMonth, filterYear, filterStatus]);
   
   // Calculate detailed stats for cards (optimized with single pass)
   const detailedStats = useMemo(() => {
@@ -706,12 +735,84 @@ const Finance = ({
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-100">
-              {processedPayments.map(payment => (
+              {paginatedPayments.map(payment => (
                 <PaymentRow key={payment.id} payment={payment} />
               ))}
             </tbody>
           </table>
         </div>
+
+        {/* Pagination Controls */}
+        {paginationInfo.totalPages > 1 && (
+          <div className="mt-6 flex flex-col sm:flex-row items-center justify-between gap-4 px-4">
+            <div className="text-sm text-gray-600">
+              Mostrando {paginationInfo.startIndex + 1} a {Math.min(paginationInfo.endIndex, paginationInfo.totalItems)} de {paginationInfo.totalItems} cobranças
+            </div>
+            
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setCurrentPage(1)}
+                disabled={currentPage === 1}
+                className="px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+              >
+                Primeira
+              </button>
+              
+              <button
+                onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                disabled={currentPage === 1}
+                className="px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+              >
+                Anterior
+              </button>
+              
+              <div className="flex items-center gap-1">
+                {Array.from({ length: Math.min(5, paginationInfo.totalPages) }, (_, i) => {
+                  let pageNum;
+                  if (paginationInfo.totalPages <= 5) {
+                    pageNum = i + 1;
+                  } else if (currentPage <= 3) {
+                    pageNum = i + 1;
+                  } else if (currentPage >= paginationInfo.totalPages - 2) {
+                    pageNum = paginationInfo.totalPages - 4 + i;
+                  } else {
+                    pageNum = currentPage - 2 + i;
+                  }
+                  
+                  return (
+                    <button
+                      key={pageNum}
+                      onClick={() => setCurrentPage(pageNum)}
+                      className={`px-3 py-2 text-sm font-medium rounded-lg transition-all ${
+                        currentPage === pageNum
+                          ? 'bg-blue-600 text-white'
+                          : 'text-gray-700 bg-white border border-gray-300 hover:bg-gray-50'
+                      }`}
+                    >
+                      {pageNum}
+                    </button>
+                  );
+                })}
+              </div>
+              
+              <button
+                onClick={() => setCurrentPage(prev => Math.min(paginationInfo.totalPages, prev + 1))}
+                disabled={currentPage === paginationInfo.totalPages}
+                className="px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+              >
+                Próxima
+              </button>
+              
+              <button
+                onClick={() => setCurrentPage(paginationInfo.totalPages)}
+                disabled={currentPage === paginationInfo.totalPages}
+                className="px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+              >
+                Última
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Empty State */}
         {processedPayments.length === 0 && <EmptyState />}

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, lazy, Suspense } from "react";
 import { useNavigate } from 'react-router-dom';
 import {
   Users,
@@ -22,24 +22,80 @@ import {
   Nav
 } from './components';
 import { StudentForm, PaymentForm, ExpenseForm, LeadForm } from './components/forms';
-import { AppProvider, useAppContext } from './context';
-import { useStudentActions, usePaymentActions, useExpenseActions, useLeadActions, usePrintActions } from './hooks';
-import { Dashboard } from './pages/Dashboard';
-import { Students } from './pages/Students';
-import { Finance } from './pages/Finance';
-import { Reports } from './pages/Reports';
-import { Expenses } from './pages/Expenses';
-import { Leads } from './pages/Leads';
-import AIManager from './pages/AIManager';
-import CalendarPage from './pages/Calendar';
-import ContratoAssinatura from './pages/ContratoAssinatura';
-import { Vendas } from './pages';
-import VendasSimple from './pages/VendasSimple';
-import Recibo from './pages/Recibo';
-import PaymentLink from './pages/PaymentLink';
+import { AppProvider } from './context';
+import { 
+  useStudentActions, 
+  usePaymentActions, 
+  useExpenseActions, 
+  useLeadActions, 
+  usePrintActions,
+  usePage,
+  useModal,
+  useToast,
+  useSearch,
+  useFinanceFilters,
+  useExpenseFilters,
+  useDashboardRange,
+  useStudents,
+  usePayments,
+  useExpenses,
+  useLeads,
+  useDashboardStats,
+  useFinanceData,
+  useExpenseData,
+  useSaving,
+  usePaymentSaving,
+  useExpenseSaving,
+  useUser
+} from './hooks';
+
+// Lazy loading de páginas para melhor performance
+const Dashboard = lazy(() => import('./pages/Dashboard').then(m => ({ default: m.Dashboard })));
+const Students = lazy(() => import('./pages/Students').then(m => ({ default: m.Students })));
+const Finance = lazy(() => import('./pages/Finance').then(m => ({ default: m.Finance })));
+const Expenses = lazy(() => import('./pages/Expenses').then(m => ({ default: m.Expenses })));
+const Leads = lazy(() => import('./pages/Leads').then(m => ({ default: m.Leads })));
+const AIManager = lazy(() => import('./pages/AIManager'));
+const CalendarPage = lazy(() => import('./pages/Calendar'));
+const ContratoAssinatura = lazy(() => import('./pages/ContratoAssinatura'));
+const Vendas = lazy(() => import('./pages').then(m => ({ default: m.Vendas })));
+const VendasSimple = lazy(() => import('./pages/VendasSimple'));
+const Recibo = lazy(() => import('./pages/Recibo'));
+const PaymentLink = lazy(() => import('./pages/PaymentLink'));
+const AgendaGoogle = lazy(() => import('./pages/Agenda'));
+const Turmas = lazy(() => import('./pages/Turmas'));
+
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import AgendaGoogle from './pages/Agenda';
-import Turmas from './pages/Turmas';
+
+// Componente de loading para Suspense
+const PageLoader = () => (
+  <div style={{ 
+    display: 'flex', 
+    alignItems: 'center', 
+    justifyContent: 'center', 
+    minHeight: '400px',
+    color: '#005DE4',
+    fontSize: '14px'
+  }}>
+    <div style={{ textAlign: 'center' }}>
+      <div style={{ 
+        width: '40px', 
+        height: '40px', 
+        border: '3px solid #e2e8f0',
+        borderTopColor: '#005DE4',
+        borderRadius: '50%',
+        margin: '0 auto 12px',
+        animation: 'spin 0.8s linear infinite'
+      }} />
+      Carregando...
+    </div>
+    <style>{`
+      @keyframes spin {
+        to { transform: rotate(360deg); }
+      }
+    `}</style>
+  </div>
+);
 
 function AppContent() {
   const navigate = useNavigate();
@@ -63,56 +119,35 @@ function AppContent() {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
   
-  const {
-    page,
-    setPage,
-    modal,
-    setModal,
-    toast,
-    toastMsg,
-    searchTerm,
-    setSearchTerm,
-    filterMonth,
-    setFilterMonth,
-    filterYear,
-    setFilterYear,
-    filterStatus,
-    setFilterStatus,
-    dashboardRange,
-    setDashboardRange,
-    reportMonth,
-    setReportMonth,
-    reportYear,
-    setReportYear,
-    reportType,
-    setReportType,
-    expenseMonth,
-    setExpenseMonth,
-    expenseYear,
-    setExpenseYear,
-    expenseView,
+  /* ================= CONTEXT (usando hooks seletores para performance) ================= */
+  const { page, setPage } = usePage();
+  const { modal, setModal } = useModal();
+  const { toast, toastMsg } = useToast();
+  const { searchTerm, setSearchTerm } = useSearch();
+  const { filterMonth, setFilterMonth, filterYear, setFilterYear, filterStatus, setFilterStatus } = useFinanceFilters();
+  const { dashboardRange, setDashboardRange } = useDashboardRange();
+  const { 
+    expenseMonth, 
+    setExpenseMonth, 
+    expenseYear, 
+    setExpenseYear, 
+    expenseView, 
     setExpenseView,
-    saving,
-    setSaving,
-    paymentSaving,
-    expenseSaving,
     expenseCategorySelect,
     setExpenseCategorySelect,
-    expenseCategoryOther,
-    user,
-    students,
-    payments,
-    expenses,
-    leads,
-    stats,
-    teacherStats,
-    filteredExpenses,
-    monthlyData,
-    financeStats,
-    filteredPayments,
-    filteredExpensesData,
-    expenseEvolutionData
-  } = useAppContext();
+    expenseCategoryOther
+  } = useExpenseFilters();
+  const { saving, setSaving } = useSaving();
+  const { paymentSaving } = usePaymentSaving();
+  const { expenseSaving } = useExpenseSaving();
+  const user = useUser();
+  const students = useStudents();
+  const payments = usePayments();
+  const expenses = useExpenses();
+  const leads = useLeads();
+  const { stats, teacherStats, filteredExpenses, monthlyData } = useDashboardStats();
+  const { financeStats, filteredPayments } = useFinanceData();
+  const { filteredExpensesData, expenseEvolutionData } = useExpenseData();
 
   /* ================= ACTIONS ================= */
   const { saveStudent, handleCancelEnrollment, handleDeleteStudent, handleExcelUpload } = useStudentActions(user, modal, toastMsg, setModal, setSaving);
@@ -147,7 +182,6 @@ function AppContent() {
         <Nav icon={<FileText />} label="Financeiro" active={page==="finance"} onClick={()=>setPage("finance")} />
         <Nav icon={<PieChart />} label="Despesas" active={page==="expenses"} onClick={()=>setPage("expenses")} />
         <Nav icon={<Sparkles />} label="IA Gerencial" active={page==="ia"} onClick={()=>setPage("ia")} />
-        <Nav icon={<ClipboardList />} label="Relatórios" active={page==="reports"} onClick={()=>setPage("reports")} />
         <Nav icon={<Calendar />} label="Calendário" active={page==="calendar"} onClick={()=>setPage("calendar")} />
         <Nav icon={<ClipboardCheck />} label="Agenda" active={page==="agenda"} onClick={()=>setPage("agenda")} />
         <Nav icon={<Users />} label="Turmas" active={page==="turmas"} onClick={()=>setPage("turmas")} />
@@ -187,7 +221,6 @@ function AppContent() {
             {page === "finance" && "Financeiro"}
             {page === "expenses" && "Despesas"}
             {page === "ia" && "IA Gerencial"}
-            {page === "reports" && "Relatórios"}
             {page === "calendar" && "Calendário"}
             {page === "turmas" && "Turmas"}
             {/* {page === "pedagogico" && "PEDAGÓGICO"} */}
@@ -215,6 +248,7 @@ function AppContent() {
 
         {/* CONTENT */}
         <div className="p-8 space-y-8">
+          <Suspense fallback={<PageLoader />}>
             {page === "dashboard" && <Dashboard 
               dashboardRange={dashboardRange}
               setDashboardRange={setDashboardRange}
@@ -259,18 +293,6 @@ function AppContent() {
               leads={leads}
             />}
 
-            {page === "reports" && <Reports 
-              reportType={reportType}
-              setReportType={setReportType}
-              reportMonth={reportMonth}
-              setReportMonth={setReportMonth}
-              reportYear={reportYear}
-              setReportYear={setReportYear}
-              payments={payments}
-              expenses={expenses}
-              students={students}
-            />}
-
             {page === "expenses" && <Expenses 
               expenseView={expenseView}
               setExpenseView={setExpenseView}
@@ -294,6 +316,7 @@ function AppContent() {
 
             {page === "vendas" && <Vendas />}
             {/* {page === "pedagogico" && <Pedagogico />} */}
+          </Suspense>
         </div>
       </main>
 

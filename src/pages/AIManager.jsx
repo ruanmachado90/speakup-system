@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useRef, useEffect } from "react";
 import {
   Sparkles,
   Send,
@@ -10,193 +10,66 @@ import {
   Brain,
   ChevronRight,
   Loader2,
-  X,
   RefreshCw,
 } from "lucide-react";
+import { useAI } from "../hooks/useAI";
+import { AI_CONFIG } from "../config/aiConfig";
+
+/**
+ * AIManager - Interface de chat com IA para análises gerenciais
+ * 
+ * Componente principal responsável pela interface visual do chat com a IA.
+ * A lógica de negócio está encapsulada no hook useAI.
+ * As configurações estão centralizadas em AI_CONFIG.
+ */
 
 // ─────────────────────────────────────────────
-// UTILITÁRIOS
+// MAPEAMENTO DE ÍCONES
 // ─────────────────────────────────────────────
-const fmt = (v) =>
-  Number(v || 0).toLocaleString("pt-BR", {
-    style: "currency",
-    currency: "BRL",
-  });
-
-const buildContext = (students, payments, expenses, leads) => {
-  const now = new Date();
-  const thisMonth = now.getMonth() + 1;
-  const thisYear = now.getFullYear();
-
-  const activeStudents = students.filter((s) => s.status === "Ativo" || s.status === "ativo");
-  const inactiveStudents = students.filter((s) => s.status !== "Ativo" && s.status !== "ativo");
-
-  const thisMonthPayments = payments.filter(
-    (p) => Number(p.month) === thisMonth && Number(p.year) === thisYear
-  );
-  const paidThisMonth = thisMonthPayments.filter((p) => p.status === "Pago");
-  const pendingThisMonth = thisMonthPayments.filter((p) => p.status !== "Pago");
-  const overduePayments = payments.filter(
-    (p) => p.status !== "Pago" && p.dueDate && new Date(p.dueDate) < now
-  );
-
-  const receitaMes = paidThisMonth.reduce((s, p) => s + Number(p.valuePlanned || 0), 0);
-  const inadimplencia = overduePayments.reduce((s, p) => s + Number(p.valuePlanned || 0), 0);
-  const despesasMes = expenses
-    .filter((e) => {
-      const d = new Date(e.date || e.createdAt);
-      return d.getMonth() + 1 === thisMonth && d.getFullYear() === thisYear;
-    })
-    .reduce((s, e) => s + Number(e.value || e.amount || 0), 0);
-
-  // Professores
-  const teacherMap = {};
-  activeStudents.forEach((s) => {
-    if (s.teacher) teacherMap[s.teacher] = (teacherMap[s.teacher] || 0) + 1;
-  });
-
-  // Cursos
-  const courseMap = {};
-  activeStudents.forEach((s) => {
-    if (s.course) courseMap[s.course] = (courseMap[s.course] || 0) + 1;
-  });
-
-  // Leads
-  const leadsThisMonth = (leads || []).filter((l) => {
-    const d = new Date(l.createdAt || l.date);
-    return d.getMonth() + 1 === thisMonth && d.getFullYear() === thisYear;
-  });
-
-  return `
-Você é um assistente gerencial especializado em escolas de inglês. Responda SEMPRE em português brasileiro.
-Seja direto, prático e objetivo. Use dados reais abaixo para embasar análises.
-
-=== DADOS DO SISTEMA SPEAKUP (${now.toLocaleDateString("pt-BR")}) ===
-
-ALUNOS:
-- Total de alunos: ${students.length}
-- Alunos ativos: ${activeStudents.length}
-- Alunos inativos/cancelados: ${inactiveStudents.length}
-- Taxa de retenção: ${students.length > 0 ? ((activeStudents.length / students.length) * 100).toFixed(1) : 0}%
-
-PROFESSORES (alunos por professor):
-${Object.entries(teacherMap).map(([t, n]) => `- ${t}: ${n} alunos`).join("\n") || "- Nenhum dado"}
-
-CURSOS (alunos por curso):
-${Object.entries(courseMap).map(([c, n]) => `- ${c}: ${n} alunos`).join("\n") || "- Nenhum dado"}
-
-FINANCEIRO (${thisMonth}/${thisYear}):
-- Receita recebida no mês: R$ ${receitaMes.toFixed(2)}
-- Inadimplência total: R$ ${inadimplencia.toFixed(2)}
-- Pagamentos pendentes no mês: ${pendingThisMonth.length} alunos
-- Pagamentos recebidos no mês: ${paidThisMonth.length} alunos
-- Despesas no mês: R$ ${despesasMes.toFixed(2)}
-- Lucro estimado do mês: R$ ${(receitaMes - despesasMes).toFixed(2)}
-
-INADIMPLÊNCIA DETALHADA:
-- Parcelas vencidas e não pagas: ${overduePayments.length}
-- Valor total em atraso: R$ ${inadimplencia.toFixed(2)}
-${overduePayments.slice(0, 5).map((p) => {
-  const aluno = students.find((s) => s.id === p.studentId);
-  return `  • ${aluno?.name || "Aluno desconhecido"} — R$ ${Number(p.valuePlanned || 0).toFixed(2)} (venc. ${p.dueDate ? new Date(p.dueDate).toLocaleDateString("pt-BR") : "?"})`;
-}).join("\n")}
-${overduePayments.length > 5 ? `  ... e mais ${overduePayments.length - 5} inadimplentes` : ""}
-
-LEADS (${thisMonth}/${thisYear}):
-- Leads no mês: ${leadsThisMonth.length}
-- Total de leads: ${(leads || []).length}
-
-=== FIM DOS DADOS ===
-`;
+const ICONS_MAP = {
+  inadimplencia: <AlertTriangle size={16} />,
+  financeiro: <TrendingUp size={16} />,
+  retencao: <Users size={16} />,
+  conversao: <BarChart3 size={16} />,
+  despesas: <DollarSign size={16} />,
+  previsao: <Brain size={16} />,
 };
-
-const QUICK_PROMPTS = [
-  { icon: <AlertTriangle size={14} />, label: "Alunos inadimplentes", prompt: "Quais alunos estão inadimplentes? Liste os principais e sugira ações de cobrança." },
-  { icon: <TrendingUp size={14} />, label: "Análise financeira", prompt: "Faça uma análise financeira completa do mês atual com insights e sugestões de melhoria." },
-  { icon: <Users size={14} />, label: "Retenção de alunos", prompt: "Analise a retenção de alunos e sugira estratégias para reduzir cancelamentos." },
-  { icon: <BarChart3 size={14} />, label: "Relatório gerencial", prompt: "Gere um relatório gerencial completo com os principais KPIs e recomendações para a escola." },
-  { icon: <Brain size={14} />, label: "Oportunidades", prompt: "Identifique as principais oportunidades de crescimento e melhoria para a escola agora." },
-  { icon: <DollarSign size={14} />, label: "Aumentar receita", prompt: "Sugira estratégias práticas para aumentar a receita da escola no próximo mês." },
-];
 
 // ─────────────────────────────────────────────
 // COMPONENTE PRINCIPAL
 // ─────────────────────────────────────────────
 export default function AIManager({ students = [], payments = [], expenses = [], leads = [] }) {
-  const [messages, setMessages] = useState([
-    {
-      role: "assistant",
-      content: `Olá! 👋 Sou o **Assistente IA da SpeakUp**.\n\nAnalisei os dados do sistema e estou pronto para te ajudar com:\n- 📊 Relatórios e análises\n- 💰 Gestão financeira e inadimplência\n- 👥 Retenção e captação de alunos\n- 💡 Sugestões estratégicas\n\nO que você quer saber hoje?`,
-    },
-  ]);
-  const [input, setInput] = useState("");
-  const [loading, setLoading] = useState(false);
+  // Hook customizado para lógica do chat
+  const {
+    messages,
+    inputValue,
+    isLoading,
+    sendMessage,
+    clearChat,
+    setInput,
+    sendQuickPrompt
+  } = useAI({ students, payments, expenses, leads });
+
   const bottomRef = useRef(null);
   const inputRef = useRef(null);
 
+  // Auto-scroll quando novas mensagens chegam
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  const sendMessage = async (text) => {
-    const userText = text || input.trim();
-    if (!userText || loading) return;
-    setInput("");
-
-    const userMsg = { role: "user", content: userText };
-    const newMessages = [...messages, userMsg];
-    setMessages(newMessages);
-    setLoading(true);
-
-    try {
-      const systemPrompt = buildContext(students, payments, expenses, leads);
-      const history = newMessages.map((m) => ({
-        role: m.role,
-        content: m.content,
-      }));
-
-      // Usar Firebase Cloud Function como proxy seguro (detecta local vs produção)
-      const functionUrl = window.location.hostname === "localhost" 
-        ? "http://127.0.0.1:5001/speakup-system/us-central1/chatWithAI"
-        : "https://us-central1-speakup-system.cloudfunctions.net/chatWithAI";
-      
-      const response = await fetch(functionUrl, {
-        method: "POST",
-        headers: { 
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          systemPrompt: systemPrompt,
-          messages: history,
-        }),
-      });
-
-      const data = await response.json();
-      
-      if (!response.ok) {
-        throw new Error(data.error || "Erro ao processar resposta");
-      }
-
-      const reply = data.content?.map((b) => b.text || "").join("") || "Não consegui processar sua pergunta.";
-      setMessages((prev) => [...prev, { role: "assistant", content: reply }]);
-    } catch (err) {
-      setMessages((prev) => [
-        ...prev,
-        { role: "assistant", content: "❌ Erro ao conectar com a IA. Verifique sua conexão e tente novamente." },
-      ]);
-    } finally {
-      setLoading(false);
-      setTimeout(() => inputRef.current?.focus(), 100);
+  // Handlers
+  const handleSend = () => {
+    if (inputValue.trim() && !isLoading) {
+      sendMessage(inputValue);
     }
   };
 
-  const clearChat = () => {
-    setMessages([
-      {
-        role: "assistant",
-        content: `Chat reiniciado! Como posso te ajudar?`,
-      },
-    ]);
+  const handleKeyPress = (e) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      handleSend();
+    }
   };
 
   return (
@@ -208,12 +81,17 @@ export default function AIManager({ students = [], payments = [], expenses = [],
         display: "flex",
         flexDirection: "column",
         gap: "20px",
-        padding: "0",
       }}
     >
-      <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
+      {/* Google Font */}
+      <link 
+        href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&display=swap" 
+        rel="stylesheet" 
+      />
 
-      {/* HEADER CARD */}
+      {/* ============================================ */}
+      {/* HEADER */}
+      {/* ============================================ */}
       <div
         style={{
           background: "linear-gradient(135deg, #005DE4 0%, #0041a8 100%)",
@@ -248,64 +126,92 @@ export default function AIManager({ students = [], payments = [], expenses = [],
             </div>
           </div>
         </div>
-        <div style={{ display: "flex", gap: "16px", alignItems: "center" }}>
-          {[
-            { label: "Alunos Ativos", value: students.filter(s => s.status === "Ativo" || s.status === "ativo").length },
-            { label: "Inadimplentes", value: [...new Set(payments.filter(p => p.status !== "Pago" && p.dueDate && new Date(p.dueDate) < new Date()).map(p => p.studentId))].length },
-            { label: "Leads", value: (leads || []).length },
-          ].map((stat) => (
-            <div key={stat.label} style={{ textAlign: "center", background: "rgba(255,255,255,0.1)", borderRadius: 10, padding: "8px 16px" }}>
-              <div style={{ fontSize: 22, fontWeight: 700 }}>{stat.value}</div>
-              <div style={{ fontSize: 11, opacity: 0.75, marginTop: 2 }}>{stat.label}</div>
-            </div>
-          ))}
+
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            background: "rgba(255,255,255,0.1)",
+            padding: "8px 14px",
+            borderRadius: 10,
+            fontSize: 13,
+            backdropFilter: "blur(10px)",
+          }}
+        >
+          <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#22c55e" }} />
+          <span>{students.length} alunos • {payments.length} pagamentos</span>
         </div>
       </div>
 
-      {/* QUICK PROMPTS */}
-      <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
-        {QUICK_PROMPTS.map((q) => (
+      {/* ============================================ */}
+      {/* PROMPTS RÁPIDOS */}
+      {/* ============================================ */}
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
+          gap: "10px",
+        }}
+      >
+        {AI_CONFIG.QUICK_PROMPTS.map((item) => (
           <button
-            key={q.label}
-            onClick={() => sendMessage(q.prompt)}
-            disabled={loading}
+            key={item.id}
+            onClick={() => sendQuickPrompt(item.prompt)}
+            disabled={isLoading}
             style={{
               display: "flex",
               alignItems: "center",
-              gap: "6px",
-              padding: "8px 14px",
-              borderRadius: "20px",
-              border: "1.5px solid #e2e8f0",
+              gap: "10px",
+              padding: "12px 16px",
+              borderRadius: "12px",
+              border: "1px solid #e2e8f0",
               background: "white",
-              color: "#334155",
-              fontSize: 13,
-              fontWeight: 500,
-              cursor: loading ? "not-allowed" : "pointer",
-              opacity: loading ? 0.5 : 1,
+              cursor: isLoading ? "not-allowed" : "pointer",
               transition: "all 0.15s",
+              fontSize: "13px",
+              fontWeight: 500,
+              color: "#334155",
+              textAlign: "left",
               fontFamily: "'DM Sans', sans-serif",
-              whiteSpace: "nowrap",
+              opacity: isLoading ? 0.5 : 1,
             }}
             onMouseEnter={(e) => {
-              if (!loading) {
-                e.currentTarget.style.background = "#005DE4";
-                e.currentTarget.style.color = "white";
+              if (!isLoading) {
                 e.currentTarget.style.borderColor = "#005DE4";
+                e.currentTarget.style.transform = "translateY(-1px)";
+                e.currentTarget.style.boxShadow = "0 4px 12px rgba(0,93,228,0.1)";
               }
             }}
             onMouseLeave={(e) => {
-              e.currentTarget.style.background = "white";
-              e.currentTarget.style.color = "#334155";
               e.currentTarget.style.borderColor = "#e2e8f0";
+              e.currentTarget.style.transform = "translateY(0)";
+              e.currentTarget.style.boxShadow = "none";
             }}
           >
-            {q.icon}
-            {q.label}
+            <div
+              style={{
+                width: 28,
+                height: 28,
+                borderRadius: 8,
+                background: "#f1f5f9",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                color: "#005DE4",
+              }}
+            >
+              {ICONS_MAP[item.id]}
+            </div>
+            <span style={{ flex: 1 }}>{item.title}</span>
+            <ChevronRight size={14} color="#94a3b8" />
           </button>
         ))}
       </div>
 
-      {/* CHAT AREA */}
+      {/* ============================================ */}
+      {/* CHAT CONTAINER */}
+      {/* ============================================ */}
       <div
         style={{
           background: "white",
@@ -313,13 +219,12 @@ export default function AIManager({ students = [], payments = [], expenses = [],
           border: "1px solid #e2e8f0",
           display: "flex",
           flexDirection: "column",
-          overflow: "hidden",
-          flex: 1,
-          minHeight: 400,
-          boxShadow: "0 1px 8px rgba(0,0,0,0.05)",
+          minHeight: 520,
+          maxHeight: 520,
+          boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
         }}
       >
-        {/* Chat header */}
+        {/* Header do Chat */}
         <div
           style={{
             padding: "14px 20px",
@@ -331,10 +236,13 @@ export default function AIManager({ students = [], payments = [], expenses = [],
         >
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#22c55e" }} />
-            <span style={{ fontSize: 13, color: "#64748b", fontWeight: 500 }}>IA conectada aos dados do sistema</span>
+            <span style={{ fontSize: 13, color: "#64748b", fontWeight: 500 }}>
+              IA conectada aos dados do sistema
+            </span>
           </div>
           <button
             onClick={clearChat}
+            disabled={isLoading}
             style={{
               display: "flex",
               alignItems: "center",
@@ -345,15 +253,16 @@ export default function AIManager({ students = [], payments = [], expenses = [],
               background: "transparent",
               color: "#94a3b8",
               fontSize: 12,
-              cursor: "pointer",
+              cursor: isLoading ? "not-allowed" : "pointer",
               fontFamily: "'DM Sans', sans-serif",
+              opacity: isLoading ? 0.5 : 1,
             }}
           >
             <RefreshCw size={12} /> Limpar
           </button>
         </div>
 
-        {/* Messages */}
+        {/* Área de Mensagens */}
         <div
           style={{
             flex: 1,
@@ -362,7 +271,6 @@ export default function AIManager({ students = [], payments = [], expenses = [],
             display: "flex",
             flexDirection: "column",
             gap: "16px",
-            maxHeight: 480,
           }}
         >
           {messages.map((msg, i) => (
@@ -375,6 +283,7 @@ export default function AIManager({ students = [], payments = [], expenses = [],
                 alignItems: "flex-start",
               }}
             >
+              {/* Avatar da IA */}
               {msg.role === "assistant" && (
                 <div
                   style={{
@@ -392,6 +301,8 @@ export default function AIManager({ students = [], payments = [], expenses = [],
                   <Sparkles size={14} color="white" />
                 </div>
               )}
+
+              {/* Mensagem */}
               <div
                 style={{
                   maxWidth: "78%",
@@ -405,18 +316,20 @@ export default function AIManager({ students = [], payments = [], expenses = [],
                   whiteSpace: "pre-wrap",
                 }}
               >
+                {/* Renderização simples de markdown (bold com **) */}
                 {msg.content.split(/(\*\*[^*]+\*\*)/).map((part, j) =>
                   part.startsWith("**") && part.endsWith("**") ? (
                     <strong key={j}>{part.slice(2, -2)}</strong>
                   ) : (
-                    part
+                    <span key={j}>{part}</span>
                   )
                 )}
               </div>
             </div>
           ))}
 
-          {loading && (
+          {/* Indicador de Loading */}
+          {isLoading && (
             <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
               <div
                 style={{
@@ -446,14 +359,16 @@ export default function AIManager({ students = [], payments = [], expenses = [],
                 }}
               >
                 <Loader2 size={14} style={{ animation: "spin 1s linear infinite" }} />
-                Analisando os dados...
+                {AI_CONFIG.MESSAGES.THINKING}
               </div>
             </div>
           )}
+          
+          {/* Ref para auto-scroll */}
           <div ref={bottomRef} />
         </div>
 
-        {/* Input */}
+        {/* Área de Input */}
         <div
           style={{
             padding: "16px 20px",
@@ -464,11 +379,11 @@ export default function AIManager({ students = [], payments = [], expenses = [],
         >
           <input
             ref={inputRef}
-            value={input}
+            value={inputValue}
             onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && sendMessage()}
+            onKeyDown={handleKeyPress}
             placeholder="Pergunte sobre alunos, finanças, inadimplência..."
-            disabled={loading}
+            disabled={isLoading}
             style={{
               flex: 1,
               padding: "11px 16px",
@@ -485,20 +400,20 @@ export default function AIManager({ students = [], payments = [], expenses = [],
             onBlur={(e) => (e.target.style.borderColor = "#e2e8f0")}
           />
           <button
-            onClick={() => sendMessage()}
-            disabled={loading || !input.trim()}
+            onClick={handleSend}
+            disabled={isLoading || !inputValue.trim()}
             style={{
               width: 44,
               height: 44,
               borderRadius: "12px",
-              background: loading || !input.trim() ? "#e2e8f0" : "#005DE4",
+              background: isLoading || !inputValue.trim() ? "#e2e8f0" : "#005DE4",
               border: "none",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              cursor: loading || !input.trim() ? "not-allowed" : "pointer",
+              cursor: isLoading || !inputValue.trim() ? "not-allowed" : "pointer",
               transition: "all 0.15s",
-              color: loading || !input.trim() ? "#94a3b8" : "white",
+              color: isLoading || !inputValue.trim() ? "#94a3b8" : "white",
             }}
           >
             <Send size={16} />
@@ -506,7 +421,13 @@ export default function AIManager({ students = [], payments = [], expenses = [],
         </div>
       </div>
 
-      <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
+      {/* CSS para animações */}
+      <style>{`
+        @keyframes spin { 
+          from { transform: rotate(0deg); } 
+          to { transform: rotate(360deg); } 
+        }
+      `}</style>
     </div>
   );
 }

@@ -1,66 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { db } from '../firebase';
 import { collection, addDoc, getDocs, updateDoc, deleteDoc, doc, getDoc } from 'firebase/firestore';
-
-const livros = [
-  "KIDS Book 1", "KIDS Book 2", "KIDS Book 3", "KIDS Book 4",
-  "Teens Book 1", "Teens Book 2", "Teens Book 3", "Teens Book 4", "Teens Book 5", "Teens Book 6",
-  "Adults Book 1", "Adults Book 2", "Adults Book 3", "Adults Book 4", "Adults Book 5", "Adults Book 6",
-  "Business Book 1", "Business Book 2", "Business Book 3", "Business Book 4", "Business Book 5", "Business Book 6"
-];
-
-// Categorias de livros
-const categoriasLivros = [
-  { valor: 'KIDS', label: 'KIDS', maxBooks: 4 },
-  { valor: 'Teens', label: 'Teens', maxBooks: 6 },
-  { valor: 'Adults', label: 'Adults', maxBooks: 6 },
-  { valor: 'Business', label: 'Business', maxBooks: 6 }
-];
-
-// Função para gerar números de livros baseado na categoria
-const gerarNumerosLivros = (categoria) => {
-  const categoriaInfo = categoriasLivros.find(c => c.valor === categoria);
-  if (!categoriaInfo) return [];
-  
-  const numeros = [];
-  for (let i = 1; i <= categoriaInfo.maxBooks; i++) {
-    numeros.push({ valor: i.toString(), label: `Book ${i}` });
-  }
-  return numeros;
-};
-
-// URLs das imagens dos livros
-const livroImages = {
-  // KIDS Books
-  "KIDS Book 1": "https://www.speakupcataguases.com/wp-content/uploads/2026/02/kids-book-1.png.png",
-  "KIDS Book 2": "https://www.speakupcataguases.com/wp-content/uploads/2026/02/kids-book-2.png.png",
-  "KIDS Book 3": "https://www.speakupcataguases.com/wp-content/uploads/2026/02/kids-book-3.png.png",
-  "KIDS Book 4": "https://www.speakupcataguases.com/wp-content/uploads/2026/02/kids-book-4.png.png",
-  
-  // Teens Books
-  "Teens Book 1": "https://www.speakupcataguases.com/wp-content/uploads/2026/02/CAPA-STUDENTS-BOOK-1.png",
-  "Teens Book 2": "https://www.speakupcataguases.com/wp-content/uploads/2026/02/CAPA-BOOK-2.png", 
-  "Teens Book 3": "https://www.speakupcataguases.com/wp-content/uploads/2026/02/CAPA-STUDENTS-BOOK-3.png",
-  "Teens Book 4": "https://www.speakupcataguases.com/wp-content/uploads/2026/02/TEENS-STUDENTS-BOOK-4.png",
-  "Teens Book 5": "https://via.placeholder.com/80x100?text=Teen+5",
-  "Teens Book 6": "https://via.placeholder.com/80x100?text=Teen+6",
-  
-  // Adults Books
-  "Adults Book 1": "https://via.placeholder.com/80x100?text=Adult+1",
-  "Adults Book 2": "https://www.speakupcataguases.com/wp-content/uploads/2026/02/adults-book-2.png.png",
-  "Adults Book 3": "https://via.placeholder.com/80x100?text=Adult+3",
-  "Adults Book 4": "https://via.placeholder.com/80x100?text=Adult+4",
-  "Adults Book 5": "https://via.placeholder.com/80x100?text=Adult+5",
-  "Adults Book 6": "https://via.placeholder.com/80x100?text=Adult+6",
-  
-  // Business Books
-  "Business Book 1": "https://via.placeholder.com/80x100?text=Biz+1",
-  "Business Book 2": "https://via.placeholder.com/80x100?text=Biz+2",
-  "Business Book 3": "https://via.placeholder.com/80x100?text=Biz+3",
-  "Business Book 4": "https://via.placeholder.com/80x100?text=Biz+4",
-  "Business Book 5": "https://via.placeholder.com/80x100?text=Biz+5",
-  "Business Book 6": "https://via.placeholder.com/80x100?text=Biz+6"
-};
+import { livros, categoriasLivros, gerarNumerosLivros, livroImages } from '../constants/vendas';
 
 function Vendas() {
   const [vendas, setVendas] = useState([]);
@@ -542,11 +483,11 @@ function Vendas() {
   // Para os indicadores, usar filtro por data de criação das vendas
   const vendasFiltradasParaIndicadores = useMemo(() => {
     return vendas.filter(venda => {
-      // Filtro por mês e ano (baseado na data de criação para vendas únicas)
+      // Filtro por mês e ano (baseado na data de VENCIMENTO para contabilizar parcelas corretamente)
       let filtroData = true;
       if ((filterMes && filterAno) || filterMes || filterAno) {
-        // Usar createdAt se existir, senão usar vencimento como fallback
-        const dataReferencia = venda.createdAt || venda.vencimento || '';
+        // Usar vencimento como prioridade para que parcelas apareçam no mês correto
+        const dataReferencia = venda.vencimento || venda.createdAt || '';
         const dataVenda = dataReferencia.slice(0, 10); // YYYY-MM-DD
         const anoVenda = dataVenda.slice(0, 4); // YYYY
         const mesVenda = dataVenda.slice(5, 7); // MM
@@ -748,20 +689,6 @@ function Vendas() {
               {(() => {
                 const hoje = new Date().toISOString().slice(0, 10);
                 
-                console.log('=== DEBUG KPIs ===');
-                console.log('Filtros ativos:', { filterMes, filterAno, filterAluno });
-                console.log('Total vendas no sistema:', vendas.length);
-                console.log('Vendas filtradas para indicadores:', vendasFiltradasParaIndicadores.length);
-                
-                // Debug: verificar vendas de fevereiro 2026
-                const vendasFev2026 = vendas.filter(v => {
-                  const dataRef = v.createdAt || v.vencimento || '';
-                  const data = dataRef.slice(0, 10);
-                  return data.startsWith('2026-02');
-                });
-                console.log('Vendas de Fevereiro 2026:', vendasFev2026);
-                console.log('Vendas pagas em Fev 2026:', vendasFev2026.filter(v => v.status === 'pago'));
-                
                 // Aplicar filtro de aluno nas vendas individuais para cálculos de valor
                 const vendasComFiltroAluno = vendasFiltradasParaIndicadores.filter(venda => {
                   return !filterAluno || venda.aluno.toLowerCase().includes(filterAluno.toLowerCase());
@@ -772,63 +699,132 @@ function Vendas() {
                 // Excluir vendas canceladas dos cálculos
                 const vendasNaoCanceladas = vendasComFiltroAluno.filter(v => v.status !== 'cancelado');
                 
-                // Agrupar vendas para identificar vendas únicas (não contar parcelas como vendas separadas)
-                const vendasUnicas = new Map();
+                // Para "Vendas Geradas", contar o total de cobranças (parcelas) no período
+                // Cada parcela que vence no período filtrado é uma cobrança independente
+                const totalVendasGeradas = vendasNaoCanceladas.length;
                 
-                vendasNaoCanceladas.forEach(venda => {
-                  // Usar createdAt se disponível, senão usar vencimento como fallback
-                  const dataReferencia = venda.createdAt || venda.vencimento || '';
-                  const dataBase = dataReferencia.slice(0, 10);
-                  // Chave única: aluno + tipo + livro + data de criação para identificar uma venda original
-                  const chaveUnica = `${venda.aluno}-${venda.tipo}-${venda.livro || ''}-${dataBase}`;
-                  
-                  if (!vendasUnicas.has(chaveUnica)) {
-                    vendasUnicas.set(chaveUnica, {
-                      ...venda,
-                      valorTotal: parseFloat(venda.valor || 0)
-                    });
-                  } else {
-                    // Se já existe, somar o valor das parcelas
-                    const vendaExistente = vendasUnicas.get(chaveUnica);
-                    vendaExistente.valorTotal += parseFloat(venda.valor || 0);
-                  }
-                });
-                
-                const totalVendasGeradas = vendasUnicas.size;
                 const totalPrevisto = vendasNaoCanceladas.reduce((acc, v) => acc + parseFloat(v.valor || 0), 0);
                 const valorPago = vendasNaoCanceladas.filter(v => v.status === 'pago').reduce((acc, v) => acc + parseFloat(v.valor || 0), 0);
                 const valorPendente = vendasNaoCanceladas.filter(v => v.status === 'pendente').reduce((acc, v) => acc + parseFloat(v.valor || 0), 0);
                 const cobrancasAtrasadas = vendasNaoCanceladas.filter(v => v.status === 'pendente' && v.vencimento < hoje).length;
                 const vendasCanceladas = vendasComFiltroAluno.filter(v => v.status === 'cancelado').length;
                 const valorCancelado = vendasComFiltroAluno.filter(v => v.status === 'cancelado').reduce((acc, v) => acc + parseFloat(v.valor || 0), 0);
-                
-                console.log('KPIs calculados:', {
-                  totalVendasGeradas,
-                  totalPrevisto: totalPrevisto.toFixed(2),
-                  valorPago: valorPago.toFixed(2),
-                  valorPendente: valorPendente.toFixed(2),
-                  cobrancasAtrasadas,
-                  vendasCanceladas,
-                  valorCancelado: valorCancelado.toFixed(2)
-                });
-                console.log('Vendas pagas encontradas:', vendasComFiltroAluno.filter(v => v.status === 'pago'));
-                console.log('=== FIM DEBUG ===');
+
+                // Calcular percentuais para as barras de progresso
+                const totalGeralVendas = vendasNaoCanceladas.length;
+                const percentVendas = totalGeralVendas > 0 ? (totalVendasGeradas / totalGeralVendas) * 100 : 0;
+                const percentPago = totalPrevisto > 0 ? (valorPago / totalPrevisto) * 100 : 0;
+                const percentPendente = totalPrevisto > 0 ? (valorPendente / totalPrevisto) * 100 : 0;
+                const percentAtrasadas = totalGeralVendas > 0 ? (cobrancasAtrasadas / totalGeralVendas) * 100 : 0;
 
                 return [
-                  { titulo: 'Vendas Geradas', valor: totalVendasGeradas, cor: 'bg-blue-500', icone: '🛒' },
-                  { titulo: 'Total Previsto', valor: `R$ ${totalPrevisto.toFixed(2)}`, cor: 'bg-purple-500', icone: '💰' },
-                  { titulo: 'Valor Pago', valor: `R$ ${valorPago.toFixed(2)}`, cor: 'bg-green-500', icone: '✅' },
-                  { titulo: 'Valor Pendente', valor: `R$ ${valorPendente.toFixed(2)}`, cor: 'bg-yellow-500', icone: '⏳' },
-                  { titulo: 'Cobranças Atrasadas', valor: cobrancasAtrasadas, cor: 'bg-red-500', icone: '⚠️' }
+                  { 
+                    titulo: 'Cobranças', 
+                    valor: totalVendasGeradas,
+                    quantidade: totalVendasGeradas,
+                    percentual: percentVendas,
+                    cor: {
+                      bg: 'bg-blue-50',
+                      border: 'border-blue-200',
+                      text: 'text-blue-700',
+                      value: 'text-blue-600',
+                      bar: 'bg-blue-500'
+                    },
+                    formato: 'number'
+                  },
+                  { 
+                    titulo: 'Total Previsto', 
+                    valor: totalPrevisto,
+                    quantidade: vendasNaoCanceladas.length,
+                    percentual: 100,
+                    cor: {
+                      bg: 'bg-purple-50',
+                      border: 'border-purple-200',
+                      text: 'text-purple-700',
+                      value: 'text-purple-600',
+                      bar: 'bg-purple-500'
+                    },
+                    formato: 'currency'
+                  },
+                  { 
+                    titulo: 'Valor Pago', 
+                    valor: valorPago,
+                    quantidade: vendasNaoCanceladas.filter(v => v.status === 'pago').length,
+                    percentual: percentPago,
+                    cor: {
+                      bg: 'bg-emerald-50',
+                      border: 'border-emerald-200',
+                      text: 'text-emerald-700',
+                      value: 'text-emerald-600',
+                      bar: 'bg-emerald-500'
+                    },
+                    formato: 'currency'
+                  },
+                  { 
+                    titulo: 'Pendente', 
+                    valor: valorPendente,
+                    quantidade: vendasNaoCanceladas.filter(v => v.status === 'pendente').length,
+                    percentual: percentPendente,
+                    cor: {
+                      bg: 'bg-orange-50',
+                      border: 'border-orange-200',
+                      text: 'text-orange-700',
+                      value: 'text-orange-600',
+                      bar: 'bg-orange-500'
+                    },
+                    formato: 'currency'
+                  },
+                  { 
+                    titulo: 'Vencidas', 
+                    valor: cobrancasAtrasadas,
+                    quantidade: cobrancasAtrasadas,
+                    percentual: percentAtrasadas,
+                    cor: {
+                      bg: 'bg-red-50',
+                      border: 'border-red-200',
+                      text: 'text-red-700',
+                      value: 'text-red-600',
+                      bar: 'bg-red-500'
+                    },
+                    formato: 'number'
+                  }
                 ].map((indicador, idx) => (
-                  <div key={idx} className="bg-white border border-gray-100 rounded-lg p-4 relative overflow-hidden">
-                    <div className={`absolute top-0 right-0 w-16 h-16 ${indicador.cor} opacity-10 rounded-full -mr-8 -mt-8`}></div>
-                    <div className="flex items-center justify-between relative z-10">
-                      <div>
-                        <h3 className="text-sm text-gray-500 font-medium">{indicador.titulo}</h3>
-                        <p className="text-2xl font-bold text-gray-800">{indicador.valor}</p>
+                  <div key={idx} className={`${indicador.cor.bg} border ${indicador.cor.border} rounded-xl p-5 transition-all hover:shadow-md`}>
+                    <div className="flex items-center justify-between mb-3">
+                      <h3 className={`text-sm font-semibold ${indicador.cor.text}`}>{indicador.titulo}</h3>
+                      <svg className="w-4 h-4 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <circle cx="12" cy="12" r="10" strokeWidth="2"/>
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 16v-4m0-4h.01"/>
+                      </svg>
+                    </div>
+                    
+                    <div className="mb-2">
+                      <div className={`text-2xl font-bold ${indicador.cor.value}`}>
+                        {indicador.formato === 'currency' 
+                          ? `R$ ${indicador.valor.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}` 
+                          : indicador.valor}
                       </div>
-                      <div className="text-3xl">{indicador.icone}</div>
+                    </div>
+
+                    {/* Barra de Progresso */}
+                    <div className="w-full bg-gray-200 rounded-full h-2 mb-4">
+                      <div 
+                        className={`${indicador.cor.bar} h-2 rounded-full transition-all`} 
+                        style={{ width: `${Math.min(indicador.percentual, 100)}%` }}
+                      ></div>
+                    </div>
+
+                    {/* Info de Quantidade */}
+                    <div className="flex items-center justify-between text-xs">
+                      <div className="flex items-center gap-1 text-gray-600">
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                        </svg>
+                        <span>{indicador.quantidade} cobrança{indicador.quantidade !== 1 ? 's' : ''}</span>
+                      </div>
+                      <svg className="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"/>
+                      </svg>
                     </div>
                   </div>
                 ));

@@ -16,7 +16,7 @@ export const Dashboard = ({
 }) => {
   const [showRegistrationsModal, setShowRegistrationsModal] = useState(false);
 
-  // Filtrar alunos matriculados no período
+  // Filtrar alunos matriculados no período (otimizado com Map lookup)
   const registeredStudents = useMemo(() => {
     const now = new Date();
     const currentMonth = now.getMonth();
@@ -31,15 +31,24 @@ export const Dashboard = ({
       return d.getFullYear() === currentYear;
     };
 
+    // Criar Map de payments por studentId para lookup O(1)
+    const paymentsByStudent = new Map();
+    payments.forEach(payment => {
+      if (!paymentsByStudent.has(payment.studentId)) {
+        paymentsByStudent.set(payment.studentId, []);
+      }
+      paymentsByStudent.get(payment.studentId).push(payment);
+    });
+
     return students
       .filter(s => inPeriod(s.createdAt))
       .map(student => {
-        // Buscar primeiro pagamento do aluno
-        const studentPayments = payments
-          .filter(p => p.studentId === student.id)
+        // Lookup O(1) ao invés de filter O(n)
+        const studentPayments = paymentsByStudent.get(student.id) || [];
+        const sortedPayments = studentPayments
           .sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate));
         
-        const firstPayment = studentPayments[0];
+        const firstPayment = sortedPayments[0];
         
         return {
           ...student,

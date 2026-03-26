@@ -72,7 +72,43 @@ export const AI_CONFIG = {
  * Reduz drasticamente o tamanho do prompt mantendo informações relevantes
  */
 function summarizeData(data) {
-  const { students = [], payments = [], expenses = [], leads = [] } = data;
+  const { students = [], payments = [], expenses = [], leads = [], filterMonth, filterYear } = data;
+  
+  // DEBUG: Ver o que está chegando
+  console.log('📊 AI Manager - Dados recebidos:', {
+    students: students.length,
+    payments: payments.length,
+    expenses: expenses.length,
+    leads: leads.length,
+    filterMonth,
+    filterYear
+  });
+  
+  if (students.length > 0) console.log('📌 Sample student:', students[0]);
+  if (payments.length > 0) console.log('📌 Sample payment:', payments[0]);
+  if (expenses.length > 0) console.log('📌 Sample expense:', expenses[0]);
+  
+  // ==== FILTRAR DADOS POR MÊS/ANO SE FORNECIDO ====
+  const currentMonth = filterMonth !== undefined ? filterMonth : new Date().getMonth();
+  const currentYear = filterYear !== undefined ? filterYear : new Date().getFullYear();
+  
+  // Filtrar pagamentos pelo mês/ano
+  const monthPayments = payments.filter(p => {
+    if (!p.dueDate) return false;
+    const date = new Date(p.dueDate);
+    return date.getMonth() === currentMonth && date.getFullYear() === currentYear;
+  });
+  
+  // Filtrar despesas pelo mês/ano  
+  const monthExpenses = expenses.filter(e => {
+    if (!e.date) return false;
+    const date = new Date(e.date);
+    return date.getMonth() === currentMonth && date.getFullYear() === currentYear;
+  });
+  
+  // IMPORTANTE: Também calcular totais gerais para comparação
+  const allTimePaidPayments = payments.filter(p => p.status === "Pago");
+  const allTimeRevenue = allTimePaidPayments.reduce((sum, p) => sum + parseFloat(p.valuePaid || p.valuePlanned || 0), 0);
   
   // ==== ALUNOS ====
   const activeStudents = students.filter(s => s.status === "Ativo");
@@ -85,29 +121,39 @@ function summarizeData(data) {
     return acc;
   }, {});
   
-  // ==== PAGAMENTOS ====
-  const paidPayments = payments.filter(p => p.status === "Pago");
-  const pendingPayments = payments.filter(p => p.status === "Pendente");
-  const latePayments = payments.filter(p => p.status === "Atrasado");
+  // ==== PAGAMENTOS DO MÊS ====
+  const paidPayments = monthPayments.filter(p => p.status === "Pago");
+  const pendingPayments = monthPayments.filter(p => p.status !== "Pago" && (!p.dueDate || new Date(p.dueDate) >= new Date()));
   
-  const totalRevenue = paidPayments.reduce((sum, p) => sum + parseFloat(p.valor || 0), 0);
-  const totalPending = pendingPayments.reduce((sum, p) => sum + parseFloat(p.valor || 0), 0);
-  const totalLate = latePayments.reduce((sum, p) => sum + parseFloat(p.valor || 0), 0);
+  // Identificar pagamentos atrasados (vencidos)
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const latePayments = monthPayments.filter(p => {
+    if (p.status === "Pago") return false;
+    if (!p.dueDate) return false;
+    const dueDate = new Date(p.dueDate);
+    dueDate.setHours(0, 0, 0, 0);
+    return dueDate < today;
+  });
+  
+  const totalRevenue = paidPayments.reduce((sum, p) => sum + parseFloat(p.valuePaid || p.valuePlanned || 0), 0);
+  const totalPending = pendingPayments.reduce((sum, p) => sum + parseFloat(p.valuePlanned || 0), 0);
+  const totalLate = latePayments.reduce((sum, p) => sum + parseFloat(p.valuePlanned || 0), 0);
   
   // Agrupar por método de pagamento
   const paymentsByMethod = paidPayments.reduce((acc, p) => {
-    const method = p.metodoPagamento || "Não especificado";
-    acc[method] = (acc[method] || 0) + parseFloat(p.valor || 0);
+    const method = p.paymentMethod || "Não especificado";
+    acc[method] = (acc[method] || 0) + parseFloat(p.valuePaid || p.valuePlanned || 0);
     return acc;
   }, {});
   
-  // ==== DESPESAS ====
-  const totalExpenses = expenses.reduce((sum, e) => sum + parseFloat(e.valor || 0), 0);
+  // ==== DESPESAS DO MÊS ====
+  const totalExpenses = monthExpenses.reduce((sum, e) => sum + parseFloat(e.value || 0), 0);
   
   // Agrupar por categoria
-  const expensesByCategory = expenses.reduce((acc, e) => {
-    const category = e.categoria || "Não especificado";
-    acc[category] = (acc[category] || 0) + parseFloat(e.valor || 0);
+  const expensesByCategory = monthExpenses.reduce((acc, e) => {
+    const category = e.category || "Não especificado";
+    acc[category] = (acc[category] || 0) + parseFloat(e.value || 0);
     return acc;
   }, {});
   
@@ -122,7 +168,19 @@ function summarizeData(data) {
   const profit = totalRevenue - totalExpenses;
   const profitMargin = totalRevenue > 0 ? ((profit / totalRevenue) * 100).toFixed(1) : 0;
   
+  // Nomes dos meses em português
+  const monthNames = [
+    "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
+    "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"
+  ];
+  
   return {
+    period: {
+      month: currentMonth,
+      year: currentYear,
+      monthName: monthNames[currentMonth],
+      description: `${monthNames[currentMonth]} de ${currentYear}`
+    },
     students: {
       total: students.length,
       active: activeStudents.length,
@@ -130,7 +188,7 @@ function summarizeData(data) {
       byCourse: studentsByCourse,
     },
     payments: {
-      total: payments.length,
+      total: monthPayments.length,
       paid: paidPayments.length,
       pending: pendingPayments.length,
       late: latePayments.length,
@@ -140,7 +198,7 @@ function summarizeData(data) {
       byMethod: paymentsByMethod,
     },
     expenses: {
-      total: expenses.length,
+      total: monthExpenses.length,
       amount: totalExpenses,
       byCategory: expensesByCategory,
     },
@@ -153,6 +211,11 @@ function summarizeData(data) {
       expenses: totalExpenses,
       profit: profit,
       profitMargin: profitMargin,
+    },
+    allTime: {
+      totalRevenue: allTimeRevenue,
+      totalPayments: payments.length,
+      totalExpenses: expenses.reduce((sum, e) => sum + parseFloat(e.value || 0), 0),
     }
   };
 }
@@ -168,32 +231,39 @@ export function buildSystemPrompt(data) {
   
   return `Você é um assistente de IA especializado em análise de dados para o SpeakUp, uma escola de idiomas.
 
-📊 RESUMO DOS DADOS ATUAIS:
+⏰ PERÍODO DE ANÁLISE ATUAL: ${summary.period.description}
 
-🎓 ALUNOS:
+📊 RESUMO DOS DADOS DO MÊS (${summary.period.monthName}/${summary.period.year}):
+
+🎓 ALUNOS (Dados Gerais - Todos os períodos):
 - Total: ${summary.students.total} (${summary.students.active} ativos, ${summary.students.inactive} inativos)
 - Por curso: ${Object.entries(summary.students.byCourse).map(([c, n]) => `${c}: ${n}`).join(", ")}
 
-💰 PAGAMENTOS:
-- Total: ${summary.payments.total} registros
-- Pagos: ${summary.payments.paid} (R$ ${summary.payments.revenue.toFixed(2)})
-- Pendentes: ${summary.payments.pending} (R$ ${summary.payments.pendingAmount.toFixed(2)})
-- Atrasados: ${summary.payments.late} (R$ ${summary.payments.lateAmount.toFixed(2)})
-- Por método: ${Object.entries(summary.payments.byMethod).map(([m, v]) => `${m}: R$ ${v.toFixed(2)}`).join(", ")}
+💰 PAGAMENTOS (${summary.period.monthName}/${summary.period.year}):
+- Total de cobranças do mês: ${summary.payments.total} registros
+- ✅ Pagos: ${summary.payments.paid} cobranças (R$ ${summary.payments.revenue.toFixed(2)} recebidos)
+- ⏳ Pendentes (no prazo): ${summary.payments.pending} (R$ ${summary.payments.pendingAmount.toFixed(2)})
+- ❌ ATRASADOS/VENCIDOS: ${summary.payments.late} (R$ ${summary.payments.lateAmount.toFixed(2)})
+- Por método de pagamento: ${Object.entries(summary.payments.byMethod).map(([m, v]) => `${m}: R$ ${v.toFixed(2)}`).join(", ") || "Nenhum"}
 
-💸 DESPESAS:
+💸 DESPESAS (${summary.period.monthName}/${summary.period.year}):
 - Total: ${summary.expenses.total} registros (R$ ${summary.expenses.amount.toFixed(2)})
-- Por categoria: ${Object.entries(summary.expenses.byCategory).map(([c, v]) => `${c}: R$ ${v.toFixed(2)}`).join(", ")}
+- Por categoria: ${Object.entries(summary.expenses.byCategory).map(([c, v]) => `${c}: R$ ${v.toFixed(2)}`).join(", ") || "Nenhuma"}
 
-📈 LEADS:
+📈 LEADS (Dados Gerais):
 - Total: ${summary.leads.total} leads
 - Por status: ${Object.entries(summary.leads.byStatus).map(([s, n]) => `${s}: ${n}`).join(", ")}
 
-💵 RESUMO FINANCEIRO:
+💵 RESUMO FINANCEIRO DO MÊS:
 - Receita: R$ ${summary.financial.revenue.toFixed(2)}
 - Despesas: R$ ${summary.financial.expenses.toFixed(2)}
 - Lucro: R$ ${summary.financial.profit.toFixed(2)}
 - Margem: ${summary.financial.profitMargin}%
+
+📊 DADOS HISTÓRICOS (Comparação):
+- Receita total (todos os tempos): R$ ${summary.allTime.totalRevenue.toFixed(2)}
+- Total de cobranças registradas: ${summary.allTime.totalPayments}
+- Total de despesas (todos os tempos): R$ ${summary.allTime.totalExpenses.toFixed(2)}
 
 SUAS CAPACIDADES:
 ✓ Analisar inadimplência e sugerir ações de cobrança
@@ -202,12 +272,17 @@ SUAS CAPACIDADES:
 ✓ Prever receitas e fluxo de caixa
 ✓ Sugerir otimizações operacionais
 ✓ Analisar conversão de leads
+✓ Comparar desempenho do mês atual com histórico
 
-INSTRUÇÕES:
+INSTRUÇÕES IMPORTANTES:
+- Os dados financeiros mostrados são do período: ${summary.period.description}
+- Quando o usuário perguntar sobre "este mês" ou "mês atual", refira-se a ${summary.period.monthName}/${summary.period.year}
+- Pagamentos ATRASADOS/VENCIDOS são aqueles com data de vencimento no passado e ainda não pagos
 - Seja direto e objetivo nas análises
 - Use dados concretos dos resumos acima
 - Forneça números e percentuais precisos
 - Sugira ações práticas e específicas
 - Use emojis e markdown para melhor legibilidade
-- Se precisar de detalhes específicos de um aluno/pagamento, pergunte o nome/ID`;
+- Se precisar de detalhes específicos de um aluno/pagamento, pergunte o nome/ID
+- Ao calcular inadimplência, considere APENAS os ${summary.payments.late} pagamentos ATRASADOS (R$ ${summary.payments.lateAmount.toFixed(2)})`;
 }

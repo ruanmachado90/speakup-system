@@ -31,7 +31,7 @@ export function useAI(appData) {
   // Memoiza o system prompt para evitar recalcular a cada render
   const systemPrompt = useMemo(() => {
     return buildSystemPrompt(appData);
-  }, [appData.students?.length, appData.payments?.length, appData.expenses?.length, appData.leads?.length]);
+  }, [appData.students?.length, appData.payments?.length, appData.expenses?.length, appData.leads?.length, appData.filterMonth, appData.filterYear]);
 
   /**
    * Função auxiliar para fazer requisição com retry

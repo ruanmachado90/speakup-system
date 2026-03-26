@@ -38,7 +38,7 @@ const ICONS_MAP = {
 // ─────────────────────────────────────────────
 // COMPONENTE PRINCIPAL
 // ─────────────────────────────────────────────
-export default function AIManager({ students = [], payments = [], expenses = [], leads = [] }) {
+export default function AIManager({ students = [], payments = [], expenses = [], leads = [], filterMonth, filterYear }) {
   // Hook customizado para lógica do chat
   const {
     messages,
@@ -48,7 +48,7 @@ export default function AIManager({ students = [], payments = [], expenses = [],
     clearChat,
     setInput,
     sendQuickPrompt
-  } = useAI({ students, payments, expenses, leads });
+  } = useAI({ students, payments, expenses, leads, filterMonth, filterYear });
 
   const bottomRef = useRef(null);
   const inputRef = useRef(null);

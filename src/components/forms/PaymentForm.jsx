@@ -66,6 +66,19 @@ export const PaymentForm = ({ modal, paymentSaving, onSubmit, onCancel, isEdit =
         </div>
       </div>
 
+      <div>
+        <label className="block text-sm font-semibold mb-2">Banco</label>
+        <select 
+          name="bank" 
+          defaultValue={isEdit ? modal.data?.bank : 'Asaas'}
+          className="w-full px-4 py-3 rounded-xl border focus:outline-none focus:ring-2 focus:ring-[#005DE4] bg-white"
+        >
+          <option value="Asaas">Asaas</option>
+          <option value="Inter">Inter</option>
+          <option value="Sicoob">Sicoob</option>
+        </select>
+      </div>
+
       <div className="grid grid-cols-2 gap-4">
         <button 
           type="button" 

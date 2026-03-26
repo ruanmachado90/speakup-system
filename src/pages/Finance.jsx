@@ -1,7 +1,8 @@
 import { useState, useMemo, useCallback, useEffect } from 'react';
-import { Search, Edit, X, Printer, Trash2, ChevronUp, ChevronDown, Link, Check, Settings, CheckCircle, DollarSign, AlertCircle, User, Clock, XCircle, Mail, FileText, Info } from 'lucide-react';
+import { Search, Edit, X, Printer, Trash2, ChevronUp, ChevronDown, Link, Check, Settings, CheckCircle, DollarSign, AlertCircle, User, Clock, XCircle, Mail, FileText, Info, Download, FileDown } from 'lucide-react';
 import { Card, KPI, PaymentMethodChart } from '../components';
 import { printReceipt } from '../utils/print';
+import { exportPaymentsToCSV, exportPaymentsToExcel, printPayments } from '../utils/export';
 import { formatCurrency, formatDate } from '../utils';
 import { ConfirmDialog } from '../components/ui/Toast';
 import PixInfoForm from '../components/forms/PixInfoForm';
@@ -186,6 +187,25 @@ const Finance = ({
       return field;
     });
   }, []);
+
+  // Export and print handlers
+  const handleExportCSV = useCallback(() => {
+    const monthName = MONTHS[filterMonth].label;
+    const periodName = `${monthName}_${filterYear}`;
+    exportPaymentsToCSV(processedPayments, students, `financeiro_${periodName}`);
+  }, [processedPayments, students, filterMonth, filterYear]);
+
+  const handleExportExcel = useCallback(() => {
+    const monthName = MONTHS[filterMonth].label;
+    const periodName = `${monthName}_${filterYear}`;
+    exportPaymentsToExcel(processedPayments, students, `financeiro_${periodName}`);
+  }, [processedPayments, students, filterMonth, filterYear]);
+
+  const handlePrintReport = useCallback(() => {
+    const monthName = MONTHS[filterMonth].label;
+    const period = `${monthName} de ${filterYear}`;
+    printPayments(processedPayments, students, period);
+  }, [processedPayments, students, filterMonth, filterYear]);
 
   // Memoized payment processing for optimal performance
   const processedPayments = useMemo(() => {
@@ -459,6 +479,15 @@ const Finance = ({
           )}
         </td>
         
+        {/* Bank */}
+        <td className="px-4 py-4">
+          {payment.status === 'Pago' && payment.bank ? (
+            <div className="text-sm text-gray-900">{payment.bank}</div>
+          ) : (
+            <div className="text-sm text-gray-400">-</div>
+          )}
+        </td>
+        
         {/* Due Date */}
         <td className="px-4 py-4">
           <div className="text-sm text-gray-900">
@@ -630,6 +659,36 @@ const Finance = ({
           </div>
         </div>
 
+        {/* Export and Print buttons */}
+        <div className="flex flex-wrap gap-2 mb-6">
+          <button
+            onClick={handleExportCSV}
+            className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-all shadow-sm hover:shadow-md"
+            title="Exportar para CSV"
+          >
+            <FileDown size={18} />
+            <span className="text-sm font-medium">Exportar CSV</span>
+          </button>
+          
+          <button
+            onClick={handleExportExcel}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all shadow-sm hover:shadow-md"
+            title="Exportar para Excel"
+          >
+            <Download size={18} />
+            <span className="text-sm font-medium">Exportar Excel</span>
+          </button>
+          
+          <button
+            onClick={handlePrintReport}
+            className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-all shadow-sm hover:shadow-md"
+            title="Imprimir relatório"
+          >
+            <Printer size={18} />
+            <span className="text-sm font-medium">Imprimir</span>
+          </button>
+        </div>
+
         {/* Enhanced KPI Cards */}
         <div className="mb-6">
           <div className="flex items-center justify-between mb-4">
@@ -724,6 +783,9 @@ const Finance = ({
                 <SortableHeader field="value" label="Valor" />
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                   Forma de Pagamento
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                  Banco
                 </th>
                 <SortableHeader field="dueDate" label="Data" />
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">

@@ -639,6 +639,9 @@ export const printReceipt = (payment, student) => {
   // Método de pagamento
   const metodoPagamento = payment.paymentMethod || 'Não especificado';
   
+  // Banco
+  const banco = payment.bank || 'Não especificado';
+  
   // Número do recibo (ID ou data)
   const numeroRecibo = payment.id || Date.now();
 
@@ -727,6 +730,10 @@ export const printReceipt = (payment, student) => {
         <div class="info-row">
           <span class="info-label">Forma de Pagamento:</span>
           <span class="info-value">${metodoPagamento}</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">Banco:</span>
+          <span class="info-value">${banco}</span>
         </div>
         <div class="info-row">
           <span class="info-label">Parcela:</span>

@@ -291,6 +291,8 @@ function AppContent() {
               payments={payments}
               expenses={expenses}
               leads={leads}
+              filterMonth={filterMonth}
+              filterYear={filterYear}
             />}
 
             {page === "expenses" && <Expenses 

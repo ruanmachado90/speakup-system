@@ -259,6 +259,7 @@ export const savePayment = async (e, modal, toastMsg, setModal, setPaymentSaving
   const valuePaid = Number(form.get('valuePaid') || 0);
   const paymentDate = form.get('paymentDate');
   const paymentMethod = form.get('paymentMethod') || 'PIX';
+  const bank = form.get('bank') || 'Asaas';
 
   if (isNaN(valuePaid) || valuePaid <= 0) {
     toastMsg('Informe um valor válido');
@@ -272,7 +273,8 @@ export const savePayment = async (e, modal, toastMsg, setModal, setPaymentSaving
       status: 'Pago',
       valuePaid: valuePaid,
       paymentDate: paymentDate || new Date().toISOString().split('T')[0],
-      paymentMethod: paymentMethod
+      paymentMethod: paymentMethod,
+      bank: bank
     };
     
     // Só atualiza paidAt se for um novo pagamento (não tinha paidAt antes)
@@ -304,7 +306,8 @@ export const handleUndoPayment = async (paymentId, toastMsg) => {
       valuePaid: null,
       paymentDate: null,
       paidAt: null,
-      paymentMethod: null
+      paymentMethod: null,
+      bank: null
     });
 
     toastMsg('Pagamento desfeito');

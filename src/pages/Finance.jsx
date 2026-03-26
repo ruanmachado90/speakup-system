@@ -188,25 +188,6 @@ const Finance = ({
     });
   }, []);
 
-  // Export and print handlers
-  const handleExportCSV = useCallback(() => {
-    const monthName = MONTHS[filterMonth].label;
-    const periodName = `${monthName}_${filterYear}`;
-    exportPaymentsToCSV(processedPayments, students, `financeiro_${periodName}`);
-  }, [processedPayments, students, filterMonth, filterYear]);
-
-  const handleExportExcel = useCallback(() => {
-    const monthName = MONTHS[filterMonth].label;
-    const periodName = `${monthName}_${filterYear}`;
-    exportPaymentsToExcel(processedPayments, students, `financeiro_${periodName}`);
-  }, [processedPayments, students, filterMonth, filterYear]);
-
-  const handlePrintReport = useCallback(() => {
-    const monthName = MONTHS[filterMonth].label;
-    const period = `${monthName} de ${filterYear}`;
-    printPayments(processedPayments, students, period);
-  }, [processedPayments, students, filterMonth, filterYear]);
-
   // Memoized payment processing for optimal performance
   const processedPayments = useMemo(() => {
     let payments = filteredPayments;
@@ -253,6 +234,25 @@ const Finance = ({
     
     return payments;
   }, [filteredPayments, searchTerm, students, sortField, sortDirection]);
+
+  // Export and print handlers (after processedPayments is defined)
+  const handleExportCSV = useCallback(() => {
+    const monthName = MONTHS[filterMonth].label;
+    const periodName = `${monthName}_${filterYear}`;
+    exportPaymentsToCSV(processedPayments, students, `financeiro_${periodName}`);
+  }, [processedPayments, students, filterMonth, filterYear]);
+
+  const handleExportExcel = useCallback(() => {
+    const monthName = MONTHS[filterMonth].label;
+    const periodName = `${monthName}_${filterYear}`;
+    exportPaymentsToExcel(processedPayments, students, `financeiro_${periodName}`);
+  }, [processedPayments, students, filterMonth, filterYear]);
+
+  const handlePrintReport = useCallback(() => {
+    const monthName = MONTHS[filterMonth].label;
+    const period = `${monthName} de ${filterYear}`;
+    printPayments(processedPayments, students, period);
+  }, [processedPayments, students, filterMonth, filterYear]);
   
   // Paginação otimizada
   const paginationInfo = useMemo(() => {

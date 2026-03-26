@@ -480,11 +480,11 @@ const Finance = ({
         </td>
         
         {/* Bank */}
-        <td className="px-4 py-4">
+        <td className="px-2 py-4">
           {payment.status === 'Pago' && payment.bank ? (
-            <div className="text-sm text-gray-900">{payment.bank}</div>
+            <div className="text-xs text-gray-900">{payment.bank}</div>
           ) : (
-            <div className="text-sm text-gray-400">-</div>
+            <div className="text-xs text-gray-400">-</div>
           )}
         </td>
         
@@ -784,7 +784,7 @@ const Finance = ({
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                   Forma de Pagamento
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                <th className="px-2 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider w-20">
                   Banco
                 </th>
                 <SortableHeader field="dueDate" label="Data" />

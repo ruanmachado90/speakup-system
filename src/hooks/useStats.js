@@ -124,6 +124,10 @@ export const useTeacherStats = (students) => {
   return useMemo(() => {
     const grouped = {};
     students.forEach(s => {
+      // Contar apenas alunos ativos
+      const status = s.status || 'ativo';
+      if (status !== 'ativo') return;
+      
       const teacher = s.teacher || 'Sem professor';
       if (!grouped[teacher]) {
         grouped[teacher] = { count: 0, revenue: 0 };

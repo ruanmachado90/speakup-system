@@ -224,6 +224,36 @@ export const Students = ({
         />
       </div>
 
+      {/* Card de estatísticas do professor quando filtro é aplicado */}
+      {teacherFilter !== 'all' && (
+        <Card className="mb-4">
+          <div className="flex items-center gap-4 p-4 bg-gradient-to-r from-blue-50 to-blue-100 rounded-lg">
+            <div className="p-3 bg-[#005DE4] rounded-full">
+              <School size={32} className="text-white" />
+            </div>
+            <div className="flex-1">
+              <h3 className="text-sm font-semibold text-gray-600 mb-1">Professor(a)</h3>
+              <p className="text-2xl font-bold text-[#005DE4] mb-1">{teacherFilter}</p>
+              <div className="flex items-center gap-4 text-sm">
+                <span className="text-gray-700">
+                  <strong className="text-[#005DE4] text-xl">{filteredStudents.length}</strong> aluno{filteredStudents.length !== 1 ? 's' : ''} 
+                  {statusFilter === 'ativo' && ' ativo' + (filteredStudents.length !== 1 ? 's' : '')}
+                  {statusFilter === 'cancelado' && ' inativo' + (filteredStudents.length !== 1 ? 's' : '')}
+                </span>
+                <span className="text-gray-400">•</span>
+                <span className="text-gray-700">
+                  Receita: <strong className="text-emerald-600">
+                    {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(
+                      filteredStudents.reduce((sum, s) => sum + Number(s.fee || 0), 0)
+                    )}
+                  </strong>
+                </span>
+              </div>
+            </div>
+          </div>
+        </Card>
+      )}
+
       <Card>
         <div className="flex items-center justify-between mb-4">
           <div className="flex gap-2">

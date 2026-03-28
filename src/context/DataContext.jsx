@@ -49,7 +49,7 @@ export const DataProvider = ({ children }) => {
   
   // Calculated Data (Memoized Hooks)
   const stats = useStats(students, payments, expenses, dashboardRange);
-  const teacherStats = useTeacherStats(students);
+  const teacherStats = useTeacherStats(students, payments, dashboardRange);
   const filteredExpenses = useFilteredExpenses(expenses, dashboardRange);
   const monthlyData = useMonthlyData(payments, expenses);
   const financeStats = useFinanceStats(payments, filterMonth, filterYear);

@@ -270,6 +270,7 @@ function AppContent() {
               handleCancelEnrollment={handleCancelEnrollment}
               handleDeleteStudent={handleDeleteStudent}
               handleExcelUpload={handleExcelUpload}
+              dashboardRange={dashboardRange}
             />}
 
             {page === "finance" && <Finance 

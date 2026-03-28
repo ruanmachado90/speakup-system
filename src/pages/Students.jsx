@@ -12,7 +12,8 @@ export const Students = ({
   setModal, 
   handleCancelEnrollment,
   handleDeleteStudent, 
-  handleExcelUpload 
+  handleExcelUpload,
+  dashboardRange 
 }) => {
   const [selectedStudents, setSelectedStudents] = useState([]);
   const [boletimAluno, setBoletimAluno] = useState(null);
@@ -207,6 +208,50 @@ export const Students = ({
     [students, searchTerm, statusFilter, teacherFilter, sortOrder]
   );
 
+  // Calcular estatísticas do professor baseado em pagamentos do período (igual ao Dashboard)
+  const teacherFilteredStats = useMemo(() => {
+    if (teacherFilter === 'all') return { count: 0, revenue: 0 };
+
+    const now = new Date();
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
+
+    // Criar Map de alunos ativos para lookup rápido
+    const activeStudentsMap = new Map();
+    students.forEach(s => {
+      const status = s.status || 'ativo';
+      if (status === 'ativo') {
+        activeStudentsMap.set(s.id, s);
+      }
+    });
+
+    const studentsSet = new Set();
+    let revenue = 0;
+
+    payments.forEach(payment => {
+      if (!payment.dueDate || !payment.studentId) return;
+
+      const dueDate = new Date(payment.dueDate);
+      const isInPeriod = dashboardRange === 'month'
+        ? dueDate.getFullYear() === currentYear && dueDate.getMonth() === currentMonth
+        : dueDate.getFullYear() === currentYear;
+
+      if (!isInPeriod) return;
+
+      // Buscar aluno e verificar se está ativo
+      const student = activeStudentsMap.get(payment.studentId);
+      if (!student) return;
+
+      // Verificar se é do professor filtrado
+      if (student.teacher !== teacherFilter) return;
+
+      studentsSet.add(payment.studentId);
+      revenue += Number(payment.valuePlanned || 0);
+    });
+
+    return { count: studentsSet.size, revenue };
+  }, [students, payments, teacherFilter, dashboardRange]);
+
   return (
     <>
       <div className="grid grid-cols-2 gap-4 mb-4">
@@ -232,20 +277,16 @@ export const Students = ({
               <School size={32} className="text-white" />
             </div>
             <div className="flex-1">
-              <h3 className="text-sm font-semibold text-gray-600 mb-1">Professor(a)</h3>
+              <h3 className="text-sm font-semibold text-gray-600 mb-1">Professor(a) - {dashboardRange === 'month' ? 'Mês Atual' : 'Ano Atual'}</h3>
               <p className="text-2xl font-bold text-[#005DE4] mb-1">{teacherFilter}</p>
               <div className="flex items-center gap-4 text-sm">
                 <span className="text-gray-700">
-                  <strong className="text-[#005DE4] text-xl">{filteredStudents.length}</strong> aluno{filteredStudents.length !== 1 ? 's' : ''} 
-                  {statusFilter === 'ativo' && ' ativo' + (filteredStudents.length !== 1 ? 's' : '')}
-                  {statusFilter === 'cancelado' && ' inativo' + (filteredStudents.length !== 1 ? 's' : '')}
+                  <strong className="text-[#005DE4] text-xl">{teacherFilteredStats.count}</strong> aluno{teacherFilteredStats.count !== 1 ? 's' : ''} com pagamento{teacherFilteredStats.count !== 1 ? 's' : ''} no período
                 </span>
                 <span className="text-gray-400">•</span>
                 <span className="text-gray-700">
-                  Receita: <strong className="text-emerald-600">
-                    {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(
-                      filteredStudents.reduce((sum, s) => sum + Number(s.fee || 0), 0)
-                    )}
+                  Receita Prevista: <strong className="text-emerald-600">
+                    {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(teacherFilteredStats.revenue)}
                   </strong>
                 </span>
               </div>

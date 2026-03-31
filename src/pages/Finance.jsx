@@ -151,12 +151,12 @@ const Finance = ({
       
       futurePayments.forEach(payment => {
         const paymentRef = doc(db, 'payments', payment.id);
-        batch.update(paymentRef, {
+        batch.set(paymentRef, {
           pixQRCode: pixData.pixQRCode,
           pixCode: pixData.pixCode,
           studentName: payment.studentName || studentName,
           responsibleName: payment.responsibleName || responsibleName
-        });
+        }, { merge: true });
       });
       
       await batch.commit();

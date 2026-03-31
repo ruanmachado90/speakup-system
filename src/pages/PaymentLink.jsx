@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { Copy, Check, AlertCircle } from 'lucide-react';
+import { APP_ID } from '../utils/constants';
 
 const PaymentLink = () => {
   const { paymentId } = useParams();
@@ -19,7 +20,7 @@ const PaymentLink = () => {
         setError(null);
         
         console.log('Buscando pagamento ID:', paymentId);
-        const paymentDoc = await getDoc(doc(db, 'payments', paymentId));
+        const paymentDoc = await getDoc(doc(db, 'artifacts', APP_ID, 'public', 'data', 'payments', paymentId));
         
         console.log('Documento existe?', paymentDoc.exists());
         

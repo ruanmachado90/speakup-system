@@ -9,6 +9,7 @@ import PixInfoForm from '../components/forms/PixInfoForm';
 import { doc, setDoc, writeBatch } from 'firebase/firestore';
 import { db } from '../firebase';
 import { usePaymentActions } from '../hooks/useActions';
+import { APP_ID } from '../utils/constants';
 
 // Constants
 const MONTHS = Array.from({ length: 12 }, (_, i) => ({
@@ -145,12 +146,14 @@ const Finance = ({
       );
       
       console.log(`Atualizando ${futurePayments.length} pagamento(s) futuros do aluno ${studentName}`);
+      console.log('Dados PIX a salvar:', pixData);
       
       // Usar batch para atualizar todos os pagamentos de uma vez
       const batch = writeBatch(db);
       
       futurePayments.forEach(payment => {
-        const paymentRef = doc(db, 'payments', payment.id);
+        const paymentRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'payments', payment.id);
+        console.log('Salvando PIX no pagamento:', payment.id);
         batch.set(paymentRef, {
           pixQRCode: pixData.pixQRCode,
           pixCode: pixData.pixCode,
@@ -160,6 +163,7 @@ const Finance = ({
       });
       
       await batch.commit();
+      console.log('PIX salvo com sucesso em', futurePayments.length, 'pagamento(s)!');
       
       // Auto-copy payment link after saving
       const paymentLink = `${window.location.origin}/pagamento/${selectedPayment.id}`;
@@ -224,7 +228,7 @@ const Finance = ({
 
     const descricao = payment.description || 'Mensalidade - SpeakUp English School';
 
-    const mensagem = `*AVISO DE VENCIMENTO DE COBRANÇA*\n${statusMsg}\n\nOlá, ${nome}\n\nLembramos que a sua cobrança no valor de *${valor}* vence em *${dataFormatada}* (${diasTexto}).\n\n📋 *Descrição:* ${descricao}\n\n👉 Clique no link abaixo para visualizar a cobrança:\n${paymentLink}\n\nAtenciosamente,\n*Equipe SpeakUp* 🎓`;
+    const mensagem = `*AVISO DE VENCIMENTO DE COBRANCA*\n${statusMsg}\n\nOla, ${nome}\n\nLembramos que a sua cobranca no valor de *${valor}* vence em *${dataFormatada}* (${diasTexto}).\n\n*Descricao:* ${descricao}\n\nClique no link abaixo para visualizar a cobranca:\n${paymentLink}\n\nAtenciosamente,\n*Equipe SpeakUp*`;
 
     const telefone = student?.responsiblePhone || student?.phone || '';
     const telefoneNumeros = telefone.replace(/\D/g, '');
@@ -593,10 +597,23 @@ const Finance = ({
             
             {/* Send WhatsApp */}
             <button
-              onClick={() => handleSendWhatsApp(payment, student)}
+              onClick={() => {
+                console.log('WhatsApp button clicked. Payment data:', { 
+                  id: payment.id, 
+                  pixCode: payment.pixCode, 
+                  pixQRCode: payment.pixQRCode,
+                  hasPixCode: !!payment.pixCode,
+                  hasPixQRCode: !!payment.pixQRCode
+                });
+                handleSendWhatsApp(payment, student);
+              }}
               aria-label="Enviar cobrança por WhatsApp"
-              className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-all"
-              title={payment.pixCode && payment.pixQRCode ? 'Enviar cobrança por WhatsApp' : 'Configure o PIX primeiro'}
+              className={`p-2 rounded-lg transition-all ${
+                !payment.pixCode || !payment.pixQRCode
+                  ? 'text-gray-400 bg-gray-100 cursor-not-allowed opacity-50'
+                  : 'text-green-600 hover:bg-green-50 cursor-pointer'
+              }`}
+              title={payment.pixCode && payment.pixQRCode ? 'Enviar cobrança por WhatsApp' : 'Configure o PIX primeiro - Code: ' + (!!payment.pixCode) + ' QR: ' + (!!payment.pixQRCode)}
               disabled={!payment.pixCode || !payment.pixQRCode}
             >
               <MessageCircle size={18} />

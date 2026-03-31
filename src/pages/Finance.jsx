@@ -1,12 +1,12 @@
 import { useState, useMemo, useCallback, useEffect } from 'react';
-import { Search, Edit, X, Printer, Trash2, ChevronUp, ChevronDown, Link, Check, Settings, CheckCircle, DollarSign, AlertCircle, User, Clock, XCircle, Mail, FileText, Info, Download, FileDown } from 'lucide-react';
+import { Search, Edit, X, Printer, Trash2, ChevronUp, ChevronDown, Link, Check, Settings, CheckCircle, DollarSign, AlertCircle, User, Clock, XCircle, Mail, FileText, Info, Download, FileDown, MessageCircle } from 'lucide-react';
 import { Card, KPI, PaymentMethodChart } from '../components';
 import { printReceipt } from '../utils/print';
 import { exportPaymentsToCSV, exportPaymentsToExcel, printPayments } from '../utils/export';
 import { formatCurrency, formatDate } from '../utils';
 import { ConfirmDialog } from '../components/ui/Toast';
 import PixInfoForm from '../components/forms/PixInfoForm';
-import { doc, setDoc } from 'firebase/firestore';
+import { doc, setDoc, writeBatch } from 'firebase/firestore';
 import { db } from '../firebase';
 import { usePaymentActions } from '../hooks/useActions';
 
@@ -93,6 +93,7 @@ const KPI_COLOR_CLASSES = {
 
 const Finance = ({ 
   students, 
+  payments,
   filterMonth, 
   setFilterMonth, 
   filterYear, 
@@ -136,16 +137,29 @@ const Finance = ({
       
       const { name: studentName, responsible: responsibleName } = getStudentInfo(selectedPayment, students);
       
-      await setDoc(doc(db, 'payments', selectedPayment.id), {
-        pixQRCode: pixData.pixQRCode,
-        pixCode: pixData.pixCode,
-        studentName,
-        responsibleName,
-        valuePlanned: selectedPayment.valuePlanned,
-        dueDate: selectedPayment.dueDate,
-        description: selectedPayment.description || '',
-        status: selectedPayment.status || 'Pendente'
-      }, { merge: true });
+      // Buscar todos os pagamentos futuros do mesmo aluno (incluindo o atual)
+      const currentDueDate = new Date(selectedPayment.dueDate);
+      const futurePayments = payments.filter(p => 
+        p.studentId === selectedPayment.studentId && 
+        new Date(p.dueDate) >= currentDueDate
+      );
+      
+      console.log(`Atualizando ${futurePayments.length} pagamento(s) futuros do aluno ${studentName}`);
+      
+      // Usar batch para atualizar todos os pagamentos de uma vez
+      const batch = writeBatch(db);
+      
+      futurePayments.forEach(payment => {
+        const paymentRef = doc(db, 'payments', payment.id);
+        batch.update(paymentRef, {
+          pixQRCode: pixData.pixQRCode,
+          pixCode: pixData.pixCode,
+          studentName: payment.studentName || studentName,
+          responsibleName: payment.responsibleName || responsibleName
+        });
+      });
+      
+      await batch.commit();
       
       // Auto-copy payment link after saving
       const paymentLink = `${window.location.origin}/pagamento/${selectedPayment.id}`;
@@ -155,14 +169,14 @@ const Finance = ({
       
       setPixModalOpen(false);
       setSelectedPayment(null);
-      showToast('Link de pagamento salvo e copiado!');
+      showToast(`Link de pagamento salvo em ${futurePayments.length} cobrança(s) e copiado!`);
     } catch (error) {
       console.error('Erro ao salvar PIX:', error);
       showToast('Erro ao salvar informações PIX: ' + (error.message || 'Erro desconhecido'));
     } finally {
       setSavingPix(false);
     }
-  }, [selectedPayment, students, savingPix]);
+  }, [selectedPayment, students, payments, savingPix]);
 
   const handleCopyPaymentLink = useCallback(async (payment) => {
     const paymentLink = `${window.location.origin}/pagamento/${payment.id}`;
@@ -175,6 +189,51 @@ const Finance = ({
       console.error('Erro ao copiar link:', error);
       showToast('Erro ao copiar link. Tente novamente.');
     }
+  }, []);
+
+  const handleSendWhatsApp = useCallback((payment, student) => {
+    if (!payment.pixCode || !payment.pixQRCode) {
+      showToast('Configure as informações PIX antes de enviar a cobrança');
+      return;
+    }
+
+    const paymentLink = `${window.location.origin}/pagamento/${payment.id}`;
+    const nome = student?.responsibleName || payment.studentName || 'Cliente';
+    const valor = formatCurrency(Number(payment.valuePlanned || 0));
+    const dataVencimento = new Date(payment.dueDate);
+    const hoje = new Date();
+    const diasRestantes = Math.ceil((dataVencimento - hoje) / (1000 * 60 * 60 * 24));
+    const dataFormatada = dataVencimento.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+    
+    let statusMsg = '';
+    if (diasRestantes < 0) {
+      statusMsg = 'Cobrança vencida';
+    } else if (diasRestantes === 0) {
+      statusMsg = 'Cobrança vence hoje';
+    } else if (diasRestantes <= 3) {
+      statusMsg = 'Cobrança próxima ao vencimento';
+    } else {
+      statusMsg = 'Lembrete de cobrança';
+    }
+
+    const diasTexto = diasRestantes < 0 
+      ? `venceu há ${Math.abs(diasRestantes)} dia${Math.abs(diasRestantes) !== 1 ? 's' : ''}`
+      : diasRestantes === 0
+        ? 'vence hoje'
+        : `daqui a ${diasRestantes} dia${diasRestantes !== 1 ? 's' : ''}`;
+
+    const descricao = payment.description || 'Mensalidade - SpeakUp English School';
+
+    const mensagem = `*AVISO DE VENCIMENTO DE COBRANÇA*\n${statusMsg}\n\nOlá, ${nome}\n\nLembramos que a sua cobrança no valor de *${valor}* vence em *${dataFormatada}* (${diasTexto}).\n\n📋 *Descrição:* ${descricao}\n\n👉 Clique no link abaixo para visualizar a cobrança:\n${paymentLink}\n\nAtenciosamente,\n*Equipe SpeakUp* 🎓`;
+
+    const telefone = student?.responsiblePhone || student?.phone || '';
+    const telefoneNumeros = telefone.replace(/\D/g, '');
+    
+    const whatsappUrl = telefoneNumeros
+      ? `https://wa.me/55${telefoneNumeros}?text=${encodeURIComponent(mensagem)}`
+      : `https://wa.me/?text=${encodeURIComponent(mensagem)}`;
+
+    window.open(whatsappUrl, '_blank');
   }, []);
 
   const handleSort = useCallback((field) => {
@@ -530,6 +589,17 @@ const Finance = ({
               title={payment.pixCode && payment.pixQRCode ? 'Copiar link de pagamento' : 'Link não configurado'}
             >
               {copiedLinkId === payment.id ? <Check size={18} /> : <Link size={18} />}
+            </button>
+            
+            {/* Send WhatsApp */}
+            <button
+              onClick={() => handleSendWhatsApp(payment, student)}
+              aria-label="Enviar cobrança por WhatsApp"
+              className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-all"
+              title={payment.pixCode && payment.pixQRCode ? 'Enviar cobrança por WhatsApp' : 'Configure o PIX primeiro'}
+              disabled={!payment.pixCode || !payment.pixQRCode}
+            >
+              <MessageCircle size={18} />
             </button>
             
             {/* Edit/Update Payment */}

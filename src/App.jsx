@@ -275,6 +275,7 @@ function AppContent() {
 
             {page === "finance" && <Finance 
               students={students}
+              payments={payments}
               filterMonth={filterMonth}
               setFilterMonth={setFilterMonth}
               filterYear={filterYear}

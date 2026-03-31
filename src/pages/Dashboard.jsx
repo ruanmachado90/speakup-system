@@ -95,114 +95,70 @@ export const Dashboard = ({
         <title>Relatório de Matrículas - SpeakUp</title>
         <style>
           * { margin: 0; padding: 0; box-sizing: border-box; }
-          body { font-family: Arial, sans-serif; padding: 20px; color: #1e293b; }
-          .header { text-align: center; margin-bottom: 30px; border-bottom: 3px solid #10b981; padding-bottom: 20px; }
-          .logo { font-size: 24px; font-weight: bold; color: #10b981; margin-bottom: 8px; }
-          .subtitle { color: #64748b; font-size: 14px; margin-top: 5px; }
-          .info-box { background: #f1f5f9; padding: 15px; border-radius: 8px; margin-bottom: 25px; }
-          .info-row { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 13px; }
-          .info-label { font-weight: bold; color: #475569; }
-          .info-value { color: #1e293b; }
-          .student-card { border: 1px solid #e2e8f0; border-radius: 8px; padding: 15px; margin-bottom: 15px; background: #ffffff; }
-          .student-header { display: flex; justify-content: space-between; align-items: start; margin-bottom: 12px; border-bottom: 1px solid #e2e8f0; padding-bottom: 10px; }
-          .student-name { font-size: 16px; font-weight: bold; color: #1e293b; margin-bottom: 4px; }
-          .student-responsible { font-size: 12px; color: #64748b; }
-          .student-info { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; font-size: 12px; }
-          .info-item { display: flex; flex-direction: column; }
-          .info-item-label { color: #64748b; margin-bottom: 2px; font-size: 10px; text-transform: uppercase; }
-          .info-item-value { color: #1e293b; font-weight: 600; }
-          .status { display: inline-block; padding: 4px 12px; border-radius: 12px; font-size: 11px; font-weight: bold; }
-          .status-pago { background: #d1fae5; color: #065f46; }
-          .status-pendente { background: #fef3c7; color: #92400e; }
-          .status-vencido { background: #fee2e2; color: #991b1b; }
-          .status-sem { background: #e2e8f0; color: #475569; }
-          .value-highlight { font-size: 18px; font-weight: bold; color: #10b981; }
-          .footer { text-align: center; margin-top: 30px; padding-top: 20px; border-top: 2px solid #e2e8f0; font-size: 11px; color: #64748b; }
+          body { font-family: Arial, sans-serif; padding: 20px; color: #000; font-size: 11px; }
+          .header { text-align: center; margin-bottom: 20px; border-bottom: 2px solid #000; padding-bottom: 10px; }
+          .logo { font-size: 18px; font-weight: bold; margin-bottom: 5px; }
+          .subtitle { font-size: 10px; margin-top: 3px; }
+          .info-box { margin-bottom: 15px; font-size: 10px; }
+          .info-row { margin-bottom: 3px; }
+          table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+          th { text-align: left; padding: 6px 4px; border-bottom: 1px solid #000; font-size: 10px; font-weight: bold; }
+          td { padding: 5px 4px; border-bottom: 1px solid #ddd; font-size: 10px; vertical-align: top; }
+          .footer { text-align: center; margin-top: 20px; padding-top: 10px; border-top: 1px solid #000; font-size: 9px; }
           @media print {
             body { padding: 10px; }
-            .student-card { page-break-inside: avoid; }
+            table { page-break-inside: auto; }
+            tr { page-break-inside: avoid; page-break-after: auto; }
           }
         </style>
       </head>
       <body>
         <div class="header">
           <div class="logo">SpeakUp English Language Academy</div>
-          <div class="subtitle">Relatório de Novas Matrículas</div>
+          <div class="subtitle">Relatório de Novas Matrículas - ${dashboardRange === 'month' ? 'Mês Atual' : 'Ano Atual'}</div>
           <div class="subtitle">Gerado em: ${new Date().toLocaleDateString('pt-BR')} às ${new Date().toLocaleTimeString('pt-BR')}</div>
         </div>
 
         <div class="info-box">
-          <div class="info-row">
-            <span class="info-label">Período:</span>
-            <span class="info-value">${dashboardRange === 'month' ? 'Mês Atual' : 'Ano Atual'}</span>
-          </div>
-          <div class="info-row">
-            <span class="info-label">Total de Matrículas:</span>
-            <span class="info-value">${registeredStudents.length} ${registeredStudents.length === 1 ? 'aluno' : 'alunos'}</span>
-          </div>
-          <div class="info-row">
-            <span class="info-label">Receita Estimada:</span>
-            <span class="info-value">${formatCurrency(registeredStudents.reduce((acc, s) => acc + Number(s.fee || 0), 0))}</span>
-          </div>
+          <div class="info-row"><strong>Período:</strong> ${dashboardRange === 'month' ? 'Mês Atual' : 'Ano Atual'}</div>
+          <div class="info-row"><strong>Total de Matrículas:</strong> ${registeredStudents.length} ${registeredStudents.length === 1 ? 'aluno' : 'alunos'}</div>
+          <div class="info-row"><strong>Receita Estimada:</strong> ${formatCurrency(registeredStudents.reduce((acc, s) => acc + Number(s.fee || 0), 0))}</div>
         </div>
 
-        ${registeredStudents.map(student => {
-          const statusClass = 
-            student.paymentStatus === 'Pago' ? 'status-pago' :
-            student.paymentStatus === 'Sem pagamento' ? 'status-sem' :
-            (student.firstPayment?.dueDate && new Date(student.firstPayment.dueDate) < new Date()) ? 'status-vencido' :
-            'status-pendente';
-          
-          const statusText = 
-            student.paymentStatus === 'Pago' ? '✓ Pago' :
-            student.paymentStatus === 'Sem pagamento' ? 'Sem Cobrança' :
-            (student.firstPayment?.dueDate && new Date(student.firstPayment.dueDate) < new Date()) ? '✗ Vencido' :
-            '⏱ Pendente';
+        <table>
+          <thead>
+            <tr>
+              <th>Nome</th>
+              <th>Responsável</th>
+              <th>Matrícula</th>
+              <th>Curso</th>
+              <th>Mensalidade</th>
+              <th>Status</th>
+              <th>Vencimento</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${registeredStudents.map(student => {
+              const statusText = 
+                student.paymentStatus === 'Pago' ? 'Pago' :
+                student.paymentStatus === 'Sem pagamento' ? 'Sem Cobrança' :
+                (student.firstPayment?.dueDate && new Date(student.firstPayment.dueDate) < new Date()) ? 'Vencido' :
+                'Pendente';
 
-          return `
-            <div class="student-card">
-              <div class="student-header">
-                <div>
-                  <div class="student-name">${student.name}</div>
-                  ${student.responsibleName ? `<div class="student-responsible">Responsável: ${student.responsibleName}</div>` : ''}
-                </div>
-                <div>
-                  <span class="status ${statusClass}">${statusText}</span>
-                </div>
-              </div>
-              <div class="student-info">
-                <div class="info-item">
-                  <span class="info-item-label">Data de Matrícula</span>
-                  <span class="info-item-value">${formatDate(student.matriculaDate)}</span>
-                </div>
-                <div class="info-item">
-                  <span class="info-item-label">Curso</span>
-                  <span class="info-item-value">${student.course || '-'}</span>
-                </div>
-                <div class="info-item">
-                  <span class="info-item-label">Mensalidade</span>
-                  <span class="info-item-value value-highlight">${formatCurrency(Number(student.fee || 0))}</span>
-                </div>
-                ${student.firstPayment ? `
-                  <div class="info-item">
-                    <span class="info-item-label">Vencimento</span>
-                    <span class="info-item-value">${formatDate(student.firstPayment.dueDate)}</span>
-                  </div>
-                  <div class="info-item">
-                    <span class="info-item-label">Valor da Cobrança</span>
-                    <span class="info-item-value">${formatCurrency(Number(student.firstPayment.valuePlanned || 0))}</span>
-                  </div>
-                  ${student.firstPayment.paymentMethod ? `
-                    <div class="info-item">
-                      <span class="info-item-label">Forma de Pagamento</span>
-                      <span class="info-item-value">${student.firstPayment.paymentMethod}</span>
-                    </div>
-                  ` : ''}
-                ` : ''}
-              </div>
-            </div>
-          `;
-        }).join('')}
+              return `
+                <tr>
+                  <td><strong>${student.name}</strong></td>
+                  <td>${student.responsibleName || '-'}</td>
+                  <td>${formatDate(student.matriculaDate)}</td>
+                  <td>${student.course || '-'}</td>
+                  <td>${formatCurrency(Number(student.fee || 0))}</td>
+                  <td>${statusText}</td>
+                  <td>${student.firstPayment ? formatDate(student.firstPayment.dueDate) : '-'}</td>
+                </tr>
+              `;
+            }).join('')}
+          </tbody>
+        </table>
 
         <div class="footer">
           <p>SpeakUp English Language Academy - Cataguases/MG</p>
@@ -230,25 +186,20 @@ export const Dashboard = ({
         <title>Relatório de Cancelamentos - SpeakUp</title>
         <style>
           * { margin: 0; padding: 0; box-sizing: border-box; }
-          body { font-family: Arial, sans-serif; padding: 20px; color: #1e293b; }
-          .header { text-align: center; margin-bottom: 30px; border-bottom: 3px solid #ef4444; padding-bottom: 20px; }
-          .logo { font-size: 24px; font-weight: bold; color: #ef4444; margin-bottom: 8px; }
-          .subtitle { color: #64748b; font-size: 14px; margin-top: 5px; }
-          .info-box { background: #fef2f2; padding: 15px; border-radius: 8px; margin-bottom: 25px; }
-          .info-row { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 13px; }
-          .info-label { font-weight: bold; color: #7f1d1d; }
-          .info-value { color: #1e293b; }
-          .student-card { border: 1px solid #fecaca; border-radius: 8px; padding: 15px; margin-bottom: 15px; background: #ffffff; }
-          .student-name { font-size: 16px; font-weight: bold; color: #1e293b; margin-bottom: 4px; }
-          .student-responsible { font-size: 12px; color: #64748b; }
-          .student-info { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; font-size: 12px; margin-top: 12px; }
-          .info-item { display: flex; flex-direction: column; }
-          .info-item-label { color: #64748b; margin-bottom: 2px; font-size: 10px; text-transform: uppercase; }
-          .info-item-value { color: #1e293b; font-weight: 600; }
-          .footer { text-align: center; margin-top: 30px; padding-top: 20px; border-top: 2px solid #fecaca; font-size: 11px; color: #64748b; }
+          body { font-family: Arial, sans-serif; padding: 20px; color: #000; font-size: 11px; }
+          .header { text-align: center; margin-bottom: 20px; border-bottom: 2px solid #000; padding-bottom: 10px; }
+          .logo { font-size: 18px; font-weight: bold; margin-bottom: 5px; }
+          .subtitle { font-size: 10px; margin-top: 3px; }
+          .info-box { margin-bottom: 15px; font-size: 10px; }
+          .info-row { margin-bottom: 3px; }
+          table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+          th { text-align: left; padding: 6px 4px; border-bottom: 1px solid #000; font-size: 10px; font-weight: bold; }
+          td { padding: 5px 4px; border-bottom: 1px solid #ddd; font-size: 10px; vertical-align: top; }
+          .footer { text-align: center; margin-top: 20px; padding-top: 10px; border-top: 1px solid #000; font-size: 9px; }
           @media print {
             body { padding: 10px; }
-            .student-card { page-break-inside: avoid; }
+            table { page-break-inside: auto; }
+            tr { page-break-inside: avoid; page-break-after: auto; }
           }
         </style>
       </head>
@@ -260,44 +211,36 @@ export const Dashboard = ({
         </div>
 
         <div class="info-box">
-          <div class="info-row">
-            <span class="info-label">Período:</span>
-            <span class="info-value">${dashboardRange === 'month' ? 'Mês Atual' : 'Ano Atual'}</span>
-          </div>
-          <div class="info-row">
-            <span class="info-label">Total de Cancelamentos:</span>
-            <span class="info-value">${cancelledStudents.length}</span>
-          </div>
+          <div class="info-row"><strong>Período:</strong> ${dashboardRange === 'month' ? 'Mês Atual' : 'Ano Atual'}</div>
+          <div class="info-row"><strong>Total de Cancelamentos:</strong> ${cancelledStudents.length}</div>
         </div>
 
-        ${cancelledStudents.map(student => `
-          <div class="student-card">
-            <div class="student-name">${student.name || '---'}</div>
-            <div class="student-responsible">Responsável: ${student.responsibleName || '---'}</div>
-            <div class="student-info">
-              <div class="info-item">
-                <span class="info-item-label">Data do Cancelamento</span>
-                <span class="info-item-value">${formatDate(student.cancelDate)}</span>
-              </div>
-              <div class="info-item">
-                <span class="info-item-label">Curso</span>
-                <span class="info-item-value">${student.course || '-'}</span>
-              </div>
-              <div class="info-item">
-                <span class="info-item-label">Mensalidade</span>
-                <span class="info-item-value">${formatCurrency(Number(student.fee || 0))}</span>
-              </div>
-              <div class="info-item">
-                <span class="info-item-label">Professor</span>
-                <span class="info-item-value">${student.teacher || '-'}</span>
-              </div>
-              <div class="info-item">
-                <span class="info-item-label">Telefone</span>
-                <span class="info-item-value">${student.responsiblePhone || student.phone || '-'}</span>
-              </div>
-            </div>
-          </div>
-        `).join('')}
+        <table>
+          <thead>
+            <tr>
+              <th>Nome</th>
+              <th>Responsável</th>
+              <th>Cancelamento</th>
+              <th>Professor</th>
+              <th>Curso</th>
+              <th>Mensalidade</th>
+              <th>Telefone</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${cancelledStudents.map(student => `
+              <tr>
+                <td><strong>${student.name || '---'}</strong></td>
+                <td>${student.responsibleName || '-'}</td>
+                <td>${formatDate(student.cancelDate)}</td>
+                <td>${student.teacher || '-'}</td>
+                <td>${student.course || '-'}</td>
+                <td>${formatCurrency(Number(student.fee || 0))}</td>
+                <td>${student.responsiblePhone || student.phone || '-'}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
 
         <div class="footer">
           <p>SpeakUp English Language Academy - Cataguases/MG</p>

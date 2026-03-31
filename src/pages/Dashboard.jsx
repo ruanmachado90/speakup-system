@@ -15,6 +15,7 @@ export const Dashboard = ({
   payments 
 }) => {
   const [showRegistrationsModal, setShowRegistrationsModal] = useState(false);
+  const [showCancellationsModal, setShowCancellationsModal] = useState(false);
 
   // Filtrar alunos matriculados no período (otimizado com Map lookup)
   const registeredStudents = useMemo(() => {
@@ -59,6 +60,30 @@ export const Dashboard = ({
       })
       .sort((a, b) => (b.matriculaDate?.getTime() || 0) - (a.matriculaDate?.getTime() || 0));
   }, [students, payments, dashboardRange]);
+
+  // Filtrar alunos cancelados no período
+  const cancelledStudents = useMemo(() => {
+    const now = new Date();
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
+
+    const inPeriod = (ts) => {
+      if (!ts) return false;
+      const d = new Date(Number(ts));
+      if (dashboardRange === 'month') {
+        return d.getFullYear() === currentYear && d.getMonth() === currentMonth;
+      }
+      return d.getFullYear() === currentYear;
+    };
+
+    return students
+      .filter(s => s.status === 'cancelado' && inPeriod(s.canceledAt))
+      .map(student => ({
+        ...student,
+        cancelDate: student.canceledAt ? new Date(Number(student.canceledAt)) : null,
+      }))
+      .sort((a, b) => (b.cancelDate?.getTime() || 0) - (a.cancelDate?.getTime() || 0));
+  }, [students, dashboardRange]);
 
   // Função para imprimir lista de matrículas
   const printRegistrations = () => {
@@ -182,6 +207,101 @@ export const Dashboard = ({
         <div class="footer">
           <p>SpeakUp English Language Academy - Cataguases/MG</p>
           <p>Total de ${registeredStudents.length} ${registeredStudents.length === 1 ? 'matrícula' : 'matrículas'} listadas</p>
+        </div>
+
+        <script>
+          window.onload = function(){ window.print(); setTimeout(()=>window.close(), 200); };
+        </script>
+      </body>
+      </html>`;
+    
+    const w = window.open('', '_blank', 'width=900,height=700');
+    w.document.write(html);
+    w.document.close();
+  };
+
+  // Função para imprimir lista de cancelamentos
+  const printCancellations = () => {
+    const html = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="UTF-8">
+        <title>Relatório de Cancelamentos - SpeakUp</title>
+        <style>
+          * { margin: 0; padding: 0; box-sizing: border-box; }
+          body { font-family: Arial, sans-serif; padding: 20px; color: #1e293b; }
+          .header { text-align: center; margin-bottom: 30px; border-bottom: 3px solid #ef4444; padding-bottom: 20px; }
+          .logo { font-size: 24px; font-weight: bold; color: #ef4444; margin-bottom: 8px; }
+          .subtitle { color: #64748b; font-size: 14px; margin-top: 5px; }
+          .info-box { background: #fef2f2; padding: 15px; border-radius: 8px; margin-bottom: 25px; }
+          .info-row { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 13px; }
+          .info-label { font-weight: bold; color: #7f1d1d; }
+          .info-value { color: #1e293b; }
+          .student-card { border: 1px solid #fecaca; border-radius: 8px; padding: 15px; margin-bottom: 15px; background: #ffffff; }
+          .student-name { font-size: 16px; font-weight: bold; color: #1e293b; margin-bottom: 4px; }
+          .student-responsible { font-size: 12px; color: #64748b; }
+          .student-info { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; font-size: 12px; margin-top: 12px; }
+          .info-item { display: flex; flex-direction: column; }
+          .info-item-label { color: #64748b; margin-bottom: 2px; font-size: 10px; text-transform: uppercase; }
+          .info-item-value { color: #1e293b; font-weight: 600; }
+          .footer { text-align: center; margin-top: 30px; padding-top: 20px; border-top: 2px solid #fecaca; font-size: 11px; color: #64748b; }
+          @media print {
+            body { padding: 10px; }
+            .student-card { page-break-inside: avoid; }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <div class="logo">SpeakUp English Language Academy</div>
+          <div class="subtitle">Relatório de Cancelamentos - ${dashboardRange === 'month' ? 'Mês Atual' : 'Ano Atual'}</div>
+          <div class="subtitle">Gerado em: ${new Date().toLocaleDateString('pt-BR')} às ${new Date().toLocaleTimeString('pt-BR')}</div>
+        </div>
+
+        <div class="info-box">
+          <div class="info-row">
+            <span class="info-label">Período:</span>
+            <span class="info-value">${dashboardRange === 'month' ? 'Mês Atual' : 'Ano Atual'}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Total de Cancelamentos:</span>
+            <span class="info-value">${cancelledStudents.length}</span>
+          </div>
+        </div>
+
+        ${cancelledStudents.map(student => `
+          <div class="student-card">
+            <div class="student-name">${student.name || '---'}</div>
+            <div class="student-responsible">Responsável: ${student.responsibleName || '---'}</div>
+            <div class="student-info">
+              <div class="info-item">
+                <span class="info-item-label">Data do Cancelamento</span>
+                <span class="info-item-value">${formatDate(student.cancelDate)}</span>
+              </div>
+              <div class="info-item">
+                <span class="info-item-label">Curso</span>
+                <span class="info-item-value">${student.course || '-'}</span>
+              </div>
+              <div class="info-item">
+                <span class="info-item-label">Mensalidade</span>
+                <span class="info-item-value">${formatCurrency(Number(student.fee || 0))}</span>
+              </div>
+              <div class="info-item">
+                <span class="info-item-label">Professor</span>
+                <span class="info-item-value">${student.teacher || '-'}</span>
+              </div>
+              <div class="info-item">
+                <span class="info-item-label">Telefone</span>
+                <span class="info-item-value">${student.responsiblePhone || student.phone || '-'}</span>
+              </div>
+            </div>
+          </div>
+        `).join('')}
+
+        <div class="footer">
+          <p>SpeakUp English Language Academy - Cataguases/MG</p>
+          <p>Total de ${cancelledStudents.length} cancelamento${cancelledStudents.length !== 1 ? 's' : ''} listado${cancelledStudents.length !== 1 ? 's' : ''}</p>
         </div>
 
         <script>
@@ -359,6 +479,125 @@ export const Dashboard = ({
     );
   };
 
+  const CancellationsModal = () => {
+    if (!showCancellationsModal) return null;
+
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div className="bg-white rounded-2xl shadow-2xl max-w-5xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+          {/* Header */}
+          <div className="bg-gradient-to-r from-red-500 to-red-600 text-white p-6 flex items-center justify-between">
+            <div>
+              <h2 className="text-2xl font-bold">Alunos Cancelados</h2>
+              <p className="text-red-100 text-sm mt-1">
+                {dashboardRange === 'month' ? 'Alunos cancelados neste mês' : 'Alunos cancelados neste ano'}
+              </p>
+            </div>
+            <button
+              onClick={() => setShowCancellationsModal(false)}
+              className="p-2 hover:bg-white/20 rounded-lg transition-colors"
+              aria-label="Fechar"
+            >
+              <X size={24} />
+            </button>
+          </div>
+
+          {/* Content */}
+          <div className="flex-1 overflow-y-auto p-6">
+            {cancelledStudents.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-12 text-center">
+                <div className="bg-gray-100 rounded-full p-6 mb-4">
+                  <User size={48} className="text-gray-400" />
+                </div>
+                <h3 className="text-lg font-semibold text-gray-700 mb-2">
+                  Nenhum cancelamento encontrado
+                </h3>
+                <p className="text-sm text-gray-500">
+                  Não há cancelamentos registrados no período selecionado.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {cancelledStudents.map(student => (
+                  <div 
+                    key={student.id} 
+                    className="border border-red-200 bg-red-50 rounded-xl p-4 transition-all hover:shadow-md"
+                  >
+                    <div className="flex items-start justify-between gap-4">
+                      {/* Student Info */}
+                      <div className="flex items-start gap-3 flex-1">
+                        <div className="p-2 bg-white rounded-full shadow-sm">
+                          <User size={20} className="text-red-600" />
+                        </div>
+                        <div className="flex-1">
+                          <h3 className="font-bold text-gray-900">{student.name}</h3>
+                          {student.responsibleName && (
+                            <p className="text-sm text-gray-600 mt-1">
+                              Resp.: {student.responsibleName}
+                            </p>
+                          )}
+                          <div className="flex items-center gap-4 mt-2 text-xs text-gray-500">
+                            <span className="flex items-center gap-1">
+                              <Calendar size={14} />
+                              Cancelamento: {formatDate(student.cancelDate)}
+                            </span>
+                            {student.teacher && (
+                              <span>Professor: {student.teacher}</span>
+                            )}
+                            {student.course && (
+                              <span>Curso: {student.course}</span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Fee Info */}
+                      <div className="text-right">
+                        <p className="text-xs text-gray-500 mb-1">Mensalidade</p>
+                        <p className="text-lg font-bold text-gray-900">
+                          {formatCurrency(Number(student.fee || 0))}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Additional Details */}
+                    {student.responsiblePhone && (
+                      <div className="mt-3 pt-3 border-t border-red-200 text-xs text-gray-600">
+                        Telefone: {student.responsiblePhone}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Footer */}
+          <div className="border-t border-gray-200 p-4 bg-gray-50 flex items-center justify-between">
+            <p className="text-sm text-gray-600">
+              Total: <span className="font-bold">{cancelledStudents.length}</span> {cancelledStudents.length === 1 ? 'cancelamento' : 'cancelamentos'}
+            </p>
+            <div className="flex gap-2">
+              <button
+                onClick={printCancellations}
+                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors flex items-center gap-2"
+              >
+                <Printer size={16} />
+                Imprimir
+              </button>
+              <button
+                onClick={() => setShowCancellationsModal(false)}
+                className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
+              >
+                Fechar
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <>
       <div className="flex items-center justify-between">
@@ -401,7 +640,13 @@ export const Dashboard = ({
         >
           <KPI label="Matrículas" value={stats.registrations} format="number" accent="green" />
         </div>
-        <KPI label="Cancelamentos" value={stats.cancellations} format="number" accent="red" />
+        <div 
+          onClick={() => setShowCancellationsModal(true)}
+          className="cursor-pointer transition-transform hover:scale-105"
+          title="Clique para ver detalhes dos cancelamentos"
+        >
+          <KPI label="Cancelamentos" value={stats.cancellations} format="number" accent="red" />
+        </div>
         <KPI label="Inadimplência" value={stats.inadimplenciaPercent} format="percent" warn />
       </div>
 
@@ -463,6 +708,9 @@ export const Dashboard = ({
 
       {/* Modal de Matrículas */}
       <RegistrationsModal />
+
+      {/* Modal de Cancelamentos */}
+      <CancellationsModal />
     </>
   );
 };

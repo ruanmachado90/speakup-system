@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import QRCode from 'react-qr-code';
+import { gerarPixPayload } from '../utils/pix';
 import { useParams } from 'react-router-dom';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../firebase';
@@ -11,61 +13,53 @@ const PaymentLink = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [copied, setCopied] = useState(false);
-  const [imageError, setImageError] = useState(false);
+  const [pixCode, setPixCode] = useState('');
 
   useEffect(() => {
     const fetchPaymentData = async () => {
       try {
         setLoading(true);
         setError(null);
-        
-        console.log('Buscando pagamento ID:', paymentId);
         const paymentDoc = await getDoc(doc(db, 'artifacts', APP_ID, 'public', 'data', 'payments', paymentId));
-        
-        console.log('Documento existe?', paymentDoc.exists());
-        
         if (!paymentDoc.exists()) {
-          console.error('Documento não encontrado no Firestore. ID:', paymentId);
           setError('Pagamento não encontrado');
           setLoading(false);
           return;
         }
-
         const paymentData = { id: paymentDoc.id, ...paymentDoc.data() };
-        console.log('Dados do pagamento:', paymentData);
-        console.log('URL do QR Code:', paymentData.pixQRCode);
-        
-        // Validar se tem informações de PIX
-        if (!paymentData.pixCode || !paymentData.pixQRCode) {
-          setError('Informações de pagamento não configuradas');
-          setLoading(false);
-          return;
-        }
-
         // Verificar se pagamento já foi realizado
         if (paymentData.status === 'Pago') {
           setError('Este pagamento já foi realizado');
           setLoading(false);
           return;
         }
-
         setPayment(paymentData);
+        // Gera o payload PIX automaticamente
+        const chavePix = 'ruan@speakupcataguases.com';
+        const valor = Number(paymentData.valuePlanned || 0);
+        const nome = paymentData.studentName || 'SPEAKUP SCHOOL';
+        const descricao = paymentData.description || '';
+        const payload = gerarPixPayload({
+          chave: chavePix,
+          valor,
+          nome,
+          descricao,
+        });
+        setPixCode(payload);
         setLoading(false);
       } catch (err) {
-        console.error('Erro ao carregar pagamento:', err);
         setError('Erro ao carregar informações de pagamento');
         setLoading(false);
       }
     };
-
     if (paymentId) {
       fetchPaymentData();
     }
   }, [paymentId]);
 
   const handleCopyPixCode = () => {
-    if (payment?.pixCode) {
-      navigator.clipboard.writeText(payment.pixCode);
+    if (pixCode) {
+      navigator.clipboard.writeText(pixCode);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     }
@@ -73,10 +67,10 @@ const PaymentLink = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-3 sm:p-4">
+      <div className="min-h-screen bg-gradient-to-br from-[#eaf0ff] to-[#c7d6ff] flex items-center justify-center p-3 sm:p-4">
         <div className="bg-white rounded-lg shadow-xl p-6 sm:p-8 max-w-md w-full">
           <div className="flex flex-col items-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2" style={{ borderColor: '#eaf0ff', borderBottomColor: '#0e48fe' }}></div>
             <p className="mt-4 text-gray-600 text-sm sm:text-base">Carregando informações de pagamento...</p>
           </div>
         </div>
@@ -99,132 +93,76 @@ const PaymentLink = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-2 sm:p-4">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-md my-2 sm:my-0">
-        {/* Logo */}
-        <div className="flex justify-center bg-indigo-600 pt-3 sm:pt-6 pb-2 sm:pb-4 rounded-t-lg">
+    <div className="min-h-screen bg-gradient-to-br from-[#eaf0ff] to-[#c7d6ff] flex items-center justify-center p-2 sm:p-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md my-2 sm:my-0 border border-[#eaf0ff]">
+        {/* Logo e título */}
+        <div className="flex flex-col items-center justify-center" style={{ background: '#0e48fe', borderTopLeftRadius: '1rem', borderTopRightRadius: '1rem', padding: '2rem 0 0 0' }}>
           <img 
             src="https://www.speakupcataguases.com/wp-content/uploads/2025/11/logo-speakup-brancal-1.png" 
             alt="SpeakUp English School" 
-            className="h-8 sm:h-12 w-auto"
+            className="h-10 sm:h-14 w-auto mb-2 drop-shadow-lg"
           />
+          {/* Linha separadora laranja */}
+          <div style={{ height: '5px', width: '100%', background: '#ffae1e', border: 'none', margin: 0, marginTop: '1rem' }} />
         </div>
 
-        <div className="p-3 sm:p-6 md:p-8">
-          <div className="text-center mb-3 sm:mb-6">
-            <h1 className="text-base sm:text-xl md:text-2xl font-bold text-gray-800 leading-tight">Complete seu pagamento via PIX</h1>
-          </div>
-
-          {/* Informações do Aluno */}
-          <div className="bg-gray-50 rounded-lg p-2.5 sm:p-4 mb-3 sm:mb-6">
-            <h3 className="text-xs font-semibold text-gray-500 uppercase mb-1.5 sm:mb-2">Informações</h3>
-            <div className="space-y-0.5 sm:space-y-1">
-              <p className="text-sm sm:text-lg font-medium text-gray-800 break-words">{payment?.studentName || 'Nome não disponível'}</p>
-              {payment?.responsibleName && (
-                <p className="text-xs sm:text-sm text-gray-600">Responsável: {payment.responsibleName}</p>
-              )}
-            </div>
-          </div>
-
-          {/* Informações do Pagamento */}
-          <div className="bg-indigo-50 rounded-lg p-2.5 sm:p-4 mb-3 sm:mb-6">
-            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-2 gap-1">
-              <span className="text-xs sm:text-sm font-semibold text-gray-500 uppercase">Valor</span>
-              <span className="text-2xl sm:text-2xl md:text-3xl font-bold text-indigo-600">
-                R$ {Number(payment?.valuePlanned || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-              </span>
-            </div>
+        <div className="p-4 sm:p-6 md:p-8">
+          {/* Título Pagamento via PIX (agora em azul, acima do nome do aluno) */}
+          <h1 className="text-lg sm:text-2xl font-extrabold text-[#0e48fe] tracking-wide text-center drop-shadow-md mb-4">Pagamento via PIX</h1>
+          {/* Nome do aluno, valor e vencimento */}
+          <div className="flex flex-col items-center justify-center mb-6 gap-2">
+            <span className="text-xs text-gray-500">Aluno</span>
+            <span className="text-base sm:text-lg font-semibold text-gray-800 break-words text-center">{payment?.studentName || 'Nome não disponível'}</span>
+            <span className="text-xs font-semibold text-[#0e48fe] uppercase tracking-wider mt-2">Valor a pagar</span>
+            <span className="text-3xl font-black text-[#0e48fe]">R$ {Number(payment?.valuePlanned || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
             {payment?.dueDate && (
-              <div className="flex justify-between items-center gap-2">
-                <span className="text-xs sm:text-sm font-semibold text-gray-500 uppercase flex-shrink-0">Vencimento</span>
-                <span className={`text-xs sm:text-sm font-medium text-right ${
-                  new Date(payment.dueDate) < new Date(new Date().setHours(0,0,0,0))
-                    ? 'text-red-600'
-                    : 'text-gray-700'
-                }`}>
-                  {new Date(payment.dueDate).toLocaleDateString('pt-BR')}
-                  {new Date(payment.dueDate) < new Date(new Date().setHours(0,0,0,0)) && ' (Vencido)'}
-                </span>
-              </div>
-            )}
-            {payment?.description && (
-              <div className="mt-2 pt-2 border-t border-indigo-200">
-                <span className="text-xs font-semibold text-gray-500 uppercase block mb-1">Descrição</span>
-                <span className="text-xs sm:text-sm text-gray-700 break-words">{payment.description}</span>
-              </div>
+              <span className={`text-xs font-medium ${new Date(payment.dueDate) < new Date(new Date().setHours(0,0,0,0)) ? 'text-red-600' : 'text-gray-700'}`}>Vencimento: {new Date(payment.dueDate).toLocaleDateString('pt-BR')}{new Date(payment.dueDate) < new Date(new Date().setHours(0,0,0,0)) && ' (Vencido)'}</span>
             )}
           </div>
 
-          {/* QR Code */}
-          {payment?.pixQRCode && (
-            <div className="bg-white border-2 border-gray-200 rounded-lg p-2 sm:p-4 mb-3 sm:mb-6">
-              {!imageError ? (
-                <div className="flex justify-center">
-                  <img 
-                    src={payment.pixQRCode} 
-                    alt="QR Code PIX" 
-                    className="w-full max-w-[220px] sm:max-w-[280px] h-auto aspect-square object-contain"
-                    onLoad={() => {
-                      console.log('QR Code carregado com sucesso');
-                    }}
-                    onError={(e) => {
-                      console.error('Erro ao carregar QR Code:', payment.pixQRCode);
-                      console.error('Detalhes do erro:', e);
-                      setImageError(true);
-                    }}
-                  />
-                </div>
-              ) : (
-                <div className="text-center p-4">
-                  <p className="text-red-600 text-xs sm:text-sm mb-2">
-                    ⚠️ Erro ao carregar QR Code
-                  </p>
-                  <p className="text-gray-600 text-xs">
-                    Use o código PIX abaixo para realizar o pagamento
-                  </p>
-                </div>
-              )}
+          {/* QR Code PIX gerado automaticamente */}
+          {pixCode && (
+            <div className="flex flex-col items-center justify-center mb-6">
+              <div className="bg-white border-2 border-[#eaf0ff] rounded-xl p-4 shadow-sm">
+                <QRCode value={pixCode} size={200} />
+              </div>
+              <span className="mt-2 text-xs text-gray-500">Escaneie com o app do seu banco</span>
             </div>
           )}
 
-          {/* Código PIX */}
-          {payment?.pixCode && (
-            <div className="mb-3 sm:mb-6">
-              <label className="block text-xs sm:text-sm font-semibold text-gray-700 mb-1.5 sm:mb-2">
-                Código PIX Copia e Cola
-              </label>
-              <div className="flex items-center gap-1.5 sm:gap-2">
-                <div className="flex-1 min-w-0">
-                  <input
-                    type="text"
-                    value={payment.pixCode}
-                    readOnly
-                    className="w-full p-2 sm:p-3 border border-gray-300 rounded-lg bg-gray-50 text-[10px] sm:text-sm font-mono overflow-x-auto"
-                    style={{ overflowX: 'scroll', WebkitOverflowScrolling: 'touch' }}
-                  />
-                </div>
+          {/* Código PIX Copia e Cola */}
+          {pixCode && (
+            <div className="mb-6">
+              <label className="block text-xs font-semibold text-[#0e48fe] mb-2">Copia e Cola PIX</label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  value={pixCode}
+                  readOnly
+                  className="w-full p-3 border border-[#eaf0ff] rounded-lg bg-[#f6f8ff] text-xs font-mono text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#0e48fe] transition-all select-all"
+                  style={{ WebkitOverflowScrolling: 'touch' }}
+                  aria-label="Código PIX Copia e Cola"
+                  onFocus={e => e.target.select()}
+                />
                 <button
                   onClick={handleCopyPixCode}
-                  className={`p-2.5 sm:p-3 rounded-lg transition-all flex-shrink-0 touch-manipulation active:scale-95 ${
-                    copied 
-                      ? 'bg-green-500 text-white shadow-lg' 
-                      : 'bg-indigo-600 text-white hover:bg-indigo-700 active:bg-indigo-800 shadow-md'
-                  }`}
+                  className={`p-3 rounded-lg transition-all flex-shrink-0 active:scale-95 ${copied ? 'bg-green-500 text-white shadow-lg' : 'bg-[#f30961] text-white hover:bg-[#c1074e] shadow-md'}`}
                   aria-label="Copiar código PIX"
+                  tabIndex={0}
                 >
-                  {copied ? <Check size={20} className="sm:w-5 sm:h-5" /> : <Copy size={20} className="sm:w-5 sm:h-5" />}
+                  {copied ? <Check size={20} /> : <Copy size={20} />}
                 </button>
               </div>
               {copied && (
-                <p className="text-xs sm:text-sm text-green-600 mt-1.5 sm:mt-2 font-medium">Código copiado com sucesso!</p>
+                <p className="text-xs text-green-600 mt-2 font-medium animate-pulse">Código copiado com sucesso!</p>
               )}
             </div>
           )}
 
-          {/* Instruções */}
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-2.5 sm:p-4">
-            <h4 className="font-semibold text-blue-800 mb-1.5 sm:mb-2 text-xs sm:text-base">Como pagar via PIX:</h4>
-            <ol className="text-xs sm:text-sm text-blue-700 space-y-0.5 sm:space-y-1 list-decimal list-inside leading-relaxed">
+          {/* Instruções visuais */}
+          <div className="bg-[#eaf0ff] border border-[#b3c6ff] rounded-lg p-4 mb-4">
+            <h4 className="font-semibold text-[#0e48fe] mb-2 text-xs sm:text-base flex items-center gap-2"><span>Como pagar via PIX</span></h4>
+            <ol className="text-xs sm:text-sm text-[#0e48fe] space-y-1 list-decimal list-inside leading-relaxed">
               <li>Abra o aplicativo do seu banco</li>
               <li>Escolha pagar com PIX</li>
               <li>Escaneie o QR Code ou copie e cole o código acima</li>
@@ -232,10 +170,19 @@ const PaymentLink = () => {
             </ol>
           </div>
 
+
+          {/* Informações do banco/chave PIX */}
+          <div className="flex flex-col items-center mt-2 mb-2">
+            <span className="text-xs text-gray-500">Pagamento para:</span>
+            <span className="text-xs font-semibold text-gray-800 text-center">SpeakUp English School</span>
+            <span className="text-xs text-gray-500 mt-1">Chave PIX:</span>
+            <span className="text-xs font-mono text-[#0e48fe] break-all text-center">ruan@speakupcataguases.com</span>
+          </div>
+
           {/* Rodapé */}
-          <div className="mt-3 sm:mt-6 text-center text-xs sm:text-sm text-gray-500">
+          <div className="mt-6 text-center text-xs text-gray-400">
             <p className="font-medium">SpeakUp English School</p>
-            <p className="text-[10px] sm:text-xs mt-0.5 sm:mt-1">Em caso de dúvidas, entre em contato conosco</p>
+            <p className="text-[10px] mt-1">Dúvidas? Fale conosco pelo WhatsApp ou e-mail</p>
           </div>
         </div>
       </div>

@@ -196,11 +196,6 @@ const Finance = ({
   }, []);
 
   const handleSendWhatsApp = useCallback((payment, student) => {
-    if (!payment.pixCode || !payment.pixQRCode) {
-      showToast('Configure as informações PIX antes de enviar a cobrança');
-      return;
-    }
-
     const paymentLink = `${window.location.origin}/pagamento/${payment.id}`;
     const nome = student?.responsibleName || payment.studentName || 'Cliente';
     const valor = formatCurrency(Number(payment.valuePlanned || 0));
@@ -208,7 +203,7 @@ const Finance = ({
     const hoje = new Date();
     const diasRestantes = Math.ceil((dataVencimento - hoje) / (1000 * 60 * 60 * 24));
     const dataFormatada = dataVencimento.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
-    
+
     let statusMsg = '';
     if (diasRestantes < 0) {
       statusMsg = 'Cobrança vencida';
@@ -228,11 +223,20 @@ const Finance = ({
 
     const descricao = payment.description || 'Mensalidade - SpeakUp English School';
 
-    const mensagem = `*AVISO DE VENCIMENTO DE COBRANCA*\n${statusMsg}\n\nOla, ${nome}\n\nLembramos que a sua cobranca no valor de *${valor}* vence em *${dataFormatada}* (${diasTexto}).\n\n*Descricao:* ${descricao}\n\nClique no link abaixo para visualizar a cobranca:\n${paymentLink}\n\nAtenciosamente,\n*Equipe SpeakUp*`;
+    // Inclui informações PIX na mensagem
+    let pixInfo = '';
+    if (payment.pixCode) {
+      pixInfo += `\n\n*PIX Copia e Cola:*\n${payment.pixCode}`;
+    }
+    if (payment.pixQRCode) {
+      pixInfo += `\n\n*QR Code PIX disponível no link acima.*`;
+    }
+
+    const mensagem = `*AVISO DE VENCIMENTO DE COBRANCA*\n${statusMsg}\n\nOla, ${nome}\n\nLembramos que a sua cobranca no valor de *${valor}* vence em *${dataFormatada}* (${diasTexto}).\n\n*Descricao:* ${descricao}\n\nClique no link abaixo para visualizar a cobranca:\n${paymentLink}${pixInfo}\n\nAtenciosamente,\n*Equipe SpeakUp*`;
 
     const telefone = student?.responsiblePhone || student?.phone || '';
     const telefoneNumeros = telefone.replace(/\D/g, '');
-    
+
     const whatsappUrl = telefoneNumeros
       ? `https://wa.me/55${telefoneNumeros}?text=${encodeURIComponent(mensagem)}`
       : `https://wa.me/?text=${encodeURIComponent(mensagem)}`;
@@ -568,53 +572,29 @@ const Finance = ({
         {/* Actions */}
         <td className="px-4 py-4">
           <div className="flex items-center gap-2">
-            {/* Settings/Payment Link Config */}
-            <button
-              onClick={() => {
-                setSelectedPayment(payment);
-                setPixModalOpen(true);
-              }}
-              aria-label="Configurar link de pagamento"
-              className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
-              title="Configurar informações PIX"
-            >
-              <Settings size={18} />
-            </button>
-            
-            {/* Copy Payment Link */}
+
+            {/* Copy Payment Link (Link ícone) */}
             <button
               onClick={() => handleCopyPaymentLink(payment)}
               aria-label="Copiar link de pagamento"
               className={`p-2 rounded-lg transition-all ${
                 copiedLinkId === payment.id 
                   ? 'text-green-600 bg-green-50' 
-                  : 'text-gray-600 hover:bg-gray-100'
+                  : 'text-amber-600 hover:bg-amber-100'
               }`}
               title={payment.pixCode && payment.pixQRCode ? 'Copiar link de pagamento' : 'Link não configurado'}
             >
               {copiedLinkId === payment.id ? <Check size={18} /> : <Link size={18} />}
             </button>
             
-            {/* Send WhatsApp */}
+            {/* Send WhatsApp (sempre ativo) */}
             <button
               onClick={() => {
-                console.log('WhatsApp button clicked. Payment data:', { 
-                  id: payment.id, 
-                  pixCode: payment.pixCode, 
-                  pixQRCode: payment.pixQRCode,
-                  hasPixCode: !!payment.pixCode,
-                  hasPixQRCode: !!payment.pixQRCode
-                });
                 handleSendWhatsApp(payment, student);
               }}
               aria-label="Enviar cobrança por WhatsApp"
-              className={`p-2 rounded-lg transition-all ${
-                !payment.pixCode || !payment.pixQRCode
-                  ? 'text-gray-400 bg-gray-100 cursor-not-allowed opacity-50'
-                  : 'text-green-600 hover:bg-green-50 cursor-pointer'
-              }`}
-              title={payment.pixCode && payment.pixQRCode ? 'Enviar cobrança por WhatsApp' : 'Configure o PIX primeiro - Code: ' + (!!payment.pixCode) + ' QR: ' + (!!payment.pixQRCode)}
-              disabled={!payment.pixCode || !payment.pixQRCode}
+              className="p-2 rounded-lg transition-all text-green-600 hover:bg-green-50 cursor-pointer"
+              title="Enviar cobrança por WhatsApp"
             >
               <MessageCircle size={18} />
             </button>

@@ -142,15 +142,18 @@ const Reports = ({
                 const student = students.find(s => s.id === p.studentId);
                 return (
                   <>
-                    <td className="px-6 py-3 text-xs font-semibold">{p.studentName || student?.name || '-'}</td>
-                    <td className="px-6 py-3 text-xs">{p.dueDate ? new Date(p.dueDate).toLocaleDateString('pt-BR') : '-'}</td>
-                    <td className="px-6 py-3 text-xs">R$ {Number(p.valuePlanned || 0).toLocaleString('pt-BR', {minimumFractionDigits: 2})}</td>
-                    <td className="px-6 py-3">
+                    <td key="student" className="px-6 py-3 text-xs font-semibold">{p.studentName || student?.name || '-'}</td>
+                    <td key="dueDate" className="px-6 py-3 text-xs">{p.dueDate ? new Date(p.dueDate).toLocaleDateString('pt-BR') : '-'}</td>
+                    <td key="value" className="px-6 py-3 text-xs">R$ {Number(p.valuePlanned || 0).toLocaleString('pt-BR', {minimumFractionDigits: 2})}</td>
+                    <td key="status" className="px-6 py-3">
                       <span className={`px-2 py-1 rounded-full text-[10px] ${p.status === 'Pago' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
                         {p.status}
                       </span>
                     </td>
                     <td className="px-6 py-3 text-xs">
+                      {p.status === 'Pago' && p.paymentDate ? new Date(p.paymentDate).toLocaleDateString('pt-BR') : '-'}
+                    </td>
+                    <td key="paymentDate" className="px-6 py-3 text-xs">
                       {p.status === 'Pago' && p.paymentDate ? new Date(p.paymentDate).toLocaleDateString('pt-BR') : '-'}
                     </td>
                   </>
@@ -178,10 +181,10 @@ const Reports = ({
               }
               render={x => (
                 <>
-                  <td className="px-6 py-3 text-xs font-semibold">{x.description}</td>
-                  <td className="px-6 py-3 text-xs">{x.category}</td>
-                  <td className="px-6 py-3 text-xs">{x.date ? new Date(x.date).toLocaleDateString('pt-BR') : '-'}</td>
-                  <td className="px-6 py-3 text-xs">R$ {Number(x.value || 0).toLocaleString('pt-BR', {minimumFractionDigits: 2})}</td>
+                  <td key="description" className="px-6 py-3 text-xs font-semibold">{x.description}</td>
+                  <td key="category" className="px-6 py-3 text-xs">{x.category}</td>
+                  <td key="date" className="px-6 py-3 text-xs">{x.date ? new Date(x.date).toLocaleDateString('pt-BR') : '-'}</td>
+                  <td key="value" className="px-6 py-3 text-xs">R$ {Number(x.value || 0).toLocaleString('pt-BR', {minimumFractionDigits: 2})}</td>
                 </>
               )}
             />

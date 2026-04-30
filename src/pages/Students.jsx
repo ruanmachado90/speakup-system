@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { Search, Edit, X, FileText, CheckSquare, Square, Trash2, ArrowUpDown, School, Printer } from 'lucide-react';
 import { db } from '../firebase';
-import { doc, collection, getDoc, setDoc } from 'firebase/firestore';
+import { doc, collection, getDoc, setDoc, getDocs } from 'firebase/firestore';
 import { Card, Table, KPI } from '../components';
 
 export const Students = ({ 
@@ -19,6 +19,14 @@ export const Students = ({
   const [boletimAluno, setBoletimAluno] = useState(null);
   const [boletimData, setBoletimData] = useState({ turma: '', nivel: '', dia: '', horario: '' });
   const [loadingBoletim, setLoadingBoletim] = useState(false);
+  const [aulasData, setAulasData] = useState([]);
+
+  // Carregar aulas para cálculo de frequência
+  useEffect(() => {
+    getDocs(collection(db, 'aulas'))
+      .then(snap => setAulasData(snap.docs.map(d => ({ id: d.id, ...d.data() }))))
+      .catch(() => {});
+  }, []);
     // Carregar dados do boletim ao abrir modal
     useEffect(() => {
       if (boletimAluno) {
@@ -420,12 +428,13 @@ export const Students = ({
           <span key="professor">Professor</span>, 
           <span key="mensalidade">Mensalidade</span>, 
           <span key="vencimento">Vencimento</span>, 
+          <span key="frequencia">Frequência</span>,
           <span key="acoes"></span>
         ]}
         data={filteredStudents}
         render={s => (
           <>
-            <td className="px-6 py-3">
+            <td key="select" className="px-6 py-3">
               <button onClick={() => toggleStudent(s.id)}>
                 {selectedStudents.includes(s.id) ? 
                   <CheckSquare size={18} className="text-[#005DE4]"/> : 
@@ -433,28 +442,28 @@ export const Students = ({
                 }
               </button>
             </td>
-            <td className="px-6 py-3">
+            <td key="name" className="px-6 py-3">
               <div className="font-bold text-xs">{s.name}</div>
               {s.responsibleName && (
                 <div className="text-[10px] text-slate-400 mt-1">{s.responsibleName}</div>
               )}
             </td>
-            <td className="px-6 py-3">
+            <td key="contact" className="px-6 py-3">
               <div className="text-xs">{s.contact}</div>
               {s.responsibleContact && (
                 <div className="text-[10px] text-slate-400 mt-1">{s.responsibleContact}</div>
               )}
             </td>
-            <td className="px-6 py-3 text-xs">{s.course}</td>
-            <td className="px-6 py-3 text-xs">{s.teacher}</td>
-            <td className="px-6 py-3 text-xs">
+            <td key="course" className="px-6 py-3 text-xs">{s.course}</td>
+            <td key="teacher" className="px-6 py-3 text-xs">{s.teacher}</td>
+            <td key="fee" className="px-6 py-3 text-xs">
               {s.status === 'cancelado' ? (
                 <span className="text-red-600 font-bold">INATIVO</span>
               ) : (
                 `R$ ${Number(s.fee || 0).toLocaleString('pt-BR', {minimumFractionDigits: 2})}`
               )}
             </td>
-            <td className="px-6 py-3 text-xs">
+            <td key="nextPayment" className="px-6 py-3 text-xs">
               {(() => {
                 const next = payments
                   .filter(p => p.studentId === s.id && p.status !== "Pago")
@@ -462,7 +471,25 @@ export const Students = ({
                 return next ? new Date(next.dueDate).toLocaleDateString('pt-BR') : '-';
               })()}
             </td>
-            <td className="px-6 py-3">
+            <td key="freq" className="px-6 py-3 text-xs">
+              {(() => {
+                const aulasAluno = aulasData.filter(a =>
+                  (a.chamadas || []).some(c => c.alunoId === s.id)
+                );
+                if (!aulasAluno.length) return <span className="text-gray-400">—</span>;
+                const presencas = aulasAluno.filter(a =>
+                  (a.chamadas || []).find(c => c.alunoId === s.id)?.status === 'presente'
+                ).length;
+                const pct = Math.round(presencas / aulasAluno.length * 100);
+                const cls = pct >= 75 ? 'text-emerald-600' : pct >= 50 ? 'text-amber-600' : 'text-red-600';
+                return (
+                  <span className={`font-semibold ${cls}`} title={`${presencas}/${aulasAluno.length} aulas`}>
+                    {pct}%
+                  </span>
+                );
+              })()}
+            </td>
+            <td key="actions" className="px-6 py-3">
               <div className="flex items-center gap-2">
                 <button 
                   onClick={() => setModal({open: true, type: 'view', data: s})} 

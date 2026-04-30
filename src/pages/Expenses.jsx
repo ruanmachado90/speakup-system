@@ -367,24 +367,24 @@ const Expenses = ({
               data={sortedExpenses}
               render={x => (
                 <>
-                  <td className="px-6 py-3">
+                  <td key="description" className="px-6 py-3">
                     <span className="text-sm text-slate-800">{x.description}</span>
                   </td>
-                  <td className="px-6 py-3">
+                  <td key="category" className="px-6 py-3">
                     <span className="inline-block px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">
                       {x.category || '-'}
                     </span>
                   </td>
-                  <td className="px-6 py-3 text-slate-600">{formatDate(x.date)}</td>
-                  <td className="px-6 py-3">
+                  <td key="date" className="px-6 py-3 text-slate-600">{formatDate(x.date)}</td>
+                  <td key="value" className="px-6 py-3">
                     <span className={`font-semibold ${Number(x.value) >= HIGH_EXPENSE_THRESHOLD ? 'text-yellow-600' : 'text-slate-800'}`}>
                       {formatCurrency(x.value)}
                     </span>
                   </td>
-                  <td className="px-6 py-3 text-sm text-slate-600">
+                  <td key="paymentMethod" className="px-6 py-3 text-sm text-slate-600">
                     {x.paymentMethod || 'Não especificado'}
                   </td>
-                  <td className="px-6 py-3">
+                  <td key="actions" className="px-6 py-3">
                     <div className="flex gap-2">
                       <button 
                         onClick={() => handleEditClick(x)} 

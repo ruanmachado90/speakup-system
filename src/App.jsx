@@ -64,8 +64,9 @@ const Recibo = lazy(() => import('./pages/Recibo'));
 const PaymentLink = lazy(() => import('./pages/PaymentLink'));
 const AgendaGoogle = lazy(() => import('./pages/Agenda'));
 const Turmas = lazy(() => import('./pages/Turmas'));
+const ProfessorDashboard = lazy(() => import('./pages/ProfessorDashboard'));
 
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 
 // Componente de loading para Suspense
 const PageLoader = () => (
@@ -518,6 +519,8 @@ export default function App() {
           <Route path="/contrato/:id" element={<ContratoAssinatura />} />
           <Route path="/recibo/:id" element={<Recibo />} />
           <Route path="/pagamento/:paymentId" element={<PaymentLink />} />
+          <Route path="/professor/dashboard" element={<Navigate to="/" replace />} />
+          <Route path="/professor/:professorSlug" element={<ProfessorDashboard />} />
           <Route path="*" element={<AppContent />} />
         </Routes>
       </Router>

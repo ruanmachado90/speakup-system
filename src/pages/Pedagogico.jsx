@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { db } from '../firebase';
 import { collection, onSnapshot, query, orderBy } from 'firebase/firestore';
+import { APP_ID } from '../utils/constants';
 import { Card } from '../components';
 import { Edit2, Trash2, X } from 'lucide-react';
 
@@ -32,9 +33,11 @@ export default function Pedagogico() {
     return () => unsubscribe();
   }, []);
 
-  // Buscar alunos cadastrados do Firestore
+  // Buscar alunos cadastrados do Firestore (mesmo path usado pelo sistema principal)
   useEffect(() => {
-    const unsubscribe = onSnapshot(collection(db, 'students'), (snapshot) => {
+    const unsubscribe = onSnapshot(
+      collection(db, 'artifacts', APP_ID, 'public', 'data', 'students'),
+      (snapshot) => {
       const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       setAlunosCadastrados(data);
     });

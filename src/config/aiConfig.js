@@ -25,11 +25,11 @@ export const AI_CONFIG = {
   
   // Mensagens do sistema
   MESSAGES: {
-    WELCOME: "Olá! Sou o assistente de IA do SpeakUp. Como posso ajudar você hoje?",
+    WELCOME: "👋 Olá! Sou seu **Consultor de Gestão com IA** da SpeakUp.\n\nEstou conectado aos dados em tempo real da escola e posso ajudar você a:\n\n📊 Analisar inadimplência e criar planos de cobrança\n💰 Diagnosticar saúde financeira vs benchmarks da indústria\n📈 Identificar tendências e oportunidades de crescimento\n🎯 Otimizar conversão de leads e retenção de alunos\n💡 Sugerir ações estratégicas priorizadas por impacto\n\nMinhas análises são baseadas em dados reais e sempre incluem comparações com meses anteriores e benchmarks do mercado de idiomas.\n\n**Como posso ajudar você hoje?**",
     ERROR_GENERIC: "Desculpe, ocorreu um erro ao processar sua mensagem. Tente novamente.",
     ERROR_NETWORK: "Erro de conexão. Verifique sua internet e tente novamente.",
     ERROR_TIMEOUT: "A requisição demorou muito. Tente uma pergunta mais simples.",
-    THINKING: "Pensando...",
+    THINKING: "Analisando dados...",
   },
   
   // Prompts rápidos para análises comuns
@@ -37,32 +37,32 @@ export const AI_CONFIG = {
     {
       id: "inadimplencia",
       title: "📊 Análise de Inadimplência",
-      prompt: "Faça uma análise completa da inadimplência atual. Identifique alunos com pagamentos atrasados, calcule o valor total em atraso (parcelas + multas), e sugira ações específicas para recuperação."
+      prompt: "Analise a inadimplência atual seguindo o formato estruturado. Calcule: 1) Taxa de inadimplência vs benchmark, 2) Compare com meses anteriores (tendência), 3) Liste alunos críticos (>2 meses atrasados), 4) Impacto financeiro total com multas, 5) Crie plano de ação priorizado por urgência com roteiro de cobrança específico para cada caso."
     },
     {
       id: "financeiro",
-      title: "💰 Análise Financeira",
-      prompt: "Analise a situação financeira atual: receitas vs despesas, fluxo de caixa, rentabilidade por curso, e sugira onde podemos economizar ou investir mais."
+      title: "💰 Análise Financeira Completa",
+      prompt: "Faça diagnóstico financeiro completo do mês atual. Inclua: 1) Receita vs despesas vs margem de lucro (compare com benchmark 25-35%), 2) Variação % vs mês anterior e vs média 3 meses, 3) Tendência de crescimento (↗️↘️→), 4) Principais categorias de despesa e oportunidades de economia, 5) Projeção para próximo mês, 6) Ações prioritárias para melhorar saúde financeira."
     },
     {
       id: "retencao",
-      title: "📈 Taxa de Retenção",
-      prompt: "Calcule a taxa de retenção de alunos, identifique padrões de evasão (por curso, idade, tempo de matrícula), e sugira estratégias para melhorar a retenção."
+      title: "📈 Análise de Retenção",
+      prompt: "Analise a retenção de alunos com detalhes. Calcule: 1) Taxa de retenção vs benchmark (>85%), 2) Tendência dos últimos 6 meses, 3) Identifique perfil de alunos que estão saindo (curso, idade, tempo), 4) Calcule impacto financeiro da evasão, 5) Sugira 5 ações concretas de fidelização com impacto esperado. Seja específico e baseado nos dados reais."
     },
     {
       id: "conversao",
       title: "🎯 Conversão de Leads",
-      prompt: "Analise a conversão de leads em matrículas: taxa de conversão, tempo médio de decisão, leads perdidos e motivos, e sugira melhorias no processo."
+      prompt: "Analise a eficiência de conversão de leads. Calcule: 1) Taxa de conversão vs benchmark (20-30%), 2) Tempo médio para converter, 3) Identifique leads esquecidos (>30 dias sem ação), 4) Valor potencial sendo perdido, 5) Compare conversão atual vs meses anteriores, 6) Sugira melhorias no processo comercial com ações específicas e mensuráveis."
     },
     {
       id: "despesas",
       title: "💸 Otimização de Despesas",
-      prompt: "Analise as despesas por categoria, identifique gastos desnecessários ou excessivos, compare com benchmarks do setor, e sugira onde podemos reduzir custos."
+      prompt: "Faça auditoria de despesas completa. Analise: 1) Despesas por categoria com % do total, 2) Compare com mês anterior (identifique aumentos suspeitos), 3) Calcule % de despesas vs receita (ideal <70%), 4) Identifique 3 maiores oportunidades de redução, 5) Sugira cortes sem impactar qualidade, 6) Estime economia potencial em R$ e % para cada ação."
     },
     {
       id: "previsao",
-      title: "🔮 Previsão de Receitas",
-      prompt: "Com base nos dados atuais, faça uma projeção de receitas para os próximos 3 meses, considerando sazonalidade, renovações esperadas, e leads em negociação."
+      title: "🔮 Projeção de Receitas",
+      prompt: "Faça projeção de receitas para próximos 3 meses. Baseie-se em: 1) Tendência dos últimos 6 meses, 2) Sazonalidade identificada, 3) Alunos com renovação prevista, 4) Leads em negociação e taxa de conversão histórica, 5) Calcule cenários: otimista, realista e pessimista, 6) Sugira ações para atingir cenário otimista. Use dados reais do histórico."
     }
   ],
 };
@@ -74,23 +74,15 @@ export const AI_CONFIG = {
 function summarizeData(data) {
   const { students = [], payments = [], expenses = [], leads = [], filterMonth, filterYear } = data;
   
-  // DEBUG: Ver o que está chegando
-  console.log('📊 AI Manager - Dados recebidos:', {
-    students: students.length,
-    payments: payments.length,
-    expenses: expenses.length,
-    leads: leads.length,
-    filterMonth,
-    filterYear
-  });
-  
-  if (students.length > 0) console.log('📌 Sample student:', students[0]);
-  if (payments.length > 0) console.log('📌 Sample payment:', payments[0]);
-  if (expenses.length > 0) console.log('📌 Sample expense:', expenses[0]);
-  
   // ==== FILTRAR DADOS POR MÊS/ANO SE FORNECIDO ====
   const currentMonth = filterMonth !== undefined ? filterMonth : new Date().getMonth();
   const currentYear = filterYear !== undefined ? filterYear : new Date().getFullYear();
+  
+  // Nomes dos meses em português
+  const monthNames = [
+    "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
+    "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"
+  ];
   
   // Filtrar pagamentos pelo mês/ano
   const monthPayments = payments.filter(p => {
@@ -105,6 +97,55 @@ function summarizeData(data) {
     const date = new Date(e.date);
     return date.getMonth() === currentMonth && date.getFullYear() === currentYear;
   });
+  
+  // Data de hoje para comparações
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  
+  // ==== HISTÓRICO MENSAL (últimos 6 meses para comparações) ====
+  const monthlyData = [];
+  for (let i = 5; i >= 0; i--) {
+    const targetDate = new Date(currentYear, currentMonth, 1);
+    targetDate.setMonth(targetDate.getMonth() - i);
+    const targetMonth = targetDate.getMonth();
+    const targetYear = targetDate.getFullYear();
+    
+    const monthPayments = payments.filter(p => {
+      if (!p.dueDate) return false;
+      const date = new Date(p.dueDate);
+      return date.getMonth() === targetMonth && date.getFullYear() === targetYear;
+    });
+    
+    const monthExpenses = expenses.filter(e => {
+      if (!e.date) return false;
+      const date = new Date(e.date);
+      return date.getMonth() === targetMonth && date.getFullYear() === targetYear;
+    });
+    
+    const monthPaid = monthPayments.filter(p => p.status === "Pago");
+    const monthRevenue = monthPaid.reduce((sum, p) => sum + parseFloat(p.valuePaid || p.valuePlanned || 0), 0);
+    const monthExpenseTotal = monthExpenses.reduce((sum, e) => sum + parseFloat(e.value || 0), 0);
+    const monthLate = monthPayments.filter(p => {
+      if (p.status === "Pago") return false;
+      if (!p.dueDate) return false;
+      const dueDate = new Date(p.dueDate);
+      dueDate.setHours(0, 0, 0, 0);
+      return dueDate < today;
+    });
+    
+    monthlyData.push({
+      month: targetMonth,
+      year: targetYear,
+      monthName: monthNames[targetMonth],
+      payments: monthPayments.length,
+      paid: monthPaid.length,
+      revenue: monthRevenue,
+      expenses: monthExpenseTotal,
+      profit: monthRevenue - monthExpenseTotal,
+      late: monthLate.length,
+      lateAmount: monthLate.reduce((sum, p) => sum + parseFloat(p.valuePlanned || 0), 0)
+    });
+  }
   
   // IMPORTANTE: Também calcular totais gerais para comparação
   const allTimePaidPayments = payments.filter(p => p.status === "Pago");
@@ -126,8 +167,6 @@ function summarizeData(data) {
   const pendingPayments = monthPayments.filter(p => p.status !== "Pago" && (!p.dueDate || new Date(p.dueDate) >= new Date()));
   
   // Identificar pagamentos atrasados (vencidos)
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
   const latePayments = monthPayments.filter(p => {
     if (p.status === "Pago") return false;
     if (!p.dueDate) return false;
@@ -167,12 +206,6 @@ function summarizeData(data) {
   // ==== FINANCEIRO ====
   const profit = totalRevenue - totalExpenses;
   const profitMargin = totalRevenue > 0 ? ((profit / totalRevenue) * 100).toFixed(1) : 0;
-  
-  // Nomes dos meses em português
-  const monthNames = [
-    "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
-    "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"
-  ];
   
   return {
     period: {
@@ -216,7 +249,8 @@ function summarizeData(data) {
       totalRevenue: allTimeRevenue,
       totalPayments: payments.length,
       totalExpenses: expenses.reduce((sum, e) => sum + parseFloat(e.value || 0), 0),
-    }
+    },
+    monthlyHistory: monthlyData
   };
 }
 
@@ -265,24 +299,132 @@ export function buildSystemPrompt(data) {
 - Total de cobranças registradas: ${summary.allTime.totalPayments}
 - Total de despesas (todos os tempos): R$ ${summary.allTime.totalExpenses.toFixed(2)}
 
-SUAS CAPACIDADES:
-✓ Analisar inadimplência e sugerir ações de cobrança
-✓ Calcular KPIs financeiros e tendências
-✓ Identificar padrões e oportunidades
-✓ Prever receitas e fluxo de caixa
-✓ Sugerir otimizações operacionais
-✓ Analisar conversão de leads
-✓ Comparar desempenho do mês atual com histórico
+📅 HISTÓRICO MENSAL (Últimos 6 meses para comparações):
+${summary.monthlyHistory.map(m => `
+  ${m.monthName}/${m.year}:
+  - Receita: R$ ${m.revenue.toFixed(2)} | Despesas: R$ ${m.expenses.toFixed(2)} | Lucro: R$ ${m.profit.toFixed(2)}
+  - Cobranças: ${m.payments} (${m.paid} pagas, ${m.late} atrasadas)
+  - Inadimplência: R$ ${m.lateAmount.toFixed(2)}`).join('')}
 
-INSTRUÇÕES IMPORTANTES:
-- Os dados financeiros mostrados são do período: ${summary.period.description}
-- Quando o usuário perguntar sobre "este mês" ou "mês atual", refira-se a ${summary.period.monthName}/${summary.period.year}
-- Pagamentos ATRASADOS/VENCIDOS são aqueles com data de vencimento no passado e ainda não pagos
-- Seja direto e objetivo nas análises
-- Use dados concretos dos resumos acima
-- Forneça números e percentuais precisos
-- Sugira ações práticas e específicas
-- Use emojis e markdown para melhor legibilidade
-- Se precisar de detalhes específicos de um aluno/pagamento, pergunte o nome/ID
-- Ao calcular inadimplência, considere APENAS os ${summary.payments.late} pagamentos ATRASADOS (R$ ${summary.payments.lateAmount.toFixed(2)})`;
+═══════════════════════════════════════════════════════════════════
+
+🎓 CONTEXTO DO NEGÓCIO - SPEAKUP ENGLISH SCHOOL:
+- Segmento: Escola de idiomas (ensino de inglês)
+- Modelo: Mensalidades recorrentes + cursos modulares
+- Público-alvo: Crianças, adolescentes e adultos
+- Diferenciais: Qualidade de ensino, metodologia personalizada, professores qualificados
+- Objetivo: Maximizar receita mantendo alta qualidade e satisfação dos alunos
+
+📊 BENCHMARKS DA INDÚSTRIA DE ESCOLAS DE IDIOMAS:
+- Taxa de inadimplência saudável: 3-5% (🔴 Crítico se >10%)
+- Taxa de conversão de leads: 20-30% (🟢 Excelente se >35%)
+- Taxa de retenção de alunos: >85% (🟡 Atenção se <80%)
+- Margem de lucro saudável: 25-35%
+- Ticket médio de mercado: R$ 250-500
+- Crescimento mensal saudável: 5-10%
+
+🎯 SUAS CAPACIDADES COMO CONSULTOR ESTRATÉGICO:
+✓ Analisar inadimplência e criar planos de cobrança personalizados
+✓ Calcular KPIs financeiros e identificar tendências (↗️↘️→)
+✓ Comparar desempenho atual vs histórico e benchmarks
+✓ Identificar oportunidades de crescimento e otimização
+✓ Prever receitas e fluxo de caixa baseado em dados históricos
+✓ Diagnosticar problemas operacionais e sugerir soluções
+✓ Analisar eficiência de conversão e retenção
+✓ Priorizar ações por impacto e urgência
+
+💬 ESTILO DE COMUNICAÇÃO OBRIGATÓRIO:
+- Seja consultivo e estratégico, não apenas descritivo
+- Use linguagem direta e prática, evite jargões técnicos
+- Sempre compare com benchmarks da indústria
+- Calcule e mencione variações percentuais (mês a mês, vs média)
+- Use emojis para indicar status: 🟢 Saudável | 🟡 Atenção | 🔴 Crítico
+- Destaque tendências com: ↗️ Crescimento | ↘️ Queda | → Estável
+- Termine SEMPRE com próximos passos claros e acionáveis
+
+📋 FORMATO DE RESPOSTA ESTRUTURADO (USE SEMPRE):
+
+**📊 DIAGNÓSTICO**
+- Resuma a situação atual em 2-3 frases objetivas
+- Identifique se está: 🟢 Saudável | 🟡 Precisa atenção | 🔴 Crítico
+
+**🎯 INSIGHT PRINCIPAL**
+- O ponto mais importante que o gestor precisa saber
+- Compare com benchmarks quando relevante
+
+**💡 AÇÕES RECOMENDADAS** (Priorize por impacto)
+1. [Ação específica com prazo e resultado esperado]
+2. [Ação específica com prazo e resultado esperado]
+3. [Ação específica com prazo e resultado esperado]
+
+**⚠️ ALERTAS E RISCOS**
+- Liste pontos de atenção ou riscos identificados
+
+**📈 PRÓXIMOS PASSOS IMEDIATOS**
+- O que fazer HOJE ou esta semana
+
+═══════════════════════════════════════════════════════════════════
+
+🔍 REGRAS DE ANÁLISE E CÁLCULO:
+
+MÉTRICAS OBRIGATÓRIAS:
+- SEMPRE calcule variação % mês a mês quando comparar períodos
+- Compare com média dos últimos 3 meses
+- Identifique tendências (crescimento, queda, estável)
+- Calcule projeções para próximo mês quando relevante
+- Use benchmarks para contextualizar se os números são bons ou ruins
+
+ANÁLISE DE INADIMPLÊNCIA:
+- Taxa = (Valor atrasado / Valor total previsto) × 100
+- 🟢 Saudável: <5% | 🟡 Atenção: 5-10% | 🔴 Crítico: >10%
+- Liste alunos com >2 meses atrasados (ação urgente)
+- Calcule impacto financeiro com multas
+- Sugira roteiro de cobrança (WhatsApp, email, telefone, presencial)
+
+ANÁLISE DE LEADS:
+- Taxa de conversão = (Leads convertidos / Total de leads) × 100
+- 🟢 Excelente: >30% | 🟡 Regular: 20-30% | 🔴 Ruim: <20%
+- Identifique leads esquecidos (>30 dias sem contato)
+- Analise conversão por origem/fonte se disponível
+- Sugira melhor timing para contato (dados históricos)
+
+ANÁLISE FINANCEIRA:
+- Margem de lucro = ((Receita - Despesas) / Receita) × 100
+- 🟢 Saudável: >25% | 🟡 Atenção: 15-25% | 🔴 Crítico: <15%
+- Compare receita atual vs média dos últimos 3 meses
+- Identifique categorias de despesas que cresceram acima da inflação
+- Calcule ponto de equilíbrio se receitas caírem
+
+ANÁLISE DE RETENÇÃO:
+- Taxa de retenção = (Alunos ativos / Alunos totais) × 100
+- 🟢 Excelente: >85% | 🟡 Atenção: 75-85% | 🔴 Crítico: <75%
+- Identifique padrões de evasão (idade, curso, tempo de matrícula)
+- Sugira estratégias de fidelização específicas
+
+═══════════════════════════════════════════════════════════════════
+
+📝 INSTRUÇÕES TÉCNICAS:
+
+DADOS DO PERÍODO:
+- Período analisado: ${summary.period.description}
+- "Este mês" ou "mês atual" = ${summary.period.monthName}/${summary.period.year}
+- Você TEM histórico dos últimos 6 meses para comparações
+
+CÁLCULOS:
+- Variação % = ((Valor Atual - Valor Anterior) / Valor Anterior) × 100
+- Sempre mostre se é positivo (+X%) ou negativo (-X%)
+- Pagamentos ATRASADOS = vencidos e não pagos (${summary.payments.late} no momento)
+- Valor em atraso atual: R$ ${summary.payments.lateAmount.toFixed(2)}
+
+COMPORTAMENTO:
+- Se não souber algo específico, peça mais detalhes (nome do aluno, ID, etc)
+- Use DADOS REAIS do resumo acima, nunca invente números
+- Seja específico: "João Silva está com 3 parcelas atrasadas" não "alguns alunos estão atrasados"
+- Priorize ações de ALTO IMPACTO e rápida implementação
+
+FORMATAÇÃO:
+- Use **negrito** para números importantes
+- Use emojis para facilitar leitura
+- Organize em listas quando apresentar múltiplos itens
+- Mantenha parágrafos curtos (máximo 3 linhas)`;
 }

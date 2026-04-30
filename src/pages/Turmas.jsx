@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { Card, Table } from "../components";
-import { Users, Plus, Edit, Trash2, School, Search, X, ChevronDown, ChevronUp, AlertTriangle, Loader2, FileText, Printer, GraduationCap, UserCheck, Clock } from "lucide-react";
+import { Users, Plus, Edit, Trash2, School, Search, X, ChevronDown, ChevronUp, AlertTriangle, Loader2, FileText, Printer, GraduationCap, UserCheck, Clock, BookOpen, Link, Copy, Check } from "lucide-react";
 import { collection, addDoc, getDocs, updateDoc, deleteDoc, doc, query, where, onSnapshot } from 'firebase/firestore';
 import { db } from '../firebase';
 
@@ -13,6 +13,8 @@ export default function Turmas({ students = [] }) {
   const [selectedAlunos, setSelectedAlunos] = useState([]);
   const [expandedTurmas, setExpandedTurmas] = useState(new Set());
   const [showProfessorReport, setShowProfessorReport] = useState(false);
+  const [aulasRegistradas, setAulasRegistradas] = useState([]);
+  const [copiedLink, setCopiedLink] = useState(null);
   const [expandedProfessores, setExpandedProfessores] = useState(new Set());
   
   // Estados de UI e loading
@@ -34,7 +36,8 @@ export default function Turmas({ students = [] }) {
     professor: '',
     horario: '',
     dias: '',
-    maxAlunos: 15
+    maxAlunos: 15,
+    totalAulas: 40,
   });
   const [formErrors, setFormErrors] = useState({});
   
@@ -146,6 +149,19 @@ export default function Turmas({ students = [] }) {
     };
 
     loadTurmas();
+  }, []);
+
+  // Carregar aulas registradas pelos professores
+  useEffect(() => {
+    const loadAulas = async () => {
+      try {
+        const snapshot = await getDocs(collection(db, 'aulas'));
+        setAulasRegistradas(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
+      } catch (e) {
+        console.error('Erro ao carregar aulas:', e);
+      }
+    };
+    loadAulas();
   }, []);
 
   // Filtrar turmas com dados reais do Firebase
@@ -293,6 +309,7 @@ export default function Turmas({ students = [] }) {
         horario: form.horario.trim(),
         dias: form.dias.trim(),
         maxAlunos: parseInt(form.maxAlunos),
+        totalAulas: parseInt(form.totalAulas) || 40,
         alunosIds: selectedAlunos.map(a => a.id),
         alunosCount: selectedAlunos.length,
         createdAt: new Date().toISOString(),
@@ -363,8 +380,9 @@ export default function Turmas({ students = [] }) {
       nivel: turma.nivel,
       professor: turma.professor,
       horario: turma.horario,
-      dias: turma.dias,
-      maxAlunos: turma.maxAlunos || 15
+      dias: normalizarDias(turma.dias),
+      maxAlunos: turma.maxAlunos || 15,
+      totalAulas: turma.totalAulas || 40,
     });
     
     // Carregar alunos da turma
@@ -418,6 +436,27 @@ export default function Turmas({ students = [] }) {
   // Função auxiliar para normalizar string (remover acentos)
   const normalizarString = (str) => {
     return str.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+  };
+
+  // Normaliza uma string de dias (qualquer variante) para o padrão de diasDisponiveis
+  const normalizarDias = (diasStr) => {
+    if (!diasStr) return '';
+    const mapa = {
+      'segunda-feira': 'Segunda', 'segunda': 'Segunda', 'seg': 'Segunda',
+      'terca-feira': 'Terça', 'terca': 'Terça', 'ter': 'Terça',
+      'quarta-feira': 'Quarta', 'quarta': 'Quarta', 'qua': 'Quarta',
+      'quinta-feira': 'Quinta', 'quinta': 'Quinta', 'qui': 'Quinta',
+      'sexta-feira': 'Sexta', 'sexta': 'Sexta', 'sex': 'Sexta',
+      'sabado': 'Sábado', 'sabado-feira': 'Sábado', 'sab': 'Sábado',
+    };
+    return diasStr
+      .split(',')
+      .map(d => {
+        const norm = d.trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+        return mapa[norm] || d.trim();
+      })
+      .filter(Boolean)
+      .join(', ');
   };
 
   // Gerar dias de aula do mês baseado nos dias da semana da turma
@@ -615,7 +654,8 @@ export default function Turmas({ students = [] }) {
       professor: '', 
       horario: '', 
       dias: '',
-      maxAlunos: 15 
+      maxAlunos: 15,
+      totalAulas: 40,
     });
     setSelectedAlunos([]);
     setFormErrors({});
@@ -636,14 +676,6 @@ export default function Turmas({ students = [] }) {
               Gerencie suas turmas, horários e alunos matriculados
             </p>
           </div>
-          <button
-            onClick={abrirNovoModal}
-            disabled={loading}
-            className="bg-[#005DE4] text-white px-6 py-3 rounded-xl font-semibold flex gap-2 items-center hover:bg-[#0048b3] hover:shadow-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {loading ? <Loader2 size={20} className="animate-spin" /> : <Plus size={20} />}
-            Nova Turma
-          </button>
         </div>
 
         {/* Estatísticas */}
@@ -709,111 +741,7 @@ export default function Turmas({ students = [] }) {
           )}
         </div>
       </div>
-      {/* Filtros */}
-      <div className="bg-white p-6 rounded-xl border border-gray-200 mb-6 shadow-sm">
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center">
-              <Search size={16} className="text-gray-600" />
-            </div>
-            <div>
-              <h3 className="text-lg font-semibold text-gray-900">Filtros</h3>
-              <p className="text-sm text-gray-500">Refine sua busca por turmas</p>
-            </div>
-          </div>
-          {(filtros.professor !== 'all' || filtros.dia !== 'all' || filtros.nivel !== 'all') && (
-            <button
-              onClick={() => setFiltros({ professor: 'all', dia: 'all', nivel: 'all' })}
-              className="text-sm text-red-600 hover:text-red-700 font-medium flex items-center gap-2 bg-red-50 px-3 py-2 rounded-lg hover:bg-red-100 transition-colors"
-            >
-              <X size={14} />
-              Limpar filtros
-            </button>
-          )}
-        </div>
-        
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {/* Filtro por Professor */}
-          <div className="space-y-2">
-            <label className="block text-sm font-semibold text-gray-700">Professor</label>
-            <select
-              value={filtros.professor}
-              onChange={(e) => setFiltros({...filtros, professor: e.target.value})}
-              className="w-full border border-gray-300 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#005DE4] focus:border-[#005DE4] transition-all duration-200 bg-white hover:border-gray-400"
-            >
-              <option value="all">Todos os professores</option>
-              {professores.map((prof, index) => (
-                <option key={`professor-${index}`} value={prof}>{prof}</option>
-              ))}
-            </select>
-          </div>
 
-          {/* Filtro por Dia */}
-          <div className="space-y-2">
-            <label className="block text-sm font-semibold text-gray-700">Dia da Semana</label>
-            <select
-              value={filtros.dia}
-              onChange={(e) => setFiltros({...filtros, dia: e.target.value})}
-              className="w-full border border-gray-300 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#005DE4] focus:border-[#005DE4] transition-all duration-200 bg-white hover:border-gray-400"
-            >
-              <option value="all">Todos os dias</option>
-              {diasDisponiveis.map((dia, index) => (
-                <option key={`dia-${index}`} value={dia}>{dia}</option>
-              ))}
-            </select>
-          </div>
-
-          {/* Filtro por Nível */}
-          <div className="space-y-2">
-            <label className="block text-sm font-semibold text-gray-700">Nível</label>
-            <select
-              value={filtros.nivel}
-              onChange={(e) => setFiltros({...filtros, nivel: e.target.value})}
-              className="w-full border border-gray-300 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#005DE4] focus:border-[#005DE4] transition-all duration-200 bg-white hover:border-gray-400"
-            >
-              <option value="all">Todos os níveis</option>
-              {niveis.map((nivel, index) => (
-                <option key={`nivel-${index}`} value={nivel}>Nível {nivel}</option>
-              ))}
-            </select>
-          </div>
-        </div>
-
-        {/* Resultados */}
-        {(filtros.professor !== 'all' || filtros.dia !== 'all' || filtros.nivel !== 'all') && (
-          <div className="mt-6 pt-6 border-t border-gray-200">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-6 h-6 bg-blue-100 rounded-md flex items-center justify-center">
-                  <span className="text-xs font-bold text-blue-600">
-                    {turmasFiltradas.length}
-                  </span>
-                </div>
-                <span className="text-sm font-medium text-gray-700">
-                  {turmasFiltradas.length} turma{turmasFiltradas.length !== 1 ? 's' : ''} encontrada{turmasFiltradas.length !== 1 ? 's' : ''}
-                </span>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {filtros.professor !== 'all' && (
-                  <span className="px-3 py-1 bg-blue-50 border border-blue-200 text-blue-700 rounded-lg text-xs font-medium">
-                    Professor: {filtros.professor}
-                  </span>
-                )}
-                {filtros.dia !== 'all' && (
-                  <span className="px-3 py-1 bg-green-50 border border-green-200 text-green-700 rounded-lg text-xs font-medium">
-                    Dia: {filtros.dia}
-                  </span>
-                )}
-                {filtros.nivel !== 'all' && (
-                  <span className="px-3 py-1 bg-purple-50 border border-purple-200 text-purple-700 rounded-lg text-xs font-medium">
-                    Nível: {filtros.nivel}
-                  </span>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
       
       {/* Relatório de Professores */}
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
@@ -903,6 +831,30 @@ export default function Turmas({ students = [] }) {
                               {prof.horasPorMes.toFixed(0)}h
                             </div>
                             <div className="text-xs text-gray-500 font-medium">por mês</div>
+                          </div>
+
+                          {/* Botão Copiar Link - fora do button pai */}
+                          <div onClick={e => e.stopPropagation()}>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                const slug = prof.nome.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, '-');
+                                const url = `${window.location.origin}/professor/${slug}`;
+                                navigator.clipboard.writeText(url).then(() => {
+                                  setCopiedLink(prof.nome);
+                                  setTimeout(() => setCopiedLink(null), 2000);
+                                });
+                              }}
+                              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                                copiedLink === prof.nome
+                                  ? 'bg-emerald-100 text-emerald-700 border border-emerald-300'
+                                  : 'bg-white border border-gray-300 text-gray-600 hover:border-[#005DE4] hover:text-[#005DE4]'
+                              }`}
+                              title="Copiar link do painel do professor"
+                            >
+                              {copiedLink === prof.nome ? <Check size={13} /> : <Copy size={13} />}
+                              {copiedLink === prof.nome ? 'Copiado!' : 'Copiar link'}
+                            </button>
                           </div>
 
                           {/* Ícone de Expansão */}
@@ -1112,6 +1064,70 @@ export default function Turmas({ students = [] }) {
       </div>
       
       {/* Lista de Turmas */}
+      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+        {/* Cabeçalho integrado */}
+        <div className="px-5 pt-5 pb-3 border-b border-gray-100">
+          <div className="flex items-center justify-between mb-3">
+            <div>
+              <h2 className="text-base font-bold text-gray-900">Lista de Turmas</h2>
+              <p className="text-sm text-gray-500">Total: {turmasFiltradas.length} turma{turmasFiltradas.length !== 1 ? 's' : ''}</p>
+            </div>
+            <button
+              onClick={abrirNovoModal}
+              disabled={loading}
+              className="bg-[#005DE4] text-white px-4 py-2 rounded-lg font-semibold flex gap-1.5 items-center hover:bg-[#0048b3] transition-colors text-sm disabled:opacity-50"
+            >
+              <Plus size={16} />
+              Nova Turma
+            </button>
+          </div>
+
+          {/* Filtros em linha */}
+          <div className="flex flex-wrap items-center gap-3">
+            <select
+              value={filtros.professor}
+              onChange={(e) => setFiltros(f => ({ ...f, professor: e.target.value }))}
+              className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#005DE4] focus:border-[#005DE4] bg-white"
+            >
+              <option value="all">Todos os professores</option>
+              {professores.map((prof, i) => (
+                <option key={i} value={prof}>{prof}</option>
+              ))}
+            </select>
+
+            <select
+              value={filtros.dia}
+              onChange={(e) => setFiltros(f => ({ ...f, dia: e.target.value }))}
+              className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#005DE4] focus:border-[#005DE4] bg-white"
+            >
+              <option value="all">Todos os dias</option>
+              {diasDisponiveis.map((dia, i) => (
+                <option key={i} value={dia}>{dia}</option>
+              ))}
+            </select>
+
+            <select
+              value={filtros.nivel}
+              onChange={(e) => setFiltros(f => ({ ...f, nivel: e.target.value }))}
+              className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#005DE4] focus:border-[#005DE4] bg-white"
+            >
+              <option value="all">Todos os níveis</option>
+              {niveis.map((nivel, i) => (
+                <option key={i} value={nivel}>{nivel}</option>
+              ))}
+            </select>
+
+            {(filtros.professor !== 'all' || filtros.dia !== 'all' || filtros.nivel !== 'all') && (
+              <button
+                onClick={() => setFiltros({ professor: 'all', dia: 'all', nivel: 'all' })}
+                className="text-xs text-red-500 hover:text-red-700 font-medium flex items-center gap-1 hover:bg-red-50 px-2 py-1.5 rounded-lg transition-colors"
+              >
+                <X size={12} /> Limpar
+              </button>
+            )}
+          </div>
+        </div>
+
         {loading ? (
           // Loading skeleton para turmas
           <div className="space-y-4">
@@ -1183,238 +1199,259 @@ export default function Turmas({ students = [] }) {
             )}
           </div>
         ) : (
-          <div className="space-y-5">
-            {turmasFiltradas.map(turma => {
-            const alunosDaTurma = getAlunosDaTurma(turma);
-            const isExpanded = expandedTurmas.has(turma.id);
-            
-            return (
-              <div key={turma.id} className="bg-white border border-gray-200 rounded-xl shadow-sm hover:shadow-lg hover:border-[#005DE4]/30 transition-all duration-300 overflow-hidden">
-                {/* Header da Turma */}
-                <div className="p-6 border-b border-gray-100">
-                  <div className="flex items-center justify-between">
-                    {/* Título, Badge e Info Básica */}
-                    <div className="flex items-center gap-4">
-                      <div className="flex items-center gap-3">
-                        <div className="w-4 h-4 bg-gradient-to-br from-[#005DE4] to-[#0048b3] rounded-full"></div>
-                        <h3 className="text-xl font-bold text-gray-900">{turma.nome}</h3>
-                        <span className={`px-3 py-1.5 rounded-lg text-sm font-semibold ${
-                          turma.nivel === 'A1' || turma.nivel === 'A2' ? 'bg-emerald-100 text-emerald-700 border border-emerald-200' :
-                          turma.nivel === 'A2+' || turma.nivel === 'B1' ? 'bg-amber-100 text-amber-700 border border-amber-200' :
-                          turma.nivel === 'B2' || turma.nivel === 'B2+' ? 'bg-orange-100 text-orange-700 border border-orange-200' :
-                          'bg-red-100 text-red-700 border border-red-200'
-                        }`}>
-                          Nível {turma.nivel}
-                        </span>
-                      </div>
-                    </div>
-                    
-                    {/* Botões de Ação */}
-                    <div className="flex items-center gap-1">
-                      <button
-                        onClick={() => gerarChamada(turma)}
-                        className="p-2.5 text-gray-500 hover:text-[#005DE4] hover:bg-blue-50 rounded-lg transition-all duration-200"
-                        title="Gerar lista de chamada"
-                      >
-                        <FileText size={18} />
-                      </button>
-                      <button
-                        onClick={() => toggleTurmaExpansion(turma.id)}
-                        className="p-2.5 text-gray-500 hover:text-[#005DE4] hover:bg-blue-50 rounded-lg transition-all duration-200"
-                        title={isExpanded ? "Recolher detalhes" : "Ver detalhes"}
-                      >
-                        <ChevronDown size={18} className={`transform transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
-                      </button>
-                      <button
-                        onClick={() => handleEditTurma(turma)}
-                        disabled={saving}
-                        className="p-2.5 text-gray-500 hover:text-[#005DE4] hover:bg-blue-50 rounded-lg transition-all duration-200 disabled:opacity-50"
-                        title="Editar turma"
-                      >
-                        <Edit size={18} />
-                      </button>
-                      <button
-                        onClick={() => handleDeleteTurma(turma)}
-                        disabled={deleting === turma.id}
-                        className="p-2.5 text-gray-500 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all duration-200 disabled:opacity-50"
-                        title="Excluir turma"
-                      >
-                        {deleting === turma.id ? (
-                          <Loader2 size={18} className="animate-spin" />
-                        ) : (
-                          <Trash2 size={18} />
-                        )}
-                      </button>
-                    </div>
-                  </div>
-                  
-                  {/* Informações Principais - Resumo Limpo */}
-                  <div className="mt-4 grid grid-cols-1 md:grid-cols-4 gap-6">
-                    {/* Professor */}
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 bg-gray-100 rounded-xl flex items-center justify-center border border-gray-200">
-                        <UserCheck size={18} className="text-gray-600" />
-                      </div>
-                      <div className="min-w-0">
-                        <p className="text-xs text-gray-500 font-semibold uppercase tracking-wider">Professor</p>
-                        <p className="text-sm font-bold text-gray-900 truncate">{turma.professor}</p>
-                      </div>
-                    </div>
-                    
-                    {/* Horário */}
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 bg-green-100 rounded-xl flex items-center justify-center border border-green-200">
-                        <Clock size={18} className="text-green-600" />
-                      </div>
-                      <div className="min-w-0">
-                        <p className="text-xs text-gray-500 font-semibold uppercase tracking-wider">Horário</p>
-                        <p className="text-sm font-bold text-gray-900">{turma.horario}</p>
-                        <p className="text-xs text-gray-600 font-medium truncate">{turma.dias}</p>
-                      </div>
-                    </div>
-                    
-                    {/* Alunos */}
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center border border-blue-200">
-                        <GraduationCap size={18} className="text-blue-600" />
-                      </div>
-                      <div className="min-w-0">
-                        <p className="text-xs text-gray-500 font-semibold uppercase tracking-wider">Alunos</p>
-                        <p className="text-sm font-bold text-gray-900">
-                          {alunosDaTurma.length}/{turma.maxAlunos || 15}
-                        </p>
-                        <p className="text-xs text-gray-600 font-medium">
-                          {Math.round((alunosDaTurma.length / (turma.maxAlunos || 15)) * 100)}% ocupado
-                        </p>
-                      </div>
-                    </div>
+          <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-[#005DE4] text-xs font-semibold text-white uppercase tracking-wider">
+                  <th className="px-4 py-3 text-left w-6"></th>
+                  <th className="px-4 py-3 text-left">Turma</th>
+                  <th className="px-4 py-3 text-left">Professor</th>
+                  <th className="px-4 py-3 text-left">Dias</th>
+                  <th className="px-4 py-3 text-left">Horário</th>
+                  <th className="px-4 py-3 text-center">Alunos</th>
+                  <th className="px-4 py-3 text-center">Aulas</th>
+                  <th className="px-4 py-3 text-center">Ocupação</th>
+                  <th className="px-4 py-3 text-center">Status</th>
+                  <th className="px-4 py-3 text-right">Ações</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {turmasFiltradas.map(turma => {
+                  const alunosDaTurma = getAlunosDaTurma(turma);
+                  const isExpanded = expandedTurmas.has(turma.id);
+                  const max = turma.maxAlunos || 15;
+                  const ocupacao = Math.round((alunosDaTurma.length / max) * 100);
+                  const aulasDadas = aulasRegistradas.filter(a => a.turmaId === turma.id).length;
+                  const aulasPrevistas = turma.totalAulas || 40;
+                  const aulasProgress = Math.min(Math.round((aulasDadas / aulasPrevistas) * 100), 100);
+                  const aulasBarColor = aulasProgress >= 100 ? 'bg-emerald-500' : aulasProgress >= 60 ? 'bg-[#005DE4]' : 'bg-amber-400';
+                  const nivelColor =
+                    turma.nivel === 'A1' || turma.nivel === 'A2' ? 'bg-emerald-100 text-emerald-700' :
+                    turma.nivel === 'A2+' || turma.nivel === 'B1' ? 'bg-amber-100 text-amber-700' :
+                    turma.nivel === 'B2' || turma.nivel === 'B2+' ? 'bg-orange-100 text-orange-700' :
+                    'bg-red-100 text-red-700';
+                  const statusLabel = alunosDaTurma.length === max ? 'Lotada' : alunosDaTurma.length > max * 0.8 ? 'Quase cheia' : 'Disponível';
+                  const statusColor = alunosDaTurma.length === max ? 'bg-red-100 text-red-700' : alunosDaTurma.length > max * 0.8 ? 'bg-amber-100 text-amber-700' : 'bg-green-100 text-green-700';
+                  const barColor = alunosDaTurma.length === max ? 'bg-red-500' : alunosDaTurma.length > max * 0.8 ? 'bg-amber-400' : 'bg-[#005DE4]';
 
-                    {/* Status */}
-                    <div className="flex items-center gap-3">
-                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center border ${
-                        alunosDaTurma.length === (turma.maxAlunos || 15) 
-                          ? 'bg-red-100 border-red-200' 
-                          : alunosDaTurma.length > (turma.maxAlunos || 15) * 0.8 
-                            ? 'bg-amber-100 border-amber-200' 
-                            : 'bg-green-100 border-green-200'
-                      }`}>
-                        <span className={`text-sm ${
-                          alunosDaTurma.length === (turma.maxAlunos || 15) 
-                            ? 'text-red-600' 
-                            : alunosDaTurma.length > (turma.maxAlunos || 15) * 0.8 
-                              ? 'text-amber-600' 
-                              : 'text-green-600'
-                        }`}>
-                          {alunosDaTurma.length === (turma.maxAlunos || 15) ? '🔴' : 
-                           alunosDaTurma.length > (turma.maxAlunos || 15) * 0.8 ? '🟡' : '🟢'}
-                        </span>
-                      </div>
-                      <div className="min-w-0">
-                        <p className="text-xs text-gray-500 font-semibold uppercase tracking-wider">Status</p>
-                        <p className={`text-sm font-bold ${
-                          alunosDaTurma.length === (turma.maxAlunos || 15) 
-                            ? 'text-red-600' 
-                            : alunosDaTurma.length > (turma.maxAlunos || 15) * 0.8 
-                              ? 'text-amber-600' 
-                              : 'text-green-600'
-                        }`}>
-                          {alunosDaTurma.length === (turma.maxAlunos || 15) ? 'Lotada' : 
-                           alunosDaTurma.length > (turma.maxAlunos || 15) * 0.8 ? 'Quase cheia' : 'Disponível'}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                
-                {/* Seção Expandida de Alunos - Melhorada */}
-                {isExpanded && (
-                  <div className="border-t bg-gray-50/50 p-5">
-                    {alunosDaTurma.length > 0 ? (
-                      <div className="space-y-4">
-                        {/* Header da Seção de Alunos */}
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 bg-[#005DE4] rounded-full flex items-center justify-center">
-                              <Users size={16} className="text-white" />
-                            </div>
-                            <div>
-                              <h4 className="font-semibold text-gray-900">Alunos Matriculados</h4>
-                              <p className="text-sm text-gray-500">{alunosDaTurma.length} de {turma.maxAlunos} vagas preenchidas</p>
-                            </div>
-                          </div>
-                          
-                          {/* Botão Gerar Chamada - Melhorado */}
+                  return (
+                    <>
+                      <tr
+                        key={turma.id}
+                        className={`hover:bg-blue-50/40 transition-colors ${isExpanded ? 'bg-blue-50/20' : ''}`}
+                      >
+                        {/* Chevron */}
+                        <td className="px-4 py-3 text-center">
                           <button
-                            onClick={() => gerarChamada(turma)}
-                            className="flex items-center gap-2 px-4 py-2.5 bg-[#005DE4] text-white rounded-lg hover:bg-[#0048b3] transition-all duration-200 text-sm font-medium shadow-sm hover:shadow-md"
-                            title="Gerar lista de presença para impressão"
+                            onClick={() => toggleTurmaExpansion(turma.id)}
+                            className="text-gray-400 hover:text-[#005DE4] transition-colors"
+                            title={isExpanded ? 'Recolher' : 'Ver alunos'}
                           >
-                            <Printer size={16} />
-                            <span>Gerar Lista</span>
+                            <ChevronDown size={16} className={`transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
                           </button>
-                        </div>
-                        
-                        {/* Lista de Alunos - Grid Layout */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                          {alunosDaTurma.map((aluno, index) => (
-                            <div 
-                              key={`${turma.id}-aluno-${aluno.id || index}`} 
-                              className="bg-white border border-gray-200 rounded-lg p-3 hover:border-[#005DE4]/30 transition-colors"
+                        </td>
+
+                        {/* Turma + Nível */}
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-2">
+                            <span className="font-semibold text-gray-900">{turma.nome}</span>
+                            <span className={`px-2 py-0.5 rounded text-xs font-semibold ${nivelColor}`}>{turma.nivel}</span>
+                          </div>
+                        </td>
+
+                        {/* Professor */}
+                        <td className="px-4 py-3 text-gray-700">{turma.professor}</td>
+
+                        {/* Dias */}
+                        <td className="px-4 py-3 text-gray-600">{turma.dias}</td>
+
+                        {/* Horário */}
+                        <td className="px-4 py-3 text-gray-700 font-medium">{turma.horario}</td>
+
+                        {/* Alunos */}
+                        <td className="px-4 py-3 text-center">
+                          <span className="font-semibold text-gray-900">{alunosDaTurma.length}</span>
+                          <span className="text-gray-400">/{max}</span>
+                        </td>
+
+                        {/* Aulas dadas / previstas */}
+                        <td className="px-4 py-3 text-center">
+                          <div className="flex flex-col items-center gap-1">
+                            <span className="text-sm font-semibold text-gray-900">
+                              {aulasDadas}
+                              <span className="text-gray-400 font-normal">/{aulasPrevistas}</span>
+                            </span>
+                            <div className="w-16 bg-gray-200 rounded-full h-1">
+                              <div className={`h-1 rounded-full ${aulasBarColor}`} style={{ width: `${aulasProgress}%` }} />
+                            </div>
+                          </div>
+                        </td>
+
+                        {/* Barra de ocupação */}
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-2">
+                            <div className="flex-1 bg-gray-200 rounded-full h-1.5">
+                              <div
+                                className={`h-1.5 rounded-full ${barColor}`}
+                                style={{ width: `${Math.min(ocupacao, 100)}%` }}
+                              />
+                            </div>
+                            <span className="text-xs text-gray-500 w-8 text-right">{ocupacao}%</span>
+                          </div>
+                        </td>
+
+                        {/* Status */}
+                        <td className="px-4 py-3 text-center">
+                          <span className={`px-2 py-1 rounded-full text-xs font-semibold ${statusColor}`}>{statusLabel}</span>
+                        </td>
+
+                        {/* Ações */}
+                        <td className="px-4 py-3">
+                          <div className="flex items-center justify-end gap-1">
+                            <button
+                              onClick={() => gerarChamada(turma)}
+                              className="p-1.5 text-gray-400 hover:text-[#005DE4] hover:bg-blue-50 rounded-lg transition-colors"
+                              title="Gerar lista de chamada"
                             >
-                              <div className="flex items-center gap-3">
-                                <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                                  <span className="text-blue-600 text-sm">👤</span>
-                                </div>
-                                <div className="min-w-0 flex-1">
-                                  <p className="text-sm font-medium text-gray-900 truncate">
-                                    {aluno.name || 'Nome não informado'}
+                              <FileText size={16} />
+                            </button>
+                            <button
+                              onClick={() => handleEditTurma(turma)}
+                              disabled={saving}
+                              className="p-1.5 text-gray-400 hover:text-[#005DE4] hover:bg-blue-50 rounded-lg transition-colors disabled:opacity-50"
+                              title="Editar"
+                            >
+                              <Edit size={16} />
+                            </button>
+                            <button
+                              onClick={() => handleDeleteTurma(turma)}
+                              disabled={deleting === turma.id}
+                              className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
+                              title="Excluir"
+                            >
+                              {deleting === turma.id ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />}
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+
+                      {/* Linha expansível com alunos */}
+                      {isExpanded && (
+                        <tr key={`${turma.id}-expanded`} className="bg-gray-50">
+                          <td colSpan={9} className="px-6 py-4">
+                            {alunosDaTurma.length > 0 ? (
+                              <div className="space-y-3">
+                                <div className="flex items-center justify-between">
+                                  <p className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                                    <Users size={14} className="text-[#005DE4]" />
+                                    {alunosDaTurma.length} aluno{alunosDaTurma.length !== 1 ? 's' : ''} matriculado{alunosDaTurma.length !== 1 ? 's' : ''} · {max - alunosDaTurma.length} vaga{max - alunosDaTurma.length !== 1 ? 's' : ''} livre{max - alunosDaTurma.length !== 1 ? 's' : ''}
                                   </p>
-                                  <p className="text-xs text-gray-500">
-                                    {aluno.course || 'Sem curso definido'}
-                                  </p>
+                                  <button
+                                    onClick={() => gerarChamada(turma)}
+                                    className="flex items-center gap-1.5 px-3 py-1.5 bg-[#005DE4] text-white rounded-lg hover:bg-[#0048b3] text-xs font-medium transition-colors"
+                                  >
+                                    <Printer size={13} />
+                                    Gerar Lista
+                                  </button>
                                 </div>
-                                <div className="w-2 h-2 bg-green-500 rounded-full" title="Ativo" />
+                                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
+                                  {alunosDaTurma.map((aluno, index) => {
+                                    // Calc frequência do aluno nesta turma
+                                    const aulasT = aulasRegistradas.filter(a => a.turmaId === turma.id);
+                                    const presencas = aulasT.filter(a =>
+                                      (a.chamadas || []).find(c => c.alunoId === aluno.id && c.status === 'presente')
+                                    ).length;
+                                    const pct = aulasT.length > 0 ? Math.round((presencas / aulasT.length) * 100) : null;
+                                    const lowFreq = pct !== null && pct < 75;
+                                    return (
+                                      <div
+                                        key={`${turma.id}-aluno-${aluno.id || index}`}
+                                        className={`border rounded-lg px-3 py-2 flex items-center gap-2 ${lowFreq ? 'bg-red-50 border-red-200' : 'bg-white border-gray-200'}`}
+                                      >
+                                        <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 ${lowFreq ? 'bg-red-100' : 'bg-blue-100'}`}>
+                                          <span className={`text-xs ${lowFreq ? 'text-red-600' : 'text-blue-600'}`}>{lowFreq ? '⚠' : '👤'}</span>
+                                        </div>
+                                        <div className="min-w-0 flex-1">
+                                          <p className="text-xs font-medium text-gray-900 truncate">{aluno.name || 'Sem nome'}</p>
+                                          {pct !== null && (
+                                            <p className={`text-xs ${lowFreq ? 'text-red-600 font-semibold' : 'text-gray-400'}`}>{pct}% freq.</p>
+                                          )}
+                                        </div>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
                               </div>
+                            ) : (
+                              <p className="text-sm text-gray-500 text-center py-2">Nenhum aluno matriculado nesta turma.</p>
+                            )}
+
+                            {/* Histórico de Aulas */}
+                            <div className="mt-4 border-t border-gray-200 pt-3">
+                              <div className="flex items-center justify-between mb-2">
+                                <p className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                                  <BookOpen size={14} className="text-[#005DE4]" />
+                                  Aulas Registradas
+                                </p>
+                                <div className="flex items-center gap-2">
+                                  <span className="text-sm font-bold text-[#005DE4]">{aulasRegistradas.filter(a => a.turmaId === turma.id).length}</span>
+                                  <span className="text-xs text-gray-400">de {turma.totalAulas || 40} previstas</span>
+                                  <div className="w-20 bg-gray-200 rounded-full h-1.5">
+                                    <div
+                                      className={`h-1.5 rounded-full ${
+                                        Math.min(Math.round((aulasRegistradas.filter(a => a.turmaId === turma.id).length / (turma.totalAulas || 40)) * 100), 100) >= 100
+                                          ? 'bg-emerald-500'
+                                          : 'bg-[#005DE4]'
+                                      }`}
+                                      style={{ width: `${Math.min(Math.round((aulasRegistradas.filter(a => a.turmaId === turma.id).length / (turma.totalAulas || 40)) * 100), 100)}%` }}
+                                    />
+                                  </div>
+                                  <span className="text-xs text-gray-500">
+                                    {Math.min(Math.round((aulasRegistradas.filter(a => a.turmaId === turma.id).length / (turma.totalAulas || 40)) * 100), 100)}%
+                                  </span>
+                                </div>
+                              </div>
+                              {aulasRegistradas.filter(a => a.turmaId === turma.id).length === 0 ? (
+                                <p className="text-xs text-gray-400 text-center py-2">Nenhuma aula registrada pelo professor ainda.</p>
+                              ) : (
+                                <div className="space-y-1.5 max-h-52 overflow-y-auto pr-1">
+                                  {aulasRegistradas
+                                    .filter(a => a.turmaId === turma.id)
+                                    .sort((a, b) => (b.data || '').localeCompare(a.data || ''))
+                                    .map((aula, i) => {
+                                      const presentes = (aula.chamadas || []).filter(c => c.status === 'presente').length;
+                                      const faltas = (aula.chamadas || []).filter(c => c.status === 'falta').length;
+                                      const total = (aula.chamadas || []).length;
+                                      const dataFmt = aula.data ? aula.data.split('-').reverse().join('/') : '—';
+                                      const pct = total > 0 ? Math.round(presentes / total * 100) : null;
+                                      return (
+                                        <div key={i} className="bg-white border border-gray-200 rounded-lg px-3 py-2 flex items-center justify-between">
+                                          <div className="flex items-center gap-3 min-w-0">
+                                            <span className="text-xs font-semibold text-gray-800 whitespace-nowrap">{dataFmt}</span>
+                                            {aula.conteudo && <span className="text-xs text-gray-500 truncate">· {aula.conteudo}</span>}
+                                          </div>
+                                          <div className="flex items-center gap-2 text-xs flex-shrink-0 ml-2">
+                                            <span className="text-emerald-600 font-medium">✓ {presentes}</span>
+                                            <span className="text-red-500 font-medium">✗ {faltas}</span>
+                                            {pct !== null && <span className="text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded">{pct}%</span>}
+                                          </div>
+                                        </div>
+                                      );
+                                    })}
+                                </div>
+                              )}
                             </div>
-                          ))}
-                        </div>
-                        
-                        {/* Resumo da Turma - Cards Horizontais */}
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-4 border-t border-gray-200">
-                          <div className="bg-white border border-blue-200 rounded-lg p-3 text-center">
-                            <div className="text-xl font-bold text-blue-600">{alunosDaTurma.length}</div>
-                            <div className="text-xs text-blue-600 font-medium">Matriculados</div>
-                          </div>
-                          <div className="bg-white border border-green-200 rounded-lg p-3 text-center">
-                            <div className="text-xl font-bold text-green-600">{turma.maxAlunos - alunosDaTurma.length}</div>
-                            <div className="text-xs text-green-600 font-medium">Vagas Livres</div>
-                          </div>
-                          <div className="bg-white border border-purple-200 rounded-lg p-3 text-center">
-                            <div className="text-xl font-bold text-purple-600">
-                              {Math.round((alunosDaTurma.length / turma.maxAlunos) * 100)}%
-                            </div>
-                            <div className="text-xs text-purple-600 font-medium">Ocupação</div>
-                          </div>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="text-center py-8">
-                        <div className="inline-flex items-center justify-center w-12 h-12 bg-gray-100 rounded-full mb-3">
-                          <Users size={20} className="text-gray-400" />
-                        </div>
-                        <h4 className="text-sm font-medium text-gray-700 mb-1">Turma Vazia</h4>
-                        <p className="text-xs text-gray-500">
-                          Nenhum aluno matriculado nesta turma
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
+                          </td>
+                        </tr>
+                      )}
+                    </>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         )}
+      </div>
 
       {/* Modal funcional para Nova Turma */}
       {showModal && (
@@ -1570,23 +1607,32 @@ export default function Turmas({ students = [] }) {
                     </span>
                   )}
                 </label>
-                <input
-                  type="text"
-                  value={form.dias}
-                  onChange={(e) => {
-                    setForm({...form, dias: e.target.value});
-                    if (formErrors.dias) {
-                      setFormErrors({...formErrors, dias: ''});
-                    }
-                  }}
-                  className={`w-full border rounded-lg px-3 py-2 transition-colors ${
-                    formErrors.dias 
-                      ? 'border-red-300 focus:border-red-500 focus:ring-red-200' 
-                      : 'border-gray-300 focus:border-[#005DE4] focus:ring-blue-200'
-                  } focus:outline-none focus:ring-2`}
-                  placeholder="Ex: Segunda, Quarta, Sexta"
-                  disabled={saving}
-                />
+                <div className={`flex flex-wrap gap-2 p-2 border rounded-lg ${formErrors.dias ? 'border-red-300' : 'border-gray-300'}`}>
+                  {diasDisponiveis.map(dia => {
+                    const diasSel = form.dias ? form.dias.split(',').map(d => d.trim()).filter(Boolean) : [];
+                    const selecionado = diasSel.includes(dia);
+                    return (
+                      <button
+                        key={dia}
+                        type="button"
+                        disabled={saving}
+                        onClick={() => {
+                          const atual = form.dias ? form.dias.split(',').map(d => d.trim()).filter(Boolean) : [];
+                          const novo = selecionado ? atual.filter(d => d !== dia) : [...atual, dia];
+                          setForm({...form, dias: novo.join(', ')});
+                          if (formErrors.dias) setFormErrors({...formErrors, dias: ''});
+                        }}
+                        className={`px-3 py-1 rounded-full text-sm font-medium border transition-colors ${
+                          selecionado
+                            ? 'bg-[#005DE4] text-white border-[#005DE4]'
+                            : 'bg-white text-gray-600 border-gray-300 hover:border-[#005DE4] hover:text-[#005DE4]'
+                        } ${saving ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                      >
+                        {dia}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
               
               <div>
@@ -1618,6 +1664,23 @@ export default function Turmas({ students = [] }) {
                   placeholder="15"
                   disabled={saving}
                 />
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold mb-2">
+                  Total de Aulas Previstas
+                </label>
+                <input
+                  type="number"
+                  value={form.totalAulas}
+                  onChange={(e) => setForm({...form, totalAulas: parseInt(e.target.value) || 40})}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#005DE4] focus:border-[#005DE4] transition-colors"
+                  min="1"
+                  max="200"
+                  placeholder="40"
+                  disabled={saving}
+                />
+                <p className="text-xs text-gray-400 mt-1">Quantidade total de aulas planejadas para esta turma</p>
               </div>
             </div>
 

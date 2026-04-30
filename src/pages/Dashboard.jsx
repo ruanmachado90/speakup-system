@@ -1,7 +1,9 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Printer, X, User, Calendar, DollarSign, CheckCircle, Clock, XCircle } from 'lucide-react';
 import { Card, Table, KPI, EvolutionChart, ProfitChart } from '../components';
 import { formatCurrency, formatDate } from '../utils';
+import { collection, getDocs } from 'firebase/firestore';
+import { db } from '../firebase';
 
 export const Dashboard = ({ 
   dashboardRange, 
@@ -16,6 +18,41 @@ export const Dashboard = ({
 }) => {
   const [showRegistrationsModal, setShowRegistrationsModal] = useState(false);
   const [showCancellationsModal, setShowCancellationsModal] = useState(false);
+  const [aulasStats, setAulasStats] = useState({ mes: 0, freqMedia: 0 });
+
+  // Carregar estatísticas de aulas
+  useEffect(() => {
+    getDocs(collection(db, 'aulas'))
+      .then(snap => {
+        const aulas = snap.docs.map(d => d.data());
+        const now = new Date();
+        const mesAtual = now.getMonth();
+        const anoAtual = now.getFullYear();
+
+        const aulasPeriodo = aulas.filter(a => {
+          if (!a.data) return false;
+          const [ano, mes] = a.data.split('-').map(Number);
+          return dashboardRange === 'month'
+            ? ano === anoAtual && (mes - 1) === mesAtual
+            : ano === anoAtual;
+        });
+
+        const freqs = aulas
+          .map(a => {
+            const ch = a.chamadas || [];
+            if (!ch.length) return null;
+            return (ch.filter(c => c.status === 'presente').length / ch.length) * 100;
+          })
+          .filter(f => f !== null);
+
+        const freqMedia = freqs.length
+          ? Math.round(freqs.reduce((a, b) => a + b, 0) / freqs.length)
+          : 0;
+
+        setAulasStats({ mes: aulasPeriodo.length, freqMedia });
+      })
+      .catch(() => {});
+  }, [dashboardRange]);
 
   // Filtrar alunos matriculados no período (otimizado com Map lookup)
   const registeredStudents = useMemo(() => {
@@ -611,13 +648,13 @@ export const Dashboard = ({
             data={teacherStats}
             render={item => (
               <>
-                <td className="px-6 py-3 font-semibold">{item.teacher}</td>
-                <td className="px-6 py-3">
+                <td key="teacher" className="px-6 py-3 font-semibold">{item.teacher}</td>
+                <td key="count" className="px-6 py-3">
                   <span className="inline-flex items-center justify-center bg-[#005DE4] text-white rounded-full w-8 h-8 text-sm font-bold">
                     {item.count}
                   </span>
                 </td>
-                <td className="px-6 py-3 font-semibold">
+                <td key="revenue" className="px-6 py-3 font-semibold">
                   R$ {Number(item.revenue || 0).toLocaleString('pt-BR', {minimumFractionDigits: 2})}
                 </td>
               </>
@@ -632,12 +669,12 @@ export const Dashboard = ({
             data={filteredExpenses}
             render={x => (
               <>
-                <td className="px-6 py-3 font-semibold">{x.description}</td>
-                <td className="px-6 py-3 text-sm text-slate-600">{x.category}</td>
-                <td className="px-6 py-3 text-sm">
+                <td key="description" className="px-6 py-3 font-semibold">{x.description}</td>
+                <td key="category" className="px-6 py-3 text-sm text-slate-600">{x.category}</td>
+                <td key="date" className="px-6 py-3 text-sm">
                   {x.date ? new Date(x.date).toLocaleDateString('pt-BR') : '-'}
                 </td>
-                <td className="px-6 py-3 font-semibold">
+                <td key="value" className="px-6 py-3 font-semibold">
                   R$ {Number(x.value || 0).toLocaleString('pt-BR', {minimumFractionDigits: 2})}
                 </td>
               </>

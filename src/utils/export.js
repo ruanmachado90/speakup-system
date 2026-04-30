@@ -453,9 +453,27 @@ export const printPayments = (payments, students, period = '') => {
 
   // Calculate totals
   const totalPlanned = payments.reduce((sum, p) => sum + Number(p.valuePlanned || 0), 0);
-  const totalPaid = payments.filter(p => p.status === 'Pago').reduce((sum, p) => sum + Number(p.valuePaid || p.valuePlanned || 0), 0);
-  const paidCount = payments.filter(p => p.status === 'Pago').length;
+  const paidPayments = payments.filter(p => p.status === 'Pago');
+  const totalPaid = paidPayments.reduce((sum, p) => sum + Number(p.valuePaid || p.valuePlanned || 0), 0);
+  const paidCount = paidPayments.length;
   const pendingCount = payments.filter(p => p.status !== 'Pago').length;
+
+  // Calculate totals by payment method
+  const paymentMethodTotals = {};
+  paidPayments.forEach(payment => {
+    const method = payment.paymentMethod || 'Não especificado';
+    const value = Number(payment.valuePaid || payment.valuePlanned || 0);
+    paymentMethodTotals[method] = (paymentMethodTotals[method] || 0) + value;
+  });
+
+  // Calculate totals by bank
+  const bankTotals = {};
+  paidPayments.forEach(payment => {
+    if (payment.bank) {
+      const value = Number(payment.valuePaid || payment.valuePlanned || 0);
+      bankTotals[payment.bank] = (bankTotals[payment.bank] || 0) + value;
+    }
+  });
 
   // Create print window
   const printWindow = window.open('', '_blank');
@@ -467,107 +485,273 @@ export const printPayments = (payments, students, period = '') => {
         <meta charset="utf-8">
         <title>Relatório Financeiro - SpeakUp</title>
         <style>
+          * { margin: 0; padding: 0; box-sizing: border-box; }
+          
           body { 
-            font-family: Arial, sans-serif; 
-            margin: 20px;
-            font-size: 12px;
-          }
-          h2 { color: #005DE4; margin-bottom: 5px; }
-          .period { color: #666; margin-bottom: 20px; }
-          .summary {
-            background-color: #f8f9fa;
-            padding: 15px;
-            border-radius: 8px;
-            margin-bottom: 20px;
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 15px;
-          }
-          .summary-item {
-            padding: 10px;
-            background: white;
-            border-radius: 4px;
-            border-left: 4px solid #005DE4;
-          }
-          .summary-label {
-            font-size: 11px;
-            color: #666;
-            margin-bottom: 4px;
-          }
-          .summary-value {
-            font-size: 16px;
-            font-weight: bold;
+            font-family: 'Segoe UI', Arial, sans-serif; 
+            font-size: 8px;
+            line-height: 1.2;
             color: #333;
           }
+          
+          .container {
+            max-width: 100%;
+            padding: 8px;
+          }
+          
+          .header {
+            margin-bottom: 8px;
+            padding-bottom: 6px;
+            border-bottom: 2px solid #005DE4;
+          }
+          
+          h2 { 
+            color: #005DE4; 
+            font-size: 14px;
+            margin-bottom: 2px;
+          }
+          
+          .period { 
+            color: #666; 
+            font-size: 7px;
+          }
+          
+          .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 6px;
+            margin-bottom: 8px;
+          }
+          
+          .summary-box {
+            background: #f8f9fa;
+            padding: 4px 6px;
+            border-left: 2px solid #005DE4;
+          }
+          
+          .summary-label {
+            font-size: 7px;
+            color: #666;
+            text-transform: uppercase;
+          }
+          
+          .summary-value {
+            font-size: 10px;
+            font-weight: 700;
+            color: #005DE4;
+            margin-top: 2px;
+          }
+          
+          .analytics-section {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            margin-bottom: 8px;
+          }
+          
+          .analytics-box {
+            background: #fff;
+            border: 1px solid #ddd;
+            padding: 6px;
+          }
+          
+          .analytics-title {
+            font-size: 8px;
+            font-weight: 700;
+            color: #005DE4;
+            margin-bottom: 4px;
+            padding-bottom: 2px;
+            border-bottom: 1px solid #eee;
+          }
+          
+          .analytics-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 2px 0;
+            font-size: 7px;
+            border-bottom: 1px dotted #eee;
+          }
+          
+          .analytics-item:last-child {
+            border-bottom: none;
+            font-weight: 700;
+            background: #f8f9fa;
+            padding: 3px 4px;
+            margin-top: 2px;
+          }
+          
           table { 
             border-collapse: collapse; 
-            width: 100%; 
-            margin-bottom: 20px;
+            width: 100%;
+            font-size: 7px;
+            margin-bottom: 8px;
           }
+          
           th, td { 
             border: 1px solid #ddd; 
-            padding: 8px; 
+            padding: 2px 4px;
             text-align: left;
-            font-size: 11px;
           }
+          
           th { 
             background-color: #005DE4; 
             color: white; 
-            font-weight: bold; 
+            font-weight: 600;
+            font-size: 7px;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
           }
-          .total { 
+          
+          td {
+            font-size: 7px;
+          }
+          
+          .total-row { 
             background-color: #f0f0f0; 
-            font-weight: bold; 
-            font-size: 12px;
+            font-weight: 700;
           }
-          .currency { text-align: right; }
+          
+          .currency { 
+            text-align: right;
+            font-family: 'Courier New', monospace;
+          }
+          
           .status-pago { background-color: #d4edda; }
           .status-pendente { background-color: #fff3cd; }
           .status-vencido { background-color: #f8d7da; }
+          
+          .col-aluno { max-width: 80px; }
+          .col-resp { max-width: 80px; }
+          .col-valor { width: 50px; }
+          .col-data { width: 50px; }
+          .col-status { width: 40px; }
+          .col-forma { width: 45px; }
+          .col-banco { width: 40px; }
+          
+          button {
+            padding: 8px 16px;
+            background: #005DE4;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 10px;
+            font-weight: 600;
+          }
+          
           @media print {
             button { display: none; }
-            body { margin: 10px; }
+            body { padding: 0; }
+            .container { padding: 4px; }
+            
+            @page {
+              margin: 0.5cm;
+              size: A4;
+            }
           }
         </style>
       </head>
       <body>
-        <h2>Relatório Financeiro - SpeakUp</h2>
-        <p class="period">${period ? period : ''} - Gerado em: ${new Date().toLocaleString('pt-BR')}</p>
-        
-        <div class="summary">
-          <div class="summary-item">
-            <div class="summary-label">Total Previsto</div>
-            <div class="summary-value">${formatCurrency(totalPlanned)}</div>
+        <div class="container">
+          <div class="header">
+            <h2>Relatório Financeiro - SpeakUp English School</h2>
+            <p class="period">${period ? period : ''} | Gerado em: ${new Date().toLocaleString('pt-BR')}</p>
           </div>
-          <div class="summary-item">
-            <div class="summary-label">Total Recebido</div>
-            <div class="summary-value">${formatCurrency(totalPaid)}</div>
+          
+          <div class="summary-grid">
+            <div class="summary-box">
+              <div class="summary-label">Total Previsto</div>
+              <div class="summary-value">${formatCurrency(totalPlanned)}</div>
+            </div>
+            <div class="summary-box">
+              <div class="summary-label">Total Recebido</div>
+              <div class="summary-value">${formatCurrency(totalPaid)}</div>
+            </div>
+            <div class="summary-box">
+              <div class="summary-label">Cobranças Pagas</div>
+              <div class="summary-value">${paidCount}</div>
+            </div>
+            <div class="summary-box">
+              <div class="summary-label">Cobranças Pendentes</div>
+              <div class="summary-value">${pendingCount}</div>
+            </div>
           </div>
-          <div class="summary-item">
-            <div class="summary-label">Cobranças Pagas</div>
-            <div class="summary-value">${paidCount}</div>
+          
+          <div class="analytics-section">
+            <div class="analytics-box">
+              <div class="analytics-title">Recebimentos por Forma de Pagamento</div>
+  `;
+
+  // Add payment method breakdown
+  Object.entries(paymentMethodTotals)
+    .sort((a, b) => b[1] - a[1])
+    .forEach(([method, total]) => {
+      html += `
+              <div class="analytics-item">
+                <span>${method}</span>
+                <span class="currency">${formatCurrency(total)}</span>
+              </div>
+      `;
+    });
+
+  html += `
+              <div class="analytics-item">
+                <span>TOTAL</span>
+                <span class="currency">${formatCurrency(totalPaid)}</span>
+              </div>
+            </div>
+            
+            <div class="analytics-box">
+              <div class="analytics-title">Recebimentos por Banco</div>
+  `;
+
+  // Add bank breakdown
+  if (Object.keys(bankTotals).length > 0) {
+    Object.entries(bankTotals)
+      .sort((a, b) => b[1] - a[1])
+      .forEach(([bank, total]) => {
+        html += `
+              <div class="analytics-item">
+                <span>${bank}</span>
+                <span class="currency">${formatCurrency(total)}</span>
+              </div>
+        `;
+      });
+    
+    html += `
+              <div class="analytics-item">
+                <span>TOTAL</span>
+                <span class="currency">${formatCurrency(totalPaid)}</span>
+              </div>
+    `;
+  } else {
+    html += `
+              <div class="analytics-item">
+                <span style="color: #999;">Sem dados de banco</span>
+                <span></span>
+              </div>
+    `;
+  }
+
+  html += `
+            </div>
           </div>
-          <div class="summary-item">
-            <div class="summary-label">Cobranças Pendentes</div>
-            <div class="summary-value">${pendingCount}</div>
-          </div>
-        </div>
-        
-        <table>
-          <thead>
-            <tr>
-              <th>Aluno</th>
-              <th>Responsável</th>
-              <th>Valor Planejado</th>
-              <th>Valor Pago</th>
-              <th>Vencimento</th>
-              <th>Pagamento</th>
-              <th>Status</th>
-              <th>Forma Pgto</th>
-              <th>Banco</th>
-            </tr>
-          </thead>
-          <tbody>
+          
+          <table>
+            <thead>
+              <tr>
+                <th class="col-aluno">Aluno</th>
+                <th class="col-resp">Responsável</th>
+                <th class="col-valor">Previsto</th>
+                <th class="col-valor">Pago</th>
+                <th class="col-data">Venc.</th>
+                <th class="col-data">Pgto</th>
+                <th class="col-status">Status</th>
+                <th class="col-forma">Forma</th>
+                <th class="col-banco">Banco</th>
+              </tr>
+            </thead>
+            <tbody>
   `;
 
   const today = new Date().setHours(0, 0, 0, 0);
@@ -578,39 +762,44 @@ export const printPayments = (payments, students, period = '') => {
       new Date(payment.dueDate).setHours(0, 0, 0, 0) < today;
     
     let statusClass = 'status-pendente';
+    let statusText = payment.status || 'Pendente';
+    
     if (payment.status === 'Pago') {
       statusClass = 'status-pago';
     } else if (isOverdue) {
       statusClass = 'status-vencido';
+      statusText = 'VENCIDO';
     }
     
     html += `
       <tr class="${statusClass}">
-        <td>${name}</td>
-        <td>${responsible}</td>
-        <td class="currency">${formatCurrency(Number(payment.valuePlanned || 0))}</td>
-        <td class="currency">${payment.valuePaid ? formatCurrency(Number(payment.valuePaid)) : ''}</td>
-        <td>${formatDate(payment.dueDate)}</td>
-        <td>${payment.paymentDate ? formatDate(payment.paymentDate) : ''}</td>
-        <td>${payment.status || 'Pendente'}</td>
-        <td>${payment.paymentMethod || ''}</td>
-        <td>${payment.bank || ''}</td>
+        <td class="col-aluno">${name}</td>
+        <td class="col-resp">${responsible}</td>
+        <td class="col-valor currency">${formatCurrency(Number(payment.valuePlanned || 0))}</td>
+        <td class="col-valor currency">${payment.valuePaid ? formatCurrency(Number(payment.valuePaid)) : '-'}</td>
+        <td class="col-data">${formatDate(payment.dueDate)}</td>
+        <td class="col-data">${payment.paymentDate ? formatDate(payment.paymentDate) : '-'}</td>
+        <td class="col-status">${statusText}</td>
+        <td class="col-forma">${payment.paymentMethod || '-'}</td>
+        <td class="col-banco">${payment.bank || '-'}</td>
       </tr>
     `;
   });
 
   html += `
-          </tbody>
-          <tfoot>
-            <tr class="total">
-              <td colspan="2">TOTAL</td>
-              <td class="currency">${formatCurrency(totalPlanned)}</td>
-              <td class="currency">${formatCurrency(totalPaid)}</td>
-              <td colspan="5"></td>
-            </tr>
-          </tfoot>
-        </table>
-        <button onclick="window.print()" style="padding: 10px 20px; background: #005DE4; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 14px;">Imprimir</button>
+            </tbody>
+            <tfoot>
+              <tr class="total-row">
+                <td colspan="2">TOTAL</td>
+                <td class="currency">${formatCurrency(totalPlanned)}</td>
+                <td class="currency">${formatCurrency(totalPaid)}</td>
+                <td colspan="5"></td>
+              </tr>
+            </tfoot>
+          </table>
+          
+          <button onclick="window.print()">🖨️ Imprimir Relatório</button>
+        </div>
       </body>
     </html>
   `;

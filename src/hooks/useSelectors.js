@@ -212,8 +212,8 @@ export const usePaymentSaving = () => {
  * Selector para expenseSaving state
  */
 export const useExpenseSaving = () => {
-  const { expenseSaving } = useLoading();
-  return expenseSaving;
+  const { expenseSaving, setExpenseSaving } = useLoading();
+  return { expenseSaving, setExpenseSaving };
 };
 
 // ============================================

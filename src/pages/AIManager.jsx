@@ -8,6 +8,7 @@ import {
   AlertTriangle,
   BarChart3,
   Brain,
+  FileText,
   ChevronRight,
   Loader2,
   RefreshCw,
@@ -33,6 +34,7 @@ const ICONS_MAP = {
   conversao: <BarChart3 size={16} />,
   despesas: <DollarSign size={16} />,
   previsao: <Brain size={16} />,
+  relatorio: <FileText size={16} />,
 };
 
 // ─────────────────────────────────────────────
@@ -154,7 +156,62 @@ export default function AIManager({ students = [], payments = [], expenses = [],
           gap: "10px",
         }}
       >
-        {AI_CONFIG.QUICK_PROMPTS.map((item) => (
+        {/* Relatório Mensal — full-width, destacado */}
+        {AI_CONFIG.QUICK_PROMPTS.filter(p => p.id === "relatorio").map((item) => (
+          <button
+            key={item.id}
+            onClick={() => sendQuickPrompt(item.prompt)}
+            disabled={isLoading}
+            style={{
+              gridColumn: "1 / -1",
+              display: "flex",
+              alignItems: "center",
+              gap: "12px",
+              padding: "14px 20px",
+              borderRadius: "12px",
+              border: "none",
+              background: "linear-gradient(135deg, #005DE4 0%, #0041a8 100%)",
+              cursor: isLoading ? "not-allowed" : "pointer",
+              transition: "all 0.15s",
+              fontSize: "14px",
+              fontWeight: 600,
+              color: "white",
+              textAlign: "left",
+              fontFamily: "'DM Sans', sans-serif",
+              opacity: isLoading ? 0.6 : 1,
+              boxShadow: "0 4px 16px rgba(0,93,228,0.3)",
+            }}
+            onMouseEnter={(e) => {
+              if (!isLoading) {
+                e.currentTarget.style.transform = "translateY(-2px)";
+                e.currentTarget.style.boxShadow = "0 8px 24px rgba(0,93,228,0.4)";
+              }
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.transform = "translateY(0)";
+              e.currentTarget.style.boxShadow = "0 4px 16px rgba(0,93,228,0.3)";
+            }}
+          >
+            <div
+              style={{
+                width: 32,
+                height: 32,
+                borderRadius: 8,
+                background: "rgba(255,255,255,0.2)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              {ICONS_MAP[item.id]}
+            </div>
+            <span style={{ flex: 1 }}>{item.title}</span>
+            <ChevronRight size={16} color="rgba(255,255,255,0.7)" />
+          </button>
+        ))}
+
+        {/* Demais prompts */}
+        {AI_CONFIG.QUICK_PROMPTS.filter(p => p.id !== "relatorio").map((item) => (
           <button
             key={item.id}
             onClick={() => sendQuickPrompt(item.prompt)}

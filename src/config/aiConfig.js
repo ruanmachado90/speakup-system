@@ -63,6 +63,11 @@ export const AI_CONFIG = {
       id: "previsao",
       title: "🔮 Projeção de Receitas",
       prompt: "Faça projeção de receitas para próximos 3 meses. Baseie-se em: 1) Tendência dos últimos 6 meses, 2) Sazonalidade identificada, 3) Alunos com renovação prevista, 4) Leads em negociação e taxa de conversão histórica, 5) Calcule cenários: otimista, realista e pessimista, 6) Sugira ações para atingir cenário otimista. Use dados reais do histórico."
+    },
+    {
+      id: "relatorio",
+      title: "📋 Relatório Mensal Completo",
+      prompt: "Gere o RELATÓRIO MENSAL COMPLETO com todos os KPIs disponíveis. Organize exatamente nesta estrutura:\n\n# 📋 RELATÓRIO MENSAL — [MÊS/ANO]\n\n## 1. RESUMO EXECUTIVO (3 linhas)\n\n## 2. FINANCEIRO\n- Receita do mês vs mês anterior (variação %)\n- Despesas vs mês anterior\n- Lucro líquido e margem (%)\n- Ticket médio por aluno\n- Projeção para próximo mês\n\n## 3. INADIMPLÊNCIA\n- Total em atraso (R$ e %)\n- Comparação vs benchmark (<5% = saudável)\n- Tendência (melhorando/piorando)\n\n## 4. ALUNOS & MATRÍCULAS\n- Total de alunos ativos\n- Novas matrículas no mês\n- Cancelamentos/inativos no período\n- Saldo líquido (entradas - saídas)\n- Taxa de retenção (%)\n\n## 5. LEADS & CONVERSÃO\n- Total de leads e por status\n- Taxa de conversão (%)\n- Leads esquecidos (>30 dias)\n- Receita potencial dos leads em negociação\n\n## 6. DESPESAS DETALHADAS\n- Top 3 categorias de despesa\n- % das despesas sobre a receita\n- Variação vs mês anterior por categoria\n\n## 7. HISTÓRICO DOS ÚLTIMOS 6 MESES (tabela)\n\n## 8. ALERTAS & RISCOS (ordenados por urgência)\n\n## 9. PLANO DE AÇÃO — PRÓXIMOS 30 DIAS\n(Liste 5 ações prioritárias com responsável e prazo)\n\n## 10. PONTUAÇÃO DE SAÚDE DO NEGÓCIO\n(Score 0-100 baseado nos KPIs, com justificativa)\n\nSeja específico com números reais dos dados. Inclua emojis de status 🟢🟡🔴 para cada KPI."
     }
   ],
 };
@@ -202,6 +207,78 @@ function summarizeData(data) {
     acc[status] = (acc[status] || 0) + 1;
     return acc;
   }, {});
+
+  // Leads por origem (source/origem field)
+  const leadsByOrigin = leads.reduce((acc, l) => {
+    const origin = l.source || l.origem || l.origin || "Não informado";
+    acc[origin] = (acc[origin] || 0) + 1;
+    return acc;
+  }, {});
+
+  // Leads convertidos (status = Matriculado ou Convertido)
+  const convertedLeads = leads.filter(l =>
+    ["Matriculado", "Convertido", "matriculado", "convertido"].includes(l.status)
+  );
+  const conversionRate = leads.length > 0
+    ? ((convertedLeads.length / leads.length) * 100).toFixed(1)
+    : 0;
+
+  // Leads esquecidos (sem atualização há mais de 30 dias)
+  const thirtyDaysAgo = new Date(); thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+  const forgottenLeads = leads.filter(l => {
+    const updated = l.updatedAt || l.createdAt;
+    if (!updated) return true;
+    return new Date(updated) < thirtyDaysAgo &&
+      !["Matriculado", "Convertido", "Desistiu", "Perdido"].includes(l.status);
+  });
+
+  // Receita potencial dos leads em negociação (estimativa com ticket médio)
+  const activeLeads = leads.filter(l =>
+    !["Matriculado", "Convertido", "Desistiu", "Perdido", "matriculado"].includes(l.status)
+  );
+
+  // ==== MATRÍCULAS POR MÊS (últimos 6 meses via createdAt dos alunos) ====
+  const enrollmentsByMonth = [];
+  for (let i = 5; i >= 0; i--) {
+    const targetDate = new Date(currentYear, currentMonth, 1);
+    targetDate.setMonth(targetDate.getMonth() - i);
+    const tM = targetDate.getMonth();
+    const tY = targetDate.getFullYear();
+    const newStudents = students.filter(s => {
+      const raw = s.createdAt || s.enrolledAt || s.dataMatricula;
+      if (!raw) return false;
+      const d = new Date(typeof raw === 'number' ? raw : raw);
+      return d.getMonth() === tM && d.getFullYear() === tY;
+    });
+    const canceledStudents = students.filter(s => {
+      if (s.status !== 'Inativo') return false;
+      const raw = s.updatedAt || s.canceledAt;
+      if (!raw) return false;
+      const d = new Date(typeof raw === 'number' ? raw : raw);
+      return d.getMonth() === tM && d.getFullYear() === tY;
+    });
+    enrollmentsByMonth.push({
+      monthName: monthNames[tM],
+      year: tY,
+      newEnrollments: newStudents.length,
+      cancellations: canceledStudents.length,
+      netBalance: newStudents.length - canceledStudents.length,
+    });
+  }
+
+  // Matrículas e cancelamentos só do mês atual
+  const newStudentsThisMonth = enrollmentsByMonth[enrollmentsByMonth.length - 1]?.newEnrollments || 0;
+  const canceledThisMonth = enrollmentsByMonth[enrollmentsByMonth.length - 1]?.cancellations || 0;
+
+  // ==== TICKET MÉDIO ====
+  const ticketMedio = activeStudents.length > 0 && totalRevenue > 0
+    ? (totalRevenue / activeStudents.length).toFixed(2)
+    : (paidPayments.length > 0 ? (totalRevenue / paidPayments.length).toFixed(2) : "0.00");
+
+  // Ticket médio histórico (últimos 6 meses)
+  const avgHistoricalRevenue = monthlyData.length > 0
+    ? (monthlyData.reduce((s, m) => s + m.revenue, 0) / monthlyData.length).toFixed(2)
+    : "0.00";
   
   // ==== FINANCEIRO ====
   const profit = totalRevenue - totalExpenses;
@@ -219,6 +296,13 @@ function summarizeData(data) {
       active: activeStudents.length,
       inactive: inactiveStudents.length,
       byCourse: studentsByCourse,
+      newThisMonth: newStudentsThisMonth,
+      canceledThisMonth: canceledThisMonth,
+      netBalanceThisMonth: newStudentsThisMonth - canceledThisMonth,
+      retentionRate: students.length > 0
+        ? ((activeStudents.length / students.length) * 100).toFixed(1)
+        : "0.0",
+      enrollmentsByMonth,
     },
     payments: {
       total: monthPayments.length,
@@ -229,15 +313,28 @@ function summarizeData(data) {
       pendingAmount: totalPending,
       lateAmount: totalLate,
       byMethod: paymentsByMethod,
+      defaultRate: monthPayments.length > 0
+        ? ((latePayments.length / monthPayments.length) * 100).toFixed(1)
+        : "0.0",
+      ticketMedio,
+      avgHistoricalRevenue,
     },
     expenses: {
       total: monthExpenses.length,
       amount: totalExpenses,
       byCategory: expensesByCategory,
+      ratioToRevenue: totalRevenue > 0
+        ? ((totalExpenses / totalRevenue) * 100).toFixed(1)
+        : "0.0",
     },
     leads: {
       total: leads.length,
       byStatus: leadsByStatus,
+      byOrigin: leadsByOrigin,
+      converted: convertedLeads.length,
+      conversionRate,
+      forgotten: forgottenLeads.length,
+      active: activeLeads.length,
     },
     financial: {
       revenue: totalRevenue,
@@ -271,22 +368,40 @@ export function buildSystemPrompt(data) {
 
 🎓 ALUNOS (Dados Gerais - Todos os períodos):
 - Total: ${summary.students.total} (${summary.students.active} ativos, ${summary.students.inactive} inativos)
+- Taxa de retenção: ${summary.students.retentionRate}%
+- Novas matrículas em ${summary.period.monthName}: ${summary.students.newThisMonth}
+- Cancelamentos/inativos em ${summary.period.monthName}: ${summary.students.canceledThisMonth}
+- Saldo líquido do mês (entradas - saídas): ${summary.students.netBalanceThisMonth > 0 ? '+' : ''}${summary.students.netBalanceThisMonth}
 - Por curso: ${Object.entries(summary.students.byCourse).map(([c, n]) => `${c}: ${n}`).join(", ")}
+
+📅 HISTÓRICO DE MATRÍCULAS (últimos 6 meses):
+${summary.students.enrollmentsByMonth.map(e =>
+  `  ${e.monthName}/${e.year}: +${e.newEnrollments} matrículas, -${e.cancellations} cancelamentos, saldo ${e.netBalance >= 0 ? '+' : ''}${e.netBalance}`
+).join('\n')}
 
 💰 PAGAMENTOS (${summary.period.monthName}/${summary.period.year}):
 - Total de cobranças do mês: ${summary.payments.total} registros
 - ✅ Pagos: ${summary.payments.paid} cobranças (R$ ${summary.payments.revenue.toFixed(2)} recebidos)
 - ⏳ Pendentes (no prazo): ${summary.payments.pending} (R$ ${summary.payments.pendingAmount.toFixed(2)})
 - ❌ ATRASADOS/VENCIDOS: ${summary.payments.late} (R$ ${summary.payments.lateAmount.toFixed(2)})
+- Taxa de inadimplência do mês: ${summary.payments.defaultRate}%
+- Ticket médio por pagamento: R$ ${summary.payments.ticketMedio}
+- Receita média histórica (6 meses): R$ ${summary.payments.avgHistoricalRevenue}
 - Por método de pagamento: ${Object.entries(summary.payments.byMethod).map(([m, v]) => `${m}: R$ ${v.toFixed(2)}`).join(", ") || "Nenhum"}
 
 💸 DESPESAS (${summary.period.monthName}/${summary.period.year}):
 - Total: ${summary.expenses.total} registros (R$ ${summary.expenses.amount.toFixed(2)})
+- Despesas como % da receita: ${summary.expenses.ratioToRevenue}% (ideal <70%)
 - Por categoria: ${Object.entries(summary.expenses.byCategory).map(([c, v]) => `${c}: R$ ${v.toFixed(2)}`).join(", ") || "Nenhuma"}
 
 📈 LEADS (Dados Gerais):
 - Total: ${summary.leads.total} leads
+- Convertidos (matriculados): ${summary.leads.converted}
+- Taxa de conversão: ${summary.leads.conversionRate}%
+- Leads ativos em negociação: ${summary.leads.active}
+- Leads esquecidos (>30 dias sem atualização): ${summary.leads.forgotten}
 - Por status: ${Object.entries(summary.leads.byStatus).map(([s, n]) => `${s}: ${n}`).join(", ")}
+- Por origem: ${Object.entries(summary.leads.byOrigin).map(([o, n]) => `${o}: ${n}`).join(", ") || "Não informado"}
 
 💵 RESUMO FINANCEIRO DO MÊS:
 - Receita: R$ ${summary.financial.revenue.toFixed(2)}

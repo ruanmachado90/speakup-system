@@ -16,8 +16,10 @@ import {
   AlertTriangle,
   Trash2,
   Send,
+  MessageSquare,
+  Printer,
 } from 'lucide-react';
-import { collection, getDocs, query, where } from 'firebase/firestore';
+import { collection, getDocs, query, where, addDoc } from 'firebase/firestore';
 import { signInAnonymously } from 'firebase/auth';
 import { db, auth } from '../firebase';
 import { APP_ID } from '../utils/constants';
@@ -25,6 +27,183 @@ import { useAulas } from '../hooks/useAulas';
 import { Card } from '../components';
 import ChamadaForm from '../components/forms/ChamadaForm';
 import HistoricoAulas from '../components/HistoricoAulas';
+
+// ─── Relatório mensal do professor ────────────────────────────────────────
+function ProfessorRelatorio({ professor, turmas, aulas, alunosPorTurma, onClose }) {
+  const printRef = React.useRef(null);
+  const hoje = new Date();
+  const mesNomes = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
+  const mesAtual = mesNomes[hoje.getMonth()];
+  const anoAtual = hoje.getFullYear();
+
+  const aulasMes = aulas.filter(a => {
+    if (!a.data) return false;
+    const [ano, mes] = a.data.split('-').map(Number);
+    return mes - 1 === hoje.getMonth() && ano === anoAtual;
+  });
+
+  const statsPorTurma = turmas.map(turma => {
+    const aulasT = aulas.filter(a => a.turmaId === turma.id);
+    const aulasTMes = aulasMes.filter(a => a.turmaId === turma.id);
+    const alunos = alunosPorTurma[turma.id] || [];
+    const previstas = turma.totalAulas || 40;
+
+    let freqMedia = null;
+    if (aulasT.length > 0) {
+      const total = aulasT.reduce((acc, a) => {
+        const presentes = (a.chamadas || []).filter(c => c.status === 'presente').length;
+        const tot = (a.chamadas || []).length;
+        return tot > 0 ? acc + (presentes / tot) : acc;
+      }, 0);
+      freqMedia = Math.round((total / aulasT.length) * 100);
+    }
+
+    const emRisco = alunos.filter(aluno => {
+      const presencas = aulasT.filter(a =>
+        (a.chamadas || []).find(c => c.alunoId === aluno.id && c.status === 'presente')
+      ).length;
+      return aulasT.length > 0 && Math.round((presencas / aulasT.length) * 100) < 75;
+    });
+
+    return { id: turma.id, nome: turma.nome, nivel: turma.nivel, dias: turma.dias, horario: turma.horario,
+      totalAlunos: alunos.length, aulasDadas: aulasT.length, aulasMes: aulasTMes.length, previstas, freqMedia, emRisco };
+  });
+
+  const handlePrint = () => {
+    const content = printRef.current.innerHTML;
+    const win = window.open('', '_blank');
+    win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"/>
+      <title>Relatório — ${professor} — ${mesAtual}/${anoAtual}</title>
+      <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: Arial, sans-serif; font-size: 12px; color: #0f172a; padding: 20px; }
+        h1 { font-size: 18px; color: #005DE4; margin-bottom: 4px; }
+        .section-title { font-weight: 700; font-size: 13px; border-bottom: 2px solid #005DE4; padding-bottom: 4px; margin: 16px 0 10px; }
+        table { width: 100%; border-collapse: collapse; font-size: 11px; }
+        th { background: #f1f5f9; text-align: left; padding: 6px 8px; font-size: 10px; color: #64748b; }
+        td { padding: 5px 8px; border-bottom: 1px solid #f1f5f9; }
+        .footer { margin-top: 20px; border-top: 1px solid #e2e8f0; padding-top: 10px; font-size: 10px; color: #94a3b8; text-align: center; }
+      </style></head><body>${content}</body></html>`);
+    win.document.close();
+    setTimeout(() => win.print(), 400);
+  };
+
+  const totalAulasMes = statsPorTurma.reduce((s, t) => s + t.aulasMes, 0);
+  const totalAlunosEmRisco = statsPorTurma.reduce((s, t) => s + t.emRisco.length, 0);
+  const freqGeral = statsPorTurma.filter(t => t.freqMedia !== null);
+  const freqMedia = freqGeral.length > 0
+    ? Math.round(freqGeral.reduce((s, t) => s + t.freqMedia, 0) / freqGeral.length) : null;
+
+  return (
+    <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.55)', zIndex:9999, display:'flex', alignItems:'flex-start', justifyContent:'center', padding:20, overflowY:'auto' }}>
+      <div style={{ background:'white', borderRadius:16, width:'100%', maxWidth:860, boxShadow:'0 24px 64px rgba(0,0,0,0.2)', marginTop:20, marginBottom:20 }}>
+        {/* Header */}
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'18px 24px', background:'linear-gradient(135deg,#005DE4,#0041a8)', borderRadius:'16px 16px 0 0', color:'white' }}>
+          <div>
+            <div style={{ fontWeight:700, fontSize:17 }}>📊 Relatório — {professor}</div>
+            <div style={{ fontSize:13, opacity:0.85 }}>{mesAtual} de {anoAtual}</div>
+          </div>
+          <div style={{ display:'flex', gap:10 }}>
+            <button onClick={handlePrint} style={{ display:'flex', alignItems:'center', gap:6, background:'rgba(255,255,255,0.2)', border:'1px solid rgba(255,255,255,0.4)', color:'white', borderRadius:8, padding:'8px 14px', cursor:'pointer', fontWeight:600, fontSize:13 }}>
+              <Printer size={15} /> Imprimir / PDF
+            </button>
+            <button onClick={onClose} style={{ background:'rgba(255,255,255,0.1)', border:'none', color:'white', borderRadius:8, padding:'8px 10px', cursor:'pointer' }}>
+              <X size={18} />
+            </button>
+          </div>
+        </div>
+
+        {/* Content */}
+        <div ref={printRef} style={{ padding:24 }}>
+          <h1 style={{ display:'none' }}>Relatório Mensal — {professor} — {mesAtual}/{anoAtual}</h1>
+
+          {/* Resumo */}
+          <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:10, marginBottom:20 }}>
+            {[
+              { label:'Turmas', value: turmas.length, color:'#005DE4' },
+              { label:'Aulas este mês', value: totalAulasMes, color:'#7c3aed' },
+              { label:'Freq. média geral', value: freqMedia !== null ? `${freqMedia}%` : '—', color: freqMedia === null ? '#64748b' : freqMedia >= 75 ? '#16a34a' : '#dc2626' },
+              { label:'Alunos em risco', value: totalAlunosEmRisco, color: totalAlunosEmRisco > 0 ? '#dc2626' : '#16a34a' },
+            ].map(s => (
+              <div key={s.label} style={{ border:'1px solid #e2e8f0', borderRadius:10, padding:'12px 14px' }}>
+                <div style={{ fontSize:11, color:'#64748b', marginBottom:3 }}>{s.label}</div>
+                <div style={{ fontSize:22, fontWeight:700, color:s.color }}>{s.value}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* Tabela por turma */}
+          <div className="section-title" style={{ fontWeight:700, fontSize:14, borderBottom:'2px solid #005DE4', paddingBottom:6, marginBottom:12, color:'#0f172a' }}>📋 Desempenho por Turma</div>
+          <table style={{ width:'100%', borderCollapse:'collapse', fontSize:13, marginBottom:20 }}>
+            <thead>
+              <tr style={{ background:'#f8fafc' }}>
+                {['Turma','Nível','Dias / Horário','Alunos','Aulas Dadas','Previstas','Este Mês','Freq. Média','Em Risco'].map(h => (
+                  <th key={h} style={{ padding:'8px', textAlign:'left', fontWeight:600, color:'#64748b', fontSize:11 }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {statsPorTurma.map(t => (
+                <tr key={t.id} style={{ borderBottom:'1px solid #f1f5f9' }}>
+                  <td style={{ padding:'8px', fontWeight:600 }}>{t.nome}</td>
+                  <td style={{ padding:'8px' }}><span style={{ background:'#eff6ff', color:'#3b82f6', borderRadius:4, padding:'2px 6px', fontSize:11 }}>{t.nivel}</span></td>
+                  <td style={{ padding:'8px', color:'#64748b', fontSize:11 }}>{t.dias}<br/>{t.horario}</td>
+                  <td style={{ padding:'8px', textAlign:'center' }}>{t.totalAlunos}</td>
+                  <td style={{ padding:'8px', textAlign:'center', fontWeight:600 }}>{t.aulasDadas}</td>
+                  <td style={{ padding:'8px', textAlign:'center', color:'#64748b' }}>{t.previstas}</td>
+                  <td style={{ padding:'8px', textAlign:'center', fontWeight:600, color:'#7c3aed' }}>{t.aulasMes}</td>
+                  <td style={{ padding:'8px', textAlign:'center', fontWeight:600, color: t.freqMedia === null ? '#64748b' : t.freqMedia >= 75 ? '#16a34a' : '#dc2626' }}>
+                    {t.freqMedia !== null ? `${t.freqMedia}%` : '—'}
+                  </td>
+                  <td style={{ padding:'8px', textAlign:'center' }}>
+                    {t.emRisco.length > 0 ? <span style={{ color:'#dc2626', fontWeight:600 }}>{t.emRisco.length} ⚠️</span> : <span style={{ color:'#16a34a' }}>✓</span>}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+
+          {/* Alunos em risco */}
+          {totalAlunosEmRisco > 0 && (
+            <>
+              <div className="section-title" style={{ fontWeight:700, fontSize:14, borderBottom:'2px solid #ef4444', paddingBottom:6, marginBottom:12, color:'#0f172a' }}>⚠️ Alunos com Frequência &lt; 75%</div>
+              <table style={{ width:'100%', borderCollapse:'collapse', fontSize:13, marginBottom:20 }}>
+                <thead>
+                  <tr style={{ background:'#fef2f2' }}>
+                    {['Aluno','Turma','Frequência'].map(h => (
+                      <th key={h} style={{ padding:'8px 10px', textAlign:'left', fontWeight:600, color:'#ef4444', fontSize:11 }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {statsPorTurma.flatMap(t =>
+                    t.emRisco.map(aluno => {
+                      const aulasT = aulas.filter(a => a.turmaId === t.id);
+                      const presencas = aulasT.filter(a => (a.chamadas||[]).find(c => c.alunoId === aluno.id && c.status === 'presente')).length;
+                      const pct = aulasT.length > 0 ? Math.round(presencas / aulasT.length * 100) : 0;
+                      return (
+                        <tr key={`${t.id}-${aluno.id}`} style={{ borderBottom:'1px solid #fee2e2' }}>
+                          <td style={{ padding:'8px 10px', fontWeight:600 }}>{aluno.nome || aluno.name}</td>
+                          <td style={{ padding:'8px 10px', color:'#64748b' }}>{t.nome}</td>
+                          <td style={{ padding:'8px 10px', color:'#dc2626', fontWeight:700 }}>{pct}%</td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </>
+          )}
+
+          <div style={{ borderTop:'1px solid #e2e8f0', paddingTop:12, fontSize:11, color:'#94a3b8', textAlign:'center' }}>
+            Gerado em {hoje.toLocaleDateString('pt-BR',{day:'2-digit',month:'long',year:'numeric'})} — SpeakUp English Academy — Prof.: {professor}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+// ────────────────────────────────────────────────────────────────────────────
 
 export default function ProfessorDashboard() {
   const { professorSlug } = useParams();
@@ -65,6 +244,16 @@ export default function ProfessorDashboard() {
   const [novoLembrete, setNovoLembrete] = useState('');
   const [dismissedIds, setDismissedIds] = useState(new Set());
 
+  // Recado para coordenação
+  const [showRecado, setShowRecado] = useState(false);
+  const [recadoTexto, setRecadoTexto] = useState('');
+  const [recadoTipo, setRecadoTipo] = useState('geral');
+  const [savingRecado, setSavingRecado] = useState(false);
+  const [recadoSent, setRecadoSent] = useState(false);
+
+  // Relatório mensal do professor
+  const [showRelatorio, setShowRelatorio] = useState(false);
+
   useEffect(() => {
     localStorage.setItem(`lembretes-${professorSlug}`, JSON.stringify(lembretes));
   }, [lembretes, professorSlug]);
@@ -89,6 +278,32 @@ export default function ProfessorDashboard() {
       setSelectedTurma(null);
       setSuccessMsg('Aula registrada com sucesso!');
       setTimeout(() => setSuccessMsg(''), 4000);
+    }
+  };
+
+  const handleEnviarRecado = async (e) => {
+    e.preventDefault();
+    if (!recadoTexto.trim()) return;
+    setSavingRecado(true);
+    try {
+      await addDoc(
+        collection(db, 'recados'),
+        {
+          professor: professorNome,
+          professorSlug,
+          texto: recadoTexto.trim(),
+          tipo: recadoTipo,
+          lido: false,
+          createdAt: Date.now(),
+        }
+      );
+      setRecadoTexto('');
+      setRecadoSent(true);
+      setTimeout(() => { setShowRecado(false); setRecadoSent(false); }, 2000);
+    } catch {
+      // silencioso
+    } finally {
+      setSavingRecado(false);
     }
   };
 
@@ -167,6 +382,31 @@ export default function ProfessorDashboard() {
     return aulas.filter(aula => aula.data === hoje);
   }, [aulas]);
 
+  // Agenda semanal — turmas agrupadas por dia da semana
+  const agendaSemanal = useMemo(() => {
+    const DIAS_ORDEM = ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
+    const hoje = new Date();
+    // Início da semana (segunda-feira)
+    const diaSemana = hoje.getDay(); // 0=Dom,...6=Sab
+    const diffParaSegunda = diaSemana === 0 ? -6 : 1 - diaSemana;
+    const segunda = new Date(hoje);
+    segunda.setDate(hoje.getDate() + diffParaSegunda);
+    segunda.setHours(0, 0, 0, 0);
+
+    return DIAS_ORDEM.map((dia, i) => {
+      const dataRef = new Date(segunda);
+      dataRef.setDate(segunda.getDate() + i);
+      const dateStr = dataRef.toISOString().split('T')[0];
+      const isHoje = dateStr === hoje.toISOString().split('T')[0];
+
+      const turmasDia = turmas
+        .filter(t => (t.dias || '').split(',').map(d => d.trim()).includes(dia))
+        .sort((a, b) => (a.horario || '').localeCompare(b.horario || ''));
+
+      return { dia, dateStr, isHoje, turmasDia };
+    });
+  }, [turmas]);
+
   // Próximas aulas (baseado em horário das turmas)
   const proximasAulas = useMemo(() => {
     const diaHoje = new Date().toLocaleDateString('pt-BR', { weekday: 'long' });
@@ -225,6 +465,37 @@ export default function ProfessorDashboard() {
     const avisos = [];
     const diasPT = { 'Segunda': 1, 'Terça': 2, 'Quarta': 3, 'Quinta': 4, 'Sexta': 5, 'Sábado': 6, 'Domingo': 0 };
     const hojeDate = new Date(); hojeDate.setHours(0, 0, 0, 0);
+    const hojeStr = hojeDate.toISOString().split('T')[0];
+    const amanha = new Date(hojeDate); amanha.setDate(amanha.getDate() + 1);
+
+    // 0. Aniversários de alunos (hoje e amanhã)
+    const todosAlunos = Object.values(alunosPorTurma).flat();
+    const vistos = new Set();
+    const anivHoje = [], anivAmanha = [];
+    todosAlunos.forEach(aluno => {
+      if (vistos.has(aluno.id)) return;
+      vistos.add(aluno.id);
+      const dn = aluno.dataNascimento;
+      if (!dn) return;
+      const [, mes, dia] = dn.split('-');
+      const mesDia = `${mes}-${dia}`;
+      const hojeMMDD = hojeStr.slice(5);
+      const amanhaMMDD = amanha.toISOString().split('T')[0].slice(5);
+      if (mesDia === hojeMMDD) anivHoje.push(aluno.nome || aluno.name);
+      if (mesDia === amanhaMMDD) anivAmanha.push(aluno.nome || aluno.name);
+    });
+    if (anivHoje.length > 0) {
+      avisos.push({ id: 'aniv-hoje', tipo: 'aniversario', cor: 'blue',
+        titulo: `🎂 Aniversário hoje!`,
+        texto: `${anivHoje.join(', ')} faz${anivHoje.length > 1 ? 'em' : ''} aniversário hoje. Não se esqueça de parabenizar!`,
+      });
+    }
+    if (anivAmanha.length > 0) {
+      avisos.push({ id: 'aniv-amanha', tipo: 'aniversario', cor: 'blue',
+        titulo: `🎂 Aniversário amanhã`,
+        texto: `${anivAmanha.join(', ')} faz${anivAmanha.length > 1 ? 'em' : ''} aniversário amanhã.`,
+      });
+    }
 
     turmas.forEach(turma => {
       const aulasT = aulas.filter(a => a.turmaId === turma.id);
@@ -346,14 +617,67 @@ export default function ProfessorDashboard() {
             Painel de controle das suas turmas e aulas
           </p>
         </div>
-        <button
-          onClick={() => setShowHistorico(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-300 text-slate-700 rounded-xl hover:bg-slate-50 hover:border-[#005DE4] transition-all shadow-sm text-sm font-medium"
-        >
-          <FileText size={18} className="text-[#005DE4]" />
-          Histórico de Aulas
-        </button>
+        <div className="flex items-center gap-2 flex-wrap">
+          <button
+            onClick={() => setShowRelatorio(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-300 text-slate-700 rounded-xl hover:bg-slate-50 hover:border-[#005DE4] transition-all shadow-sm text-sm font-medium"
+          >
+            <Printer size={16} className="text-[#005DE4]" />
+            Relatório
+          </button>
+          <button
+            onClick={() => setShowRecado(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-300 text-slate-700 rounded-xl hover:bg-slate-50 hover:border-amber-400 transition-all shadow-sm text-sm font-medium"
+          >
+            <MessageSquare size={16} className="text-amber-500" />
+            Recado
+          </button>
+          <button
+            onClick={() => setShowHistorico(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-300 text-slate-700 rounded-xl hover:bg-slate-50 hover:border-[#005DE4] transition-all shadow-sm text-sm font-medium"
+          >
+            <FileText size={18} className="text-[#005DE4]" />
+            Histórico de Aulas
+          </button>
+        </div>
       </div>
+
+      {/* Banner de urgência — aulas sem registro */}
+      {(() => {
+        const pendencias = notificacoesAuto.filter(a => a.tipo === 'pendente' && !dismissedIds.has(a.id));
+        if (pendencias.length === 0) return null;
+        return (
+          <div className="mb-6 rounded-2xl border-2 border-red-400 bg-red-50 p-4 flex items-start gap-3 shadow-sm animate-pulse-slow">
+            <div className="flex-shrink-0 mt-0.5">
+              <AlertTriangle size={22} className="text-red-500" />
+            </div>
+            <div className="flex-1">
+              <p className="font-bold text-red-700 text-sm mb-1">
+                ⚠️ {pendencias.length === 1 ? '1 turma com aula sem registro!' : `${pendencias.length} turmas com aulas sem registro!`}
+              </p>
+              <div className="flex flex-wrap gap-2 mt-2">
+                {pendencias.map(p => (
+                  <button
+                    key={p.id}
+                    onClick={() => { setSelectedTurma(p.turmaObj); setShowRegistroAula(true); }}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-red-600 text-white rounded-lg text-xs font-semibold hover:bg-red-700 transition-colors shadow"
+                  >
+                    <BookOpen size={12} />
+                    Registrar: {p.turmaObj?.nome}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <button
+              onClick={() => pendencias.forEach(p => setDismissedIds(prev => new Set([...prev, p.id])))}
+              className="flex-shrink-0 text-red-400 hover:text-red-600 p-1"
+              title="Dispensar"
+            >
+              <X size={16} />
+            </button>
+          </div>
+        );
+      })()}
 
       {/* Estatísticas Rápidas */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
@@ -396,6 +720,64 @@ export default function ProfessorDashboard() {
             <Clock size={40} className="opacity-50" />
           </div>
         </Card>
+      </div>
+
+      {/* Agenda Semanal */}
+      <div className="mb-8">
+        <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2 mb-4">
+          <Calendar size={22} className="text-[#005DE4]" />
+          Agenda da Semana
+        </h2>
+        <div className="grid grid-cols-3 md:grid-cols-6 gap-3">
+          {agendaSemanal.map(({ dia, dateStr, isHoje, turmasDia }) => {
+            const [ano, mes, d] = dateStr.split('-');
+            const label = `${d}/${mes}`;
+            return (
+              <div
+                key={dia}
+                className={`rounded-2xl border p-3 flex flex-col gap-2 min-h-[100px] ${
+                  isHoje
+                    ? 'border-[#005DE4] bg-blue-50 shadow-md'
+                    : 'border-slate-200 bg-white'
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <span className={`text-xs font-bold ${isHoje ? 'text-[#005DE4]' : 'text-slate-500'}`}>{dia}</span>
+                  <span className={`text-xs ${isHoje ? 'text-[#005DE4] font-semibold' : 'text-slate-400'}`}>{label}</span>
+                </div>
+                {turmasDia.length === 0 ? (
+                  <p className="text-xs text-slate-300 text-center mt-2">—</p>
+                ) : (
+                  turmasDia.map(turma => {
+                    const registrada = aulas.some(a => a.turmaId === turma.id && a.data === dateStr);
+                    return (
+                      <button
+                        key={turma.id}
+                        onClick={() => { setSelectedTurma(turma); setShowRegistroAula(true); }}
+                        className={`w-full text-left rounded-xl px-2 py-1.5 text-xs transition-all border ${
+                          registrada
+                            ? 'bg-emerald-50 border-emerald-200 text-emerald-700'
+                            : 'bg-white border-slate-200 text-slate-700 hover:border-[#005DE4] hover:bg-blue-50'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between gap-1">
+                          <span className="font-semibold truncate">{turma.nome}</span>
+                          {registrada && <CheckCircle size={11} className="text-emerald-500 flex-shrink-0" />}
+                        </div>
+                        <div className="text-xs opacity-70 mt-0.5">{turma.horario}</div>
+                      </button>
+                    );
+                  })
+                )}
+                {isHoje && turmasDia.length > 0 && (
+                  <div className="mt-auto pt-1">
+                    <div className="h-0.5 w-6 bg-[#005DE4] rounded-full mx-auto opacity-60" />
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
       </div>
 
       {/* Painel de Notificações & Lembretes */}
@@ -938,6 +1320,82 @@ export default function ProfessorDashboard() {
             />
           </div>
         </div>
+      )}
+
+      {/* Modal de Recado para Coordenação */}
+      {showRecado && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full shadow-2xl">
+            <div className="flex items-center justify-between p-5 border-b border-slate-100">
+              <div className="flex items-center gap-2">
+                <MessageSquare size={20} className="text-amber-500" />
+                <h2 className="text-lg font-bold text-slate-800">Recado para a Coordenação</h2>
+              </div>
+              <button onClick={() => { setShowRecado(false); setRecadoSent(false); setRecadoTexto(''); }}
+                className="text-slate-400 hover:text-slate-600">
+                <X size={20} />
+              </button>
+            </div>
+            {recadoSent ? (
+              <div className="p-8 text-center">
+                <CheckCircle size={48} className="text-emerald-500 mx-auto mb-3" />
+                <p className="font-semibold text-slate-800">Recado enviado com sucesso!</p>
+                <p className="text-sm text-slate-500 mt-1">A coordenação será notificada.</p>
+              </div>
+            ) : (
+              <form onSubmit={handleEnviarRecado} className="p-5 space-y-4">
+                <div>
+                  <label className="text-sm font-medium text-slate-700 mb-1 block">Tipo</label>
+                  <select
+                    value={recadoTipo}
+                    onChange={e => setRecadoTipo(e.target.value)}
+                    className="w-full border border-slate-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 bg-white"
+                  >
+                    <option value="geral">📋 Geral</option>
+                    <option value="aluno">🎓 Sobre um aluno</option>
+                    <option value="material">📦 Material / Recurso</option>
+                    <option value="falta">📅 Falta / Ausência</option>
+                    <option value="urgente">🚨 Urgente</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-slate-700 mb-1 block">Mensagem</label>
+                  <textarea
+                    value={recadoTexto}
+                    onChange={e => setRecadoTexto(e.target.value)}
+                    placeholder="Descreva o recado..."
+                    rows={4}
+                    className="w-full border border-slate-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 resize-none"
+                    required
+                  />
+                </div>
+                <div className="text-xs text-slate-400">De: <strong>{professorNome}</strong></div>
+                <div className="flex gap-3">
+                  <button type="button" onClick={() => setShowRecado(false)}
+                    className="flex-1 py-2.5 border border-slate-300 rounded-xl text-slate-600 text-sm font-medium hover:bg-slate-50">
+                    Cancelar
+                  </button>
+                  <button type="submit" disabled={savingRecado || !recadoTexto.trim()}
+                    className="flex-1 py-2.5 bg-amber-500 text-white rounded-xl text-sm font-semibold hover:bg-amber-600 disabled:opacity-50 flex items-center justify-center gap-2">
+                    <Send size={14} />
+                    {savingRecado ? 'Enviando...' : 'Enviar Recado'}
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Relatório Mensal do Professor */}
+      {showRelatorio && (
+        <ProfessorRelatorio
+          professor={professorNome}
+          turmas={turmas}
+          aulas={aulas}
+          alunosPorTurma={alunosPorTurma}
+          onClose={() => setShowRelatorio(false)}
+        />
       )}
     </div>
   );

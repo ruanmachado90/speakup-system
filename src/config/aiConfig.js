@@ -96,11 +96,15 @@ function summarizeData(data) {
     return date.getMonth() === currentMonth && date.getFullYear() === currentYear;
   });
   
-  // Filtrar despesas pelo mês/ano  
+  // Filtrar despesas pelo mês/ano
+  // Usa campos month/year salvos diretamente (1-based) para evitar deslocamento de fuso UTC
   const monthExpenses = expenses.filter(e => {
+    if (e.month !== undefined && e.year !== undefined) {
+      return e.month === currentMonth + 1 && e.year === currentYear;
+    }
     if (!e.date) return false;
-    const date = new Date(e.date);
-    return date.getMonth() === currentMonth && date.getFullYear() === currentYear;
+    const parts = e.date.substring(0, 10).split('-');
+    return parseInt(parts[1]) - 1 === currentMonth && parseInt(parts[0]) === currentYear;
   });
   
   // Data de hoje para comparações
@@ -122,9 +126,12 @@ function summarizeData(data) {
     });
     
     const monthExpenses = expenses.filter(e => {
+      if (e.month !== undefined && e.year !== undefined) {
+        return e.month === targetMonth + 1 && e.year === targetYear;
+      }
       if (!e.date) return false;
-      const date = new Date(e.date);
-      return date.getMonth() === targetMonth && date.getFullYear() === targetYear;
+      const parts = e.date.substring(0, 10).split('-');
+      return parseInt(parts[1]) - 1 === targetMonth && parseInt(parts[0]) === targetYear;
     });
     
     const monthPaid = monthPayments.filter(p => p.status === "Pago");
@@ -157,8 +164,8 @@ function summarizeData(data) {
   const allTimeRevenue = allTimePaidPayments.reduce((sum, p) => sum + parseFloat(p.valuePaid || p.valuePlanned || 0), 0);
   
   // ==== ALUNOS ====
-  const activeStudents = students.filter(s => s.status === "Ativo");
-  const inactiveStudents = students.filter(s => s.status === "Inativo");
+  const activeStudents = students.filter(s => s.status !== "cancelado");
+  const inactiveStudents = students.filter(s => s.status === "cancelado");
   
   // Agrupar por curso
   const studentsByCourse = students.reduce((acc, s) => {
@@ -201,29 +208,39 @@ function summarizeData(data) {
     return acc;
   }, {});
   
-  // ==== LEADS ====
-  const leadsByStatus = leads.reduce((acc, l) => {
+  // ==== LEADS (filtrados pelo mês/ano selecionado) ====
+  const monthLeads = leads.filter(l => {
+    const raw = l.createdAt || l.date;
+    if (!raw) return false;
+    const d = new Date(typeof raw === 'number' ? raw : raw);
+    return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
+  });
+
+  const leadsByStatus = monthLeads.reduce((acc, l) => {
     const status = l.status || "Não especificado";
     acc[status] = (acc[status] || 0) + 1;
     return acc;
   }, {});
 
   // Leads por origem (source/origem field)
-  const leadsByOrigin = leads.reduce((acc, l) => {
+  const leadsByOrigin = monthLeads.reduce((acc, l) => {
     const origin = l.source || l.origem || l.origin || "Não informado";
     acc[origin] = (acc[origin] || 0) + 1;
     return acc;
   }, {});
 
-  // Leads convertidos (status = Matriculado ou Convertido)
-  const convertedLeads = leads.filter(l =>
+  // Leads convertidos no mês
+  const convertedLeadsMonth = monthLeads.filter(l =>
     ["Matriculado", "Convertido", "matriculado", "convertido"].includes(l.status)
   );
-  const conversionRate = leads.length > 0
-    ? ((convertedLeads.length / leads.length) * 100).toFixed(1)
+  const convertedLeadsAll = leads.filter(l =>
+    ["Matriculado", "Convertido", "matriculado", "convertido"].includes(l.status)
+  );
+  const conversionRate = monthLeads.length > 0
+    ? ((convertedLeadsMonth.length / monthLeads.length) * 100).toFixed(1)
     : 0;
 
-  // Leads esquecidos (sem atualização há mais de 30 dias)
+  // Leads esquecidos (sem atualização há mais de 30 dias — todos os tempos)
   const thirtyDaysAgo = new Date(); thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
   const forgottenLeads = leads.filter(l => {
     const updated = l.updatedAt || l.createdAt;
@@ -232,7 +249,7 @@ function summarizeData(data) {
       !["Matriculado", "Convertido", "Desistiu", "Perdido"].includes(l.status);
   });
 
-  // Receita potencial dos leads em negociação (estimativa com ticket médio)
+  // Leads ativos em negociação (todos os tempos)
   const activeLeads = leads.filter(l =>
     !["Matriculado", "Convertido", "Desistiu", "Perdido", "matriculado"].includes(l.status)
   );
@@ -251,8 +268,8 @@ function summarizeData(data) {
       return d.getMonth() === tM && d.getFullYear() === tY;
     });
     const canceledStudents = students.filter(s => {
-      if (s.status !== 'Inativo') return false;
-      const raw = s.updatedAt || s.canceledAt;
+      if (s.status !== 'cancelado') return false;
+      const raw = s.canceledAt || s.updatedAt;
       if (!raw) return false;
       const d = new Date(typeof raw === 'number' ? raw : raw);
       return d.getMonth() === tM && d.getFullYear() === tY;
@@ -328,10 +345,12 @@ function summarizeData(data) {
         : "0.0",
     },
     leads: {
-      total: leads.length,
+      totalMonth: monthLeads.length,
+      totalAll: leads.length,
       byStatus: leadsByStatus,
       byOrigin: leadsByOrigin,
-      converted: convertedLeads.length,
+      converted: convertedLeadsMonth.length,
+      convertedAll: convertedLeadsAll.length,
       conversionRate,
       forgotten: forgottenLeads.length,
       active: activeLeads.length,
@@ -394,14 +413,14 @@ ${summary.students.enrollmentsByMonth.map(e =>
 - Despesas como % da receita: ${summary.expenses.ratioToRevenue}% (ideal <70%)
 - Por categoria: ${Object.entries(summary.expenses.byCategory).map(([c, v]) => `${c}: R$ ${v.toFixed(2)}`).join(", ") || "Nenhuma"}
 
-📈 LEADS (Dados Gerais):
-- Total: ${summary.leads.total} leads
-- Convertidos (matriculados): ${summary.leads.converted}
-- Taxa de conversão: ${summary.leads.conversionRate}%
-- Leads ativos em negociação: ${summary.leads.active}
-- Leads esquecidos (>30 dias sem atualização): ${summary.leads.forgotten}
-- Por status: ${Object.entries(summary.leads.byStatus).map(([s, n]) => `${s}: ${n}`).join(", ")}
-- Por origem: ${Object.entries(summary.leads.byOrigin).map(([o, n]) => `${o}: ${n}`).join(", ") || "Não informado"}
+📈 LEADS (${summary.period.monthName}/${summary.period.year}):
+- Novos leads no mês: ${summary.leads.totalMonth} (total acumulado: ${summary.leads.totalAll})
+- Convertidos no mês (matriculados): ${summary.leads.converted} (total convertidos: ${summary.leads.convertedAll})
+- Taxa de conversão do mês: ${summary.leads.conversionRate}%
+- Leads ativos em negociação (todos os tempos): ${summary.leads.active}
+- Leads esquecidos >30 dias sem contato: ${summary.leads.forgotten}
+- Por status (mês): ${Object.entries(summary.leads.byStatus).map(([s, n]) => `${s}: ${n}`).join(", ") || "Nenhum"}
+- Por origem (mês): ${Object.entries(summary.leads.byOrigin).map(([o, n]) => `${o}: ${n}`).join(", ") || "Não informado"}
 
 💵 RESUMO FINANCEIRO DO MÊS:
 - Receita: R$ ${summary.financial.revenue.toFixed(2)}

@@ -11,6 +11,9 @@ import {
   Users,
   FileText,
   BookMarked,
+  Ban,
+  Palmtree,
+  Umbrella,
 } from 'lucide-react';
 import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '../../firebase';
@@ -32,6 +35,7 @@ export default function ChamadaForm({ turma, alunosIniciais, professorNome, onSa
   const hoje = new Date().toISOString().split('T')[0];
 
   const [data, setData] = useState(hoje);
+  const [tipoAula, setTipoAula] = useState('realizada'); // realizada | cancelada | feriado | recesso
   const [conteudo, setConteudo] = useState('');
   const [homework, setHomework] = useState('');
   const [observacoes, setObservacoes] = useState('');
@@ -121,7 +125,7 @@ export default function ChamadaForm({ turma, alunosIniciais, professorNome, onSa
   const [checkingDuplicate, setCheckingDuplicate] = useState(false);
 
   const handleSave = async () => {
-    if (!conteudo.trim()) {
+    if (tipoAula === 'realizada' && !conteudo.trim()) {
       setSaveError('Informe o conteúdo da aula antes de salvar.');
       return;
     }
@@ -159,11 +163,11 @@ export default function ChamadaForm({ turma, alunosIniciais, professorNome, onSa
       professor: professorNome,
       data,
       horario: turma.horario || '',
-      conteudo,
-      homework,
+      conteudo: tipoAula === 'realizada' ? conteudo : '',
+      homework: tipoAula === 'realizada' ? homework : '',
       observacoes,
-      status: 'realizada',
-      chamadas: chamadaList,
+      status: tipoAula,
+      chamadas: tipoAula === 'realizada' ? chamadaList : [],
     });
   };
 
@@ -197,6 +201,39 @@ export default function ChamadaForm({ turma, alunosIniciais, professorNome, onSa
             Dados da Aula
           </h3>
 
+          {/* Tipo de aula */}
+          <div>
+            <label className="block text-sm font-medium text-slate-600 mb-2">Tipo de Registro</label>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              {[
+                { key: 'realizada', label: 'Aula Realizada', Icon: CheckCircle, active: 'bg-[#005DE4] text-white border-[#005DE4]', inactive: 'border-slate-300 text-slate-600 hover:border-[#005DE4] hover:text-[#005DE4]' },
+                { key: 'cancelada', label: 'Cancelada',      Icon: Ban,         active: 'bg-red-500 text-white border-red-500',     inactive: 'border-slate-300 text-slate-600 hover:border-red-400 hover:text-red-500' },
+                { key: 'feriado',   label: 'Feriado',        Icon: Umbrella,    active: 'bg-amber-500 text-white border-amber-500', inactive: 'border-slate-300 text-slate-600 hover:border-amber-400 hover:text-amber-500' },
+                { key: 'recesso',   label: 'Recesso',        Icon: Palmtree,    active: 'bg-emerald-500 text-white border-emerald-500', inactive: 'border-slate-300 text-slate-600 hover:border-emerald-400 hover:text-emerald-500' },
+              ].map(({ key, label, Icon, active, inactive }) => (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => setTipoAula(key)}
+                  className={`flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl border-2 text-sm font-semibold transition-all ${tipoAula === key ? active : inactive}`}
+                >
+                  <Icon size={15} />
+                  {label}
+                </button>
+              ))}
+            </div>
+            {tipoAula !== 'realizada' && (
+              <div className={`mt-2 flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium ${
+                tipoAula === 'cancelada' ? 'bg-red-50 text-red-700 border border-red-200' :
+                tipoAula === 'feriado'   ? 'bg-amber-50 text-amber-700 border border-amber-200' :
+                                           'bg-emerald-50 text-emerald-700 border border-emerald-200'
+              }`}>
+                <AlertCircle size={14} />
+                Esta data será registrada como <strong className="ml-1">{tipoAula}</strong>. A chamada não é necessária.
+              </div>
+            )}
+          </div>
+
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-slate-600 mb-1">
@@ -224,13 +261,14 @@ export default function ChamadaForm({ turma, alunosIniciais, professorNome, onSa
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-slate-600 mb-1">Conteúdo da Aula</label>
+            <label className="block text-sm font-medium text-slate-600 mb-1">Conteúdo da Aula{tipoAula === 'realizada' && <span className="text-red-400 ml-1">*</span>}</label>
             <input
               type="text"
               value={conteudo}
               onChange={(e) => setConteudo(e.target.value)}
-              placeholder="Ex: Unit 5 - Past Perfect, páginas 42-45..."
-              className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#005DE4]"
+              disabled={tipoAula !== 'realizada'}
+              placeholder={tipoAula === 'realizada' ? 'Ex: Unit 5 - Past Perfect, páginas 42-45...' : 'Não aplicável para ' + tipoAula}
+              className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#005DE4] ${tipoAula !== 'realizada' ? 'bg-slate-100 border-slate-200 text-slate-400' : 'border-slate-300'}`}
             />
           </div>
 
@@ -243,8 +281,9 @@ export default function ChamadaForm({ turma, alunosIniciais, professorNome, onSa
               type="text"
               value={homework}
               onChange={(e) => setHomework(e.target.value)}
-              placeholder="Ex: Workbook pages 30-31, exercises A and B..."
-              className="w-full border border-purple-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400"
+              disabled={tipoAula !== 'realizada'}
+              placeholder={tipoAula === 'realizada' ? 'Ex: Workbook pages 30-31, exercises A and B...' : 'Não aplicável'}
+              className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400 ${tipoAula !== 'realizada' ? 'bg-slate-100 border-slate-200 text-slate-400' : 'border-purple-300'}`}
             />
           </div>
 
@@ -260,7 +299,8 @@ export default function ChamadaForm({ turma, alunosIniciais, professorNome, onSa
           </div>
         </div>
 
-        {/* Chamada */}
+        {/* Chamada — visível apenas para aula realizada */}
+        {tipoAula === 'realizada' && (
         <div className="bg-white rounded-xl border border-slate-200 p-4">
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-semibold text-slate-700 flex items-center gap-2">
@@ -342,6 +382,7 @@ export default function ChamadaForm({ turma, alunosIniciais, professorNome, onSa
             </div>
           )}
         </div>
+        )}
       </div>
 
       {/* Rodapé fixo */}
@@ -361,13 +402,18 @@ export default function ChamadaForm({ turma, alunosIniciais, professorNome, onSa
 
           <button
             onClick={handleSave}
-            disabled={saving || loadingAlunos || checkingDuplicate}
-            className="flex items-center gap-2 px-6 py-2 bg-[#005DE4] text-white rounded-lg hover:bg-[#0041a8] transition-all disabled:opacity-60 disabled:cursor-not-allowed font-medium"
+            disabled={saving || (tipoAula === 'realizada' && loadingAlunos) || checkingDuplicate}
+            className={`flex items-center gap-2 px-6 py-2 text-white rounded-lg transition-all disabled:opacity-60 disabled:cursor-not-allowed font-medium ${
+              tipoAula === 'cancelada' ? 'bg-red-500 hover:bg-red-600' :
+              tipoAula === 'feriado'   ? 'bg-amber-500 hover:bg-amber-600' :
+              tipoAula === 'recesso'   ? 'bg-emerald-500 hover:bg-emerald-600' :
+              'bg-[#005DE4] hover:bg-[#0041a8]'
+            }`}
           >
             {saving || checkingDuplicate ? (
               <><Loader size={18} className="animate-spin" /> {checkingDuplicate ? 'Verificando...' : 'Salvando...'}</>
             ) : (
-              <><Save size={18} /> Salvar Aula</>
+              <><Save size={18} /> Salvar como {tipoAula === 'realizada' ? 'Realizada' : tipoAula.charAt(0).toUpperCase() + tipoAula.slice(1)}</>
             )}
           </button>
         </div>

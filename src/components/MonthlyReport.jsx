@@ -100,7 +100,15 @@ export default function MonthlyReport({ onClose, students = [], payments = [], e
     const pendingAmt = pending.reduce((s, p) => s + parseFloat(p.valuePlanned || 0), 0);
 
     // ── Despesas do mês atual ──
-    const monthExpenses = expenses.filter(e => inMonth(e.date, currentMonth, currentYear));
+    // Usa campos month/year salvos diretamente (1-based) para evitar deslocamento de fuso UTC
+    const monthExpenses = expenses.filter(e => {
+      if (e.month !== undefined && e.year !== undefined) {
+        return e.month === currentMonth + 1 && e.year === currentYear;
+      }
+      if (!e.date) return false;
+      const parts = e.date.substring(0, 10).split('-');
+      return parseInt(parts[1]) - 1 === currentMonth && parseInt(parts[0]) === currentYear;
+    });
     const totalExpenses = monthExpenses.reduce((s, e) => s + parseFloat(e.value || 0), 0);
     const expByCategory = monthExpenses.reduce((acc, e) => {
       const cat = e.category || "Outros";
@@ -109,8 +117,8 @@ export default function MonthlyReport({ onClose, students = [], payments = [], e
     }, {});
 
     // ── Alunos ──
-    const activeStudents = students.filter(s => s.status === "Ativo");
-    const inactiveStudents = students.filter(s => s.status === "Inativo" || s.status === "inativo");
+    const activeStudents = students.filter(s => s.status !== "cancelado");
+    const inactiveStudents = students.filter(s => s.status === "cancelado");
     const retentionRate = students.length > 0 ? (activeStudents.length / students.length) * 100 : 0;
     const studentsByCourse = students.reduce((acc, s) => {
       const c = s.curso || "Não especificado";
@@ -124,23 +132,26 @@ export default function MonthlyReport({ onClose, students = [], payments = [], e
       return inMonth(raw, currentMonth, currentYear);
     });
     const canceledThisMonth = students.filter(s => {
-      if (s.status !== "Inativo") return false;
-      const raw = s.updatedAt || s.canceledAt;
+      if (s.status !== "cancelado") return false;
+      const raw = s.canceledAt || s.updatedAt;
       return inMonth(raw, currentMonth, currentYear);
     });
 
-    // ── Leads ──
-    const leadsByStatus = leads.reduce((acc, l) => {
+    // ── Leads (filtrados pelo mês selecionado) ──
+    const monthLeads = leads.filter(l => inMonth(l.createdAt || l.date, currentMonth, currentYear));
+    const leadsByStatus = monthLeads.reduce((acc, l) => {
       acc[l.status || "Sem status"] = (acc[l.status || "Sem status"] || 0) + 1;
       return acc;
     }, {});
-    const leadsByOrigin = leads.reduce((acc, l) => {
+    const leadsByOrigin = monthLeads.reduce((acc, l) => {
       const o = l.source || l.origem || l.origin || "Não informado";
       acc[o] = (acc[o] || 0) + 1;
       return acc;
     }, {});
-    const convertedLeads = leads.filter(l => ["Matriculado","Convertido","matriculado","convertido"].includes(l.status));
-    const conversionRate = leads.length > 0 ? (convertedLeads.length / leads.length) * 100 : 0;
+    // Conversão: total histórico (convertidos acumulados / total de leads)
+    const convertedLeadsAll = leads.filter(l => ["Matriculado","Convertido","matriculado","convertido"].includes(l.status));
+    const convertedLeadsMonth = monthLeads.filter(l => ["Matriculado","Convertido","matriculado","convertido"].includes(l.status));
+    const conversionRate = monthLeads.length > 0 ? (convertedLeadsMonth.length / monthLeads.length) * 100 : 0;
     const thirtyDaysAgo = new Date(); thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
     const forgottenLeads = leads.filter(l => {
       const u = l.updatedAt || l.createdAt;
@@ -156,7 +167,12 @@ export default function MonthlyReport({ onClose, students = [], payments = [], e
       const m = d.getMonth(), y = d.getFullYear();
       const mPay = payments.filter(p => inMonth(p.dueDate, m, y));
       const mPaid = mPay.filter(p => p.status === "Pago");
-      const mExp = expenses.filter(e => inMonth(e.date, m, y));
+      const mExp = expenses.filter(e => {
+        if (e.month !== undefined && e.year !== undefined) return e.month === m + 1 && e.year === y;
+        if (!e.date) return false;
+        const parts = e.date.substring(0, 10).split('-');
+        return parseInt(parts[1]) - 1 === m && parseInt(parts[0]) === y;
+      });
       const mRev = mPaid.reduce((s,p) => s + parseFloat(p.valuePaid || p.valuePlanned || 0), 0);
       const mExpTotal = mExp.reduce((s,e) => s + parseFloat(e.value || 0), 0);
       const mLate = mPay.filter(p => {
@@ -197,7 +213,9 @@ export default function MonthlyReport({ onClose, students = [], payments = [], e
       newThisMonth: newStudentsThisMonth.length,
       canceledThisMonth: canceledThisMonth.length,
       netBalance: newStudentsThisMonth.length - canceledThisMonth.length,
-      leads: leads.length, convertedLeads: convertedLeads.length, conversionRate,
+      leads: monthLeads.length, totalLeadsAll: leads.length,
+      convertedLeads: convertedLeadsMonth.length, convertedLeadsAll: convertedLeadsAll.length,
+      conversionRate,
       forgottenLeads: forgottenLeads.length, leadsByStatus, leadsByOrigin,
       history, prevMonth,
     };
@@ -443,8 +461,9 @@ export default function MonthlyReport({ onClose, students = [], payments = [], e
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 10, marginBottom: 16 }}>
             <div style={{ border: "1px solid #e2e8f0", borderRadius: 10, padding: "12px 14px" }}>
-              <div style={{ fontSize: 11, color: "#64748b", marginBottom: 3 }}>Total de Leads</div>
+              <div style={{ fontSize: 11, color: "#64748b", marginBottom: 3 }}>Novos Leads no Mês</div>
               <div style={{ fontSize: 20, fontWeight: 700 }}>{data.leads}</div>
+              <div style={{ fontSize: 11, color: "#64748b" }}>Total acumulado: {data.totalLeadsAll}</div>
             </div>
             <div style={{ border: "1px solid #e2e8f0", borderRadius: 10, padding: "12px 14px" }}>
               <div style={{ fontSize: 11, color: "#64748b", marginBottom: 3 }}>Convertidos</div>

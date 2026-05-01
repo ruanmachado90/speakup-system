@@ -68,6 +68,7 @@ export const StudentForm = ({ onSubmit }) => {
         <Form label="Nome do aluno" name="name" defaultValue={modal.data?.name} required />
         <MaskedInput label="CPF do aluno" name="cpf" defaultValue={modal.data?.cpf} mask="cpf" required />
         <MaskedInput label="Contato do aluno" name="contact" defaultValue={modal.data?.contact} mask="phone" required />
+        <Form label="Data de Nascimento" name="dataNascimento" type="date" defaultValue={modal.data?.dataNascimento} />
       </div>
 
       <div className="bg-slate-50 p-4 rounded-xl space-y-3">

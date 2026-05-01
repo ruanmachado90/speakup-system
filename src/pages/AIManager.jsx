@@ -1,4 +1,5 @@
-import React, { useRef, useEffect } from "react";
+import React, { useRef, useEffect, useState } from "react";
+import MonthlyReport from "../components/MonthlyReport";
 import {
   Sparkles,
   Send,
@@ -52,6 +53,7 @@ export default function AIManager({ students = [], payments = [], expenses = [],
     sendQuickPrompt
   } = useAI({ students, payments, expenses, leads, filterMonth, filterYear });
 
+  const [showReport, setShowReport] = useState(false);
   const bottomRef = useRef(null);
   const inputRef = useRef(null);
 
@@ -90,6 +92,19 @@ export default function AIManager({ students = [], payments = [], expenses = [],
         href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&display=swap" 
         rel="stylesheet" 
       />
+
+      {/* Relatório Mensal Modal */}
+      {showReport && (
+        <MonthlyReport
+          onClose={() => setShowReport(false)}
+          students={students}
+          payments={payments}
+          expenses={expenses}
+          leads={leads}
+          filterMonth={filterMonth}
+          filterYear={filterYear}
+        />
+      )}
 
       {/* ============================================ */}
       {/* HEADER */}
@@ -156,59 +171,43 @@ export default function AIManager({ students = [], payments = [], expenses = [],
           gap: "10px",
         }}
       >
-        {/* Relatório Mensal — full-width, destacado */}
-        {AI_CONFIG.QUICK_PROMPTS.filter(p => p.id === "relatorio").map((item) => (
-          <button
-            key={item.id}
-            onClick={() => sendQuickPrompt(item.prompt)}
-            disabled={isLoading}
-            style={{
-              gridColumn: "1 / -1",
-              display: "flex",
-              alignItems: "center",
-              gap: "12px",
-              padding: "14px 20px",
-              borderRadius: "12px",
-              border: "none",
-              background: "linear-gradient(135deg, #005DE4 0%, #0041a8 100%)",
-              cursor: isLoading ? "not-allowed" : "pointer",
-              transition: "all 0.15s",
-              fontSize: "14px",
-              fontWeight: 600,
-              color: "white",
-              textAlign: "left",
-              fontFamily: "'DM Sans', sans-serif",
-              opacity: isLoading ? 0.6 : 1,
-              boxShadow: "0 4px 16px rgba(0,93,228,0.3)",
-            }}
-            onMouseEnter={(e) => {
-              if (!isLoading) {
-                e.currentTarget.style.transform = "translateY(-2px)";
-                e.currentTarget.style.boxShadow = "0 8px 24px rgba(0,93,228,0.4)";
-              }
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.transform = "translateY(0)";
-              e.currentTarget.style.boxShadow = "0 4px 16px rgba(0,93,228,0.3)";
-            }}
-          >
-            <div
-              style={{
-                width: 32,
-                height: 32,
-                borderRadius: 8,
-                background: "rgba(255,255,255,0.2)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
-              {ICONS_MAP[item.id]}
-            </div>
-            <span style={{ flex: 1 }}>{item.title}</span>
-            <ChevronRight size={16} color="rgba(255,255,255,0.7)" />
-          </button>
-        ))}
+        {/* Relatório Mensal — full-width, abre painel direto (sem IA) */}
+        <button
+          onClick={() => setShowReport(true)}
+          style={{
+            gridColumn: "1 / -1",
+            display: "flex",
+            alignItems: "center",
+            gap: "12px",
+            padding: "14px 20px",
+            borderRadius: "12px",
+            border: "none",
+            background: "linear-gradient(135deg, #005DE4 0%, #0041a8 100%)",
+            cursor: "pointer",
+            transition: "all 0.15s",
+            fontSize: "14px",
+            fontWeight: 600,
+            color: "white",
+            textAlign: "left",
+            fontFamily: "'DM Sans', sans-serif",
+            boxShadow: "0 4px 16px rgba(0,93,228,0.3)",
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.transform = "translateY(-2px)";
+            e.currentTarget.style.boxShadow = "0 8px 24px rgba(0,93,228,0.4)";
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.transform = "translateY(0)";
+            e.currentTarget.style.boxShadow = "0 4px 16px rgba(0,93,228,0.3)";
+          }}
+        >
+          <div style={{ width: 32, height: 32, borderRadius: 8, background: "rgba(255,255,255,0.2)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <FileText size={16} />
+          </div>
+          <span style={{ flex: 1 }}>📋 Relatório Mensal Completo</span>
+          <span style={{ fontSize: 11, opacity: 0.8, background: "rgba(255,255,255,0.15)", padding: "3px 8px", borderRadius: 6 }}>Instantâneo</span>
+          <ChevronRight size={16} color="rgba(255,255,255,0.7)" />
+        </button>
 
         {/* Demais prompts */}
         {AI_CONFIG.QUICK_PROMPTS.filter(p => p.id !== "relatorio").map((item) => (

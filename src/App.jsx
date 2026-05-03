@@ -65,6 +65,7 @@ const PaymentLink = lazy(() => import('./pages/PaymentLink'));
 const AgendaGoogle = lazy(() => import('./pages/Agenda'));
 const Turmas = lazy(() => import('./pages/Turmas'));
 const ProfessorDashboard = lazy(() => import('./pages/ProfessorDashboard'));
+const Notas = lazy(() => import('./pages/Notas'));
 
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 
@@ -521,6 +522,7 @@ export default function App() {
           <Route path="/pagamento/:paymentId" element={<PaymentLink />} />
           <Route path="/professor/dashboard" element={<Navigate to="/" replace />} />
           <Route path="/professor/:professorSlug" element={<ProfessorDashboard />} />
+          <Route path="/professor/:professorSlug/notas" element={<Notas />} />
           <Route path="*" element={<AppContent />} />
         </Routes>
       </Router>

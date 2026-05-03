@@ -639,6 +639,13 @@ export default function ProfessorDashboard() {
             <FileText size={18} className="text-[#005DE4]" />
             Histórico de Aulas
           </button>
+          <button
+            onClick={() => navigate(`/professor/${professorSlug}/notas`)}
+            className="flex items-center gap-2 px-4 py-2 bg-[#005DE4] text-white rounded-xl hover:bg-[#0041a8] transition-all shadow-sm text-sm font-medium"
+          >
+            <BookOpen size={16} />
+            Notas
+          </button>
         </div>
       </div>
 

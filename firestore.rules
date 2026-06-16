@@ -3,46 +3,139 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Links de pagamento: leitura pública (professores e alunos acessam sem login)
+    // Funções auxiliares
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isNotAnonymous() {
+      return isAuthenticated() &&
+        request.auth.token.firebase.sign_in_provider != 'anonymous';
+    }
+
+    function isAdminOrSecretaria() {
+      return isNotAnonymous() &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role
+          in ['admin', 'secretaria'];
+    }
+
+    // FIX #2 — professor só escreve/atualiza aulas que pertencem a ele
+    function isProfessorOwner(professorNome) {
+      return isNotAnonymous() &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.nome == professorNome;
+    }
+
+    // ── Roles dos usuários ────────────────────────────────────────────────
+    // Criado manualmente no console Firebase para admin inicial.
+    // Cada usuário lê/escreve apenas seu próprio documento.
+    // Admin pode ler todos os documentos de outros usuários para gerenciar roles.
+    match /users/{uid} {
+      allow read: if isAuthenticated() && request.auth.uid == uid;
+      allow write: if isAuthenticated() && request.auth.uid == uid;
+      allow read, write: if isAdminOrSecretaria();
+    }
+
+    // ── Links de pagamento ────────────────────────────────────────────────
+    // FIX #3: leitura restrita a autenticados (link de pagamento usa artifacts/payments, não esta coleção).
     match /payments/{paymentId} {
-      allow read: if true;
-      allow write: if request.auth != null;
+      allow read: if isNotAnonymous();
+      allow write: if isNotAnonymous();
     }
 
-    // Turmas: leitura para qualquer auth (inclui anônimo usado pelo painel do professor)
+    // ── Turmas ───────────────────────────────────────────────────────────
+    // Professores (magic link = não-anônimo) e admin podem ler.
+    // Escrita apenas para admin/secretaria.
     match /turmas/{docId} {
-      allow read: if request.auth != null;
-      allow write: if request.auth != null && request.auth.token.firebase.sign_in_provider != 'anonymous';
+      allow read: if isNotAnonymous();
+      allow write: if isAdminOrSecretaria();
     }
 
-    // Aulas: leitura e escrita para qualquer auth (professores anônimos registram aulas)
+    // ── Aulas ────────────────────────────────────────────────────────────
+    // FIX #2: professor só cria/edita/deleta aulas que pertencem a ele.
     match /aulas/{docId} {
-      allow read, write: if request.auth != null;
+      allow read: if isNotAnonymous();
+      allow create: if isAdminOrSecretaria() || isProfessorOwner(request.resource.data.professor);
+      allow update, delete: if isAdminOrSecretaria() || isProfessorOwner(resource.data.professor);
     }
 
-    // Avaliações e notas: professores anônimos precisam ler/escrever
+    // ── Avaliações e notas ────────────────────────────────────────────────
     match /avaliacoes/{docId} {
-      allow read, write: if request.auth != null;
+      allow read, write: if isNotAnonymous();
     }
     match /grades/{docId} {
-      allow read, write: if request.auth != null;
+      allow read, write: if isNotAnonymous();
     }
 
-    // Agenda de professores
+    // ── Recados dos professores para coordenação ──────────────────────────
+    // Professores precisam ler recados no ProfessorDashboard (onSnapshot).
+    match /recados/{docId} {
+      allow create: if isNotAnonymous();
+      allow read: if isNotAnonymous();
+      allow update, delete: if isAdminOrSecretaria();
+    }
+
+    // ── Agenda ───────────────────────────────────────────────────────────
     match /agendaEventos/{docId} {
-      allow read: if request.auth != null;
-      allow write: if request.auth != null && request.auth.token.firebase.sign_in_provider != 'anonymous';
+      allow read: if isNotAnonymous();
+      allow write: if isAdminOrSecretaria();
     }
 
-    // Dados principais do sistema (path artifacts): qualquer auth autenticada pode ler e escrever
-    // (admin usa signInAnonymously; professores só acessam coleções raiz como aulas/turmas)
+    // ── Dados principais (artifacts) ─────────────────────────────────────
+    // Alunos, pagamentos, despesas, leads — acesso para não-anônimos autenticados.
+
+    // Contrato público: alunos/responsáveis leem seu próprio documento sem login.
+    // FIX #4: escrita restrita a admin/secretaria — professores não devem alterar dados de alunos.
+    match /artifacts/{appId}/public/data/students/{docId} {
+      allow read: if true;
+      allow write: if isAdminOrSecretaria();
+    }
+
+    // Assinaturas de contrato: qualquer um pode criar (assinar) e ler (verificar se já assinou), só auth pode alterar/deletar.
+    match /artifacts/{appId}/public/data/contratos/{docId} {
+      allow read, create: if true;
+      allow update, delete: if isNotAnonymous();
+    }
+
+    // ── Pré-cadastros (formulário público) ───────────────────────────────
+    // Qualquer visitante pode criar um pré-cadastro via formulário público.
+    // Leitura, atualização e exclusão apenas para admin/secretaria autenticados.
+    match /artifacts/{appId}/public/data/pre-cadastros/{docId} {
+      allow create: if
+        // Campos obrigatórios presentes e são strings
+        request.resource.data.nome is string &&
+        request.resource.data.nome.size() >= 3 &&
+        request.resource.data.nome.size() <= 150 &&
+        request.resource.data.cpf is string &&
+        request.resource.data.cpf.size() <= 20 &&
+        request.resource.data.celular is string &&
+        request.resource.data.celular.size() <= 20 &&
+        // Status e source fixos — evita que alguém grave status indevido
+        request.resource.data.status == 'pendente' &&
+        request.resource.data.source == 'formulario-online' &&
+        // Consentimento LGPD obrigatório
+        request.resource.data.consentimentoLGPD == true &&
+        // Campos de texto limitados para evitar abuso
+        (!('email' in request.resource.data) || request.resource.data.email.size() <= 200) &&
+        (!('endereco' in request.resource.data) || request.resource.data.endereco.size() <= 300) &&
+        (!('responsavelNome' in request.resource.data) || request.resource.data.responsavelNome.size() <= 150);
+      allow read, update, delete: if isAdminOrSecretaria();
+    }
+
+    // FIX #4 (companion): regra geral restrita a admin/secretaria para evitar bypass da regra de students acima.
     match /artifacts/{appId}/public/data/{collection}/{docId} {
-      allow read, write: if request.auth != null;
+      allow read, write: if isAdminOrSecretaria();
     }
 
-    // Demais coleções raiz (vendas, estoque, etc.): apenas autenticados não-anônimos
+    // ── Link de pagamento público (acesso por clientes sem login) ─────────
+    match /artifacts/{appId}/public/data/payments/{docId} {
+      allow read: if true;
+      allow write: if isNotAnonymous();
+    }
+
+    // ── Demais coleções (vendas, estoque, etc.) ───────────────────────────
+    // FIX #1: catch-all restrito a admin/secretaria — professores não devem acessar coleções não listadas.
     match /{document=**} {
-      allow read, write: if request.auth != null && request.auth.token.firebase.sign_in_provider != 'anonymous';
+      allow read, write: if isAdminOrSecretaria();
     }
   }
 }

@@ -92,7 +92,7 @@ export default function Pedagogico() {
     <div className="space-y-6 p-4">
       {/* Subheader TURMAS */}
       <div className="mb-6">
-        <h2 className="text-xl font-bold text-[#005DE4] uppercase tracking-tight">TURMAS</h2>
+        <h2 className="text-xl font-bold text-[#005DE4]">Turmas</h2>
       </div>
       <div className="mb-4 flex flex-col md:flex-row md:items-center gap-2">
         <label className="block text-sm font-semibold mb-2 md:mb-0">Filtrar por professor:</label>
@@ -125,11 +125,11 @@ export default function Pedagogico() {
               <div className="flex items-center justify-between gap-2">
                 <div className="font-semibold text-[#005DE4] text-lg">{event.description}</div>
                 <div className="flex gap-1">
-                  <button className="p-1 rounded hover:bg-blue-100 transition" title="Editar evento" onClick={() => handleEdit(event)}>
-                    <Edit2 className="w-4 h-4 text-blue-600" />
+                  <button className="p-1.5 rounded-lg hover:bg-blue-50 text-blue-400 hover:text-blue-600 transition-colors" title="Editar evento" onClick={() => handleEdit(event)}>
+                    <Edit2 className="w-4 h-4" />
                   </button>
-                  <button className="p-1 rounded hover:bg-red-100 transition" title="Excluir evento">
-                    <Trash2 className="w-4 h-4 text-red-600" />
+                  <button className="p-1.5 rounded-lg hover:bg-red-50 text-red-400 hover:text-red-600 transition-colors" title="Excluir evento">
+                    <Trash2 className="w-4 h-4" />
                   </button>
                 </div>
               </div>

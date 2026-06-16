@@ -31,15 +31,25 @@ const STATUS_DEFAULT_COLOR = {
   justificada: 'border-amber-200 bg-amber-50 text-amber-700',
 };
 
-export default function ChamadaForm({ turma, alunosIniciais, professorNome, onSave, onCancel, saving }) {
-  const hoje = new Date().toISOString().split('T')[0];
+export default function ChamadaForm({ turma, alunosIniciais, professorNome, onSave, onCancel, saving, initialDate, aulasRecentes }) {
+  // Usa data local (Brasília) — toISOString() retornaria UTC e causaria mismatch após 21h
+  const hoje = new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD no fuso local
 
-  const [data, setData] = useState(hoje);
+  const [data, setData] = useState(initialDate || hoje);
+  const [showUltimos, setShowUltimos] = useState(false);
+
+  const aulaAnterior = useMemo(() => {
+    if (!aulasRecentes || aulasRecentes.length === 0) return null;
+    return [...aulasRecentes]
+      .filter(a => a.conteudo && a.status !== 'cancelada')
+      .sort((a, b) => (b.data || '').localeCompare(a.data || ''))[0] || null;
+  }, [aulasRecentes]);
   const [tipoAula, setTipoAula] = useState('realizada'); // realizada | cancelada | feriado | recesso
   const [conteudo, setConteudo] = useState('');
   const [homework, setHomework] = useState('');
   const [observacoes, setObservacoes] = useState('');
   const [chamadas, setChamadas] = useState({});
+  const [tarefas, setTarefasState] = useState({});
   const [alunos, setAlunos] = useState([]);
   const [loadingAlunos, setLoadingAlunos] = useState(true);
 
@@ -111,6 +121,13 @@ export default function ChamadaForm({ turma, alunosIniciais, professorNome, onSa
     setChamadas((prev) => ({ ...prev, [alunoId]: status }));
   };
 
+  const setTarefa = (alunoId, valor) => {
+    setTarefasState((prev) => ({
+      ...prev,
+      [alunoId]: prev[alunoId] === valor ? null : valor, // toggle
+    }));
+  };
+
   const marcarTodos = (status) => {
     const novo = {};
     alunos.forEach((a) => { novo[a.id] = status; });
@@ -120,6 +137,9 @@ export default function ChamadaForm({ turma, alunosIniciais, professorNome, onSa
   const presentes = useMemo(() => Object.values(chamadas).filter((v) => v === 'presente').length, [chamadas]);
   const faltas = useMemo(() => Object.values(chamadas).filter((v) => v === 'falta').length, [chamadas]);
   const justificadas = useMemo(() => Object.values(chamadas).filter((v) => v === 'justificada').length, [chamadas]);
+  const tarefasFeitas = useMemo(() => Object.values(tarefas).filter((v) => v === 'feito').length, [tarefas]);
+  const tarefasNaoFeitas = useMemo(() => Object.values(tarefas).filter((v) => v === 'nao_feito').length, [tarefas]);
+  const tarefasIncompletas = useMemo(() => Object.values(tarefas).filter((v) => v === 'incompleto').length, [tarefas]);
 
   const [saveError, setSaveError] = useState('');
   const [checkingDuplicate, setCheckingDuplicate] = useState(false);
@@ -155,6 +175,7 @@ export default function ChamadaForm({ turma, alunosIniciais, professorNome, onSa
       alunoId: aluno.id,
       alunoNome: aluno.nome || aluno.name || aluno.id,
       status: chamadas[aluno.id] || 'presente',
+      tarefa: tarefas[aluno.id] || null,
     }));
 
     onSave({
@@ -245,6 +266,16 @@ export default function ChamadaForm({ turma, alunosIniciais, professorNome, onSa
                 onChange={(e) => setData(e.target.value)}
                 className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#005DE4]"
               />
+              {data > hoje && (
+                <p className="mt-1.5 flex items-center gap-1.5 text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1.5">
+                  <AlertCircle size={13} /> Você está registrando uma aula futura.
+                </p>
+              )}
+              {data < hoje && data !== hoje && (
+                <p className="mt-1.5 flex items-center gap-1.5 text-xs text-blue-600 bg-blue-50 border border-blue-200 rounded-lg px-2.5 py-1.5">
+                  <Clock size={13} /> Registro retroativo — {data.split('-').reverse().join('/')}
+                </p>
+              )}
             </div>
 
             <div>
@@ -297,6 +328,53 @@ export default function ChamadaForm({ turma, alunosIniciais, professorNome, onSa
               className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#005DE4] resize-none"
             />
           </div>
+
+          {/* Aula anterior — visível por padrão */}
+          {aulaAnterior && (
+            <div className="rounded-xl border border-blue-200 bg-blue-50 p-3 space-y-1.5">
+              <p className="text-xs font-semibold text-blue-700 flex items-center gap-1.5">
+                <BookOpen size={13} />
+                Aula anterior — {aulaAnterior.data ? aulaAnterior.data.split('-').reverse().join('/') : ''}
+              </p>
+              <p className="text-sm text-slate-700 leading-snug">
+                <span className="font-medium text-slate-500 text-xs uppercase tracking-wide mr-1">Conteúdo:</span>
+                {aulaAnterior.conteudo}
+              </p>
+              {aulaAnterior.homework && (
+                <p className="text-sm text-purple-700 leading-snug">
+                  <span className="font-medium text-purple-400 text-xs uppercase tracking-wide mr-1">Homework:</span>
+                  {aulaAnterior.homework}
+                </p>
+              )}
+              {aulasRecentes.filter(a => a.conteudo && a.data !== aulaAnterior.data).length > 0 && (
+                <div>
+                  <button
+                    type="button"
+                    onClick={() => setShowUltimos(v => !v)}
+                    className="text-xs text-blue-500 hover:text-blue-700 transition-colors mt-1"
+                  >
+                    {showUltimos ? 'Ocultar' : 'Ver'} aulas anteriores
+                  </button>
+                  {showUltimos && (
+                    <div className="mt-2 space-y-1.5">
+                      {aulasRecentes
+                        .filter(a => a.conteudo && a.data !== aulaAnterior.data)
+                        .sort((a, b) => (b.data || '').localeCompare(a.data || ''))
+                        .map((a, i) => (
+                          <div key={i} className="flex items-start gap-2 px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs">
+                            <span className="text-slate-400 whitespace-nowrap">{a.data ? a.data.split('-').reverse().join('/') : ''}</span>
+                            <div>
+                              <span className="text-slate-700">{a.conteudo}</span>
+                              {a.homework && <p className="text-purple-600 mt-0.5">HW: {a.homework}</p>}
+                            </div>
+                          </div>
+                        ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Chamada — visível apenas para aula realizada */}
@@ -324,7 +402,7 @@ export default function ChamadaForm({ turma, alunosIniciais, professorNome, onSa
           </div>
 
           {/* Resumo */}
-          <div className="flex gap-4 mb-4 p-3 bg-slate-50 rounded-lg">
+          <div className="flex flex-wrap gap-4 mb-4 p-3 bg-slate-50 rounded-lg">
             <div className="flex items-center gap-1 text-sm text-emerald-700 font-medium">
               <CheckCircle size={16} /> {presentes} presente{presentes !== 1 ? 's' : ''}
             </div>
@@ -334,6 +412,11 @@ export default function ChamadaForm({ turma, alunosIniciais, professorNome, onSa
             <div className="flex items-center gap-1 text-sm text-amber-700 font-medium">
               <AlertCircle size={16} /> {justificadas} justificada{justificadas !== 1 ? 's' : ''}
             </div>
+            {(tarefasFeitas + tarefasNaoFeitas + tarefasIncompletas) > 0 && (
+              <div className="flex items-center gap-1 text-sm text-purple-700 font-medium ml-auto">
+                <BookMarked size={16} /> {tarefasFeitas}/{tarefasFeitas + tarefasNaoFeitas + tarefasIncompletas} tarefas feitas
+              </div>
+            )}
           </div>
 
           {loadingAlunos ? (
@@ -349,33 +432,78 @@ export default function ChamadaForm({ turma, alunosIniciais, professorNome, onSa
             <div className="space-y-2">
               {alunos.map((aluno) => {
                 const statusAtual = chamadas[aluno.id] || 'presente';
+                const tarefaAtual = tarefas[aluno.id] || null;
                 return (
                   <div
                     key={aluno.id}
-                    className={`flex items-center justify-between p-3 rounded-lg border transition-all ${STATUS_DEFAULT_COLOR[statusAtual]}`}
+                    className={`flex flex-col p-3 rounded-lg border transition-all ${STATUS_DEFAULT_COLOR[statusAtual]}`}
                   >
-                    <span className="font-medium text-sm">{nomeAluno(aluno)}</span>
+                    <div className="flex items-center justify-between">
+                      <span className="font-medium text-sm">{nomeAluno(aluno)}</span>
 
-                    <div className="flex gap-1">
-                      {STATUS_OPTIONS.map((s) => {
-                        const Icon = s.icon;
-                        const isActive = statusAtual === s.key;
-                        return (
-                          <button
-                            key={s.key}
-                            onClick={() => setStatus(aluno.id, s.key)}
-                            className={`flex items-center gap-1 px-3 py-1.5 rounded-lg border text-xs font-medium transition-all ${
-                              isActive
-                                ? s.color
-                                : 'border-slate-300 bg-white text-slate-500 hover:bg-slate-100'
-                            }`}
-                          >
-                            <Icon size={13} />
-                            {s.label}
-                          </button>
-                        );
-                      })}
+                      <div className="flex gap-1">
+                        {STATUS_OPTIONS.map((s) => {
+                          const Icon = s.icon;
+                          const isActive = statusAtual === s.key;
+                          return (
+                            <button
+                              key={s.key}
+                              onClick={() => setStatus(aluno.id, s.key)}
+                              className={`flex items-center gap-1 px-3 py-1.5 rounded-lg border text-xs font-medium transition-all ${
+                                isActive
+                                  ? s.color
+                                  : 'border-slate-300 bg-white text-slate-500 hover:bg-slate-100'
+                              }`}
+                            >
+                              <Icon size={13} />
+                              {s.label}
+                            </button>
+                          );
+                        })}
+                      </div>
                     </div>
+
+                    {/* Tarefa de casa — só para presentes */}
+                    {statusAtual === 'presente' && (
+                      <div className="flex items-center gap-2 mt-2 pt-2 border-t border-emerald-200/60">
+                        <span className="text-xs text-slate-500 flex items-center gap-1">
+                          <BookMarked size={11} /> Tarefa:
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setTarefa(aluno.id, 'feito')}
+                          className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium border transition-all ${
+                            tarefaAtual === 'feito'
+                              ? 'bg-purple-500 text-white border-purple-500'
+                              : 'bg-white border-slate-300 text-slate-500 hover:border-purple-400 hover:text-purple-600'
+                          }`}
+                        >
+                          ✓ Fez
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setTarefa(aluno.id, 'incompleto')}
+                          className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium border transition-all ${
+                            tarefaAtual === 'incompleto'
+                              ? 'bg-amber-500 text-white border-amber-500'
+                              : 'bg-white border-slate-300 text-slate-500 hover:border-amber-400 hover:text-amber-600'
+                          }`}
+                        >
+                          ~ Incompleto
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setTarefa(aluno.id, 'nao_feito')}
+                          className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium border transition-all ${
+                            tarefaAtual === 'nao_feito'
+                              ? 'bg-red-500 text-white border-red-500'
+                              : 'bg-white border-slate-300 text-slate-500 hover:border-red-400 hover:text-red-500'
+                          }`}
+                        >
+                          ✗ Não fez
+                        </button>
+                      </div>
+                    )}
                   </div>
                 );
               })}

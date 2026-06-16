@@ -1,6 +1,6 @@
 import { initializeApp } from "firebase/app";
 import { getFirestore } from "firebase/firestore";
-import { getAuth } from "firebase/auth";
+import { getAuth, GoogleAuthProvider, setPersistence, browserLocalPersistence } from "firebase/auth";
 
 const firebaseConfig = {
   apiKey: "AIzaSyCkJ7pFFaVkjMoTpSI5V0YW_eJw8e76XaQ",
@@ -14,3 +14,9 @@ const firebaseConfig = {
 export const app = initializeApp(firebaseConfig);
 export const db = getFirestore(app);
 export const auth = getAuth(app);
+export const googleProvider = new GoogleAuthProvider();
+
+// Garante que a sessão persiste no localStorage (sobrevive ao refresh e fechar aba)
+setPersistence(auth, browserLocalPersistence).catch((err) => {
+  console.error('[Auth] Falha ao definir persistência de sessão:', err);
+});

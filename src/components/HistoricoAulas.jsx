@@ -16,6 +16,8 @@ import {
   Edit,
   Save,
 } from 'lucide-react';
+import { useConfirm } from '../hooks/useConfirm';
+import ConfirmDialog from './ui/ConfirmDialog';
 
 const statusIcon = { presente: CheckCircle, falta: XCircle, justificada: AlertCircle };
 const statusColor = {
@@ -31,7 +33,15 @@ function formatDate(dateStr) {
   return `${dia}/${mes}/${ano}`;
 }
 
+const STATUS_AULA = {
+  cancelada: { label: 'Cancelada', cls: 'bg-red-100 text-red-700 border-red-200' },
+  feriado:   { label: 'Feriado',   cls: 'bg-amber-100 text-amber-700 border-amber-200' },
+  recesso:   { label: 'Recesso',   cls: 'bg-emerald-100 text-emerald-700 border-emerald-200' },
+};
+
 function AulaCard({ aula, defaultOpen = false, onDelete, onUpdate }) {
+  const { confirmState, requestConfirm, handleConfirm, handleCancel } = useConfirm();
+
   const [open, setOpen] = useState(defaultOpen);
   const [editing, setEditing] = useState(false);
   const [editConteudo, setEditConteudo] = useState(aula.conteudo || '');
@@ -39,6 +49,18 @@ function AulaCard({ aula, defaultOpen = false, onDelete, onUpdate }) {
   const [editObs, setEditObs] = useState(aula.observacoes || '');
   const [savingEdit, setSavingEdit] = useState(false);
   const [deletingThis, setDeletingThis] = useState(false);
+
+  // Sync edit fields when aula prop updates (e.g. after external edit via EditarChamadaModal)
+  React.useEffect(() => {
+    if (!editing) {
+      setEditConteudo(aula.conteudo || '');
+      setEditHomework(aula.homework || '');
+      setEditObs(aula.observacoes || '');
+    }
+  }, [aula.conteudo, aula.homework, aula.observacoes, editing]);
+
+  const isNaoRealizada = aula.status && aula.status !== 'realizada';
+  const statusInfo = STATUS_AULA[aula.status] || null;
 
   const presentes = aula.chamadas?.filter((c) => c.status === 'presente').length || 0;
   const faltas = aula.chamadas?.filter((c) => c.status === 'falta').length || 0;
@@ -53,7 +75,13 @@ function AulaCard({ aula, defaultOpen = false, onDelete, onUpdate }) {
   };
 
   const handleDelete = async () => {
-    if (!confirm('Excluir esta aula? Esta ação não pode ser desfeita.')) return;
+    const ok = await requestConfirm({
+      title: 'Excluir aula',
+      message: 'Excluir esta aula? Esta ação não pode ser desfeita.',
+      confirmLabel: 'Excluir',
+      variant: 'danger',
+    });
+    if (!ok) return;
     setDeletingThis(true);
     await onDelete(aula.id);
   };
@@ -69,11 +97,18 @@ function AulaCard({ aula, defaultOpen = false, onDelete, onUpdate }) {
             <BookOpen size={18} />
           </div>
           <div>
-            <div className="font-semibold text-slate-800 text-sm">
+            <div className="font-semibold text-slate-800 text-sm flex items-center gap-2">
               {formatDate(aula.data)} — {aula.turmaNome}
+              {isNaoRealizada && statusInfo && (
+                <span className={`text-xs px-1.5 py-0.5 rounded border font-medium ${statusInfo.cls}`}>
+                  {statusInfo.label}
+                </span>
+              )}
             </div>
             <div className="text-xs text-slate-500 mt-0.5">
-              {aula.conteudo || 'Sem conteúdo registrado'}
+              {isNaoRealizada
+                ? `Aula não realizada — ${statusInfo?.label || aula.status}`
+                : (aula.conteudo || 'Sem conteúdo registrado')}
             </div>
           </div>
         </div>
@@ -166,6 +201,13 @@ function AulaCard({ aula, defaultOpen = false, onDelete, onUpdate }) {
           ) : (
             /* Info normal */
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-sm">
+              {isNaoRealizada && statusInfo && (
+                <div className="col-span-2 sm:col-span-3">
+                  <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-sm font-medium ${statusInfo.cls}`}>
+                    {statusInfo.label} — sem chamada registrada
+                  </span>
+                </div>
+              )}
               {aula.conteudo && (
                 <div>
                   <span className="text-slate-500 text-xs block">Conteúdo</span>
@@ -215,12 +257,13 @@ function AulaCard({ aula, defaultOpen = false, onDelete, onUpdate }) {
           )}
         </div>
       )}
+      <ConfirmDialog {...confirmState} onConfirm={handleConfirm} onCancel={handleCancel} />
     </div>
   );
 }
 
-export default function HistoricoAulas({ aulas, turmas, onClose, onDeleteAula, onUpdateAula }) {
-  const [turmaFiltro, setTurmaFiltro] = useState('all');
+export default function HistoricoAulas({ aulas, turmas, onClose, onDeleteAula, onUpdateAula, initialTurmaFiltro }) {
+  const [turmaFiltro, setTurmaFiltro] = useState(initialTurmaFiltro || 'all');
   const [mesFiltro, setMesFiltro] = useState('all');
 
   // Meses disponíveis com base nas aulas existentes

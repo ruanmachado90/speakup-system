@@ -12,7 +12,10 @@ export const formatPercent = (value) => {
 
 export const formatDate = (date) => {
   if (!date) return '-';
-  return new Date(date).toLocaleDateString('pt-BR');
+  // Parse only the YYYY-MM-DD part as local time to avoid UTC timezone shifts
+  const str = typeof date === 'string' ? date : new Date(date).toISOString();
+  const [y, m, d] = str.substring(0, 10).split('-');
+  return new Date(Number(y), Number(m) - 1, Number(d)).toLocaleDateString('pt-BR');
 };
 
 export const formatDateTime = (date) => {

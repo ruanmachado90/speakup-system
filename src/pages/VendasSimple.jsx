@@ -1,7 +1,6 @@
 import React from 'react';
 
 function VendasSimple() {
-  console.log("Componente VendasSimple sendo renderizado");
   
   return (
     <div className="p-6">

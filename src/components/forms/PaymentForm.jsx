@@ -1,4 +1,5 @@
 import React from 'react';
+import { formatDate } from '../../utils/formatters';
 
 export const PaymentForm = ({ modal, paymentSaving, onSubmit, onCancel, isEdit = false }) => {
   return (
@@ -12,7 +13,7 @@ export const PaymentForm = ({ modal, paymentSaving, onSubmit, onCancel, isEdit =
         </div>
         <div>
           <p className="text-xs text-slate-500 mb-1">Vencimento</p>
-          <div className="border rounded-lg p-3">{modal.data?.dueDate ? new Date(modal.data.dueDate).toLocaleDateString('pt-BR') : '-'}</div>
+          <div className="border rounded-lg p-3">{modal.data?.dueDate ? formatDate(modal.data.dueDate) : '-'}</div>
         </div>
       </div>
 

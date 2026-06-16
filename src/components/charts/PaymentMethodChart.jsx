@@ -3,15 +3,15 @@ import { CreditCard, Banknote, Smartphone, Building, Receipt, ArrowLeftRight, Fi
 import { formatCurrency } from '../../utils';
 
 const PAYMENT_COLORS = {
-  'Dinheiro': '#059669',        // Verde esmeralda vibrante
-  'Pix': '#0ea5e9',             // Azul céu vibrante
-  'PIX': '#0ea5e9',             // Azul céu vibrante (variação)
-  'Cartão de Crédito': '#9333ea', // Roxo vibrante
-  'Cartão de Débito': '#ec4899', // Rosa vibrante
-  'Boleto': '#f97316',          // Laranja vibrante
-  'Transferência Bancária': '#2563eb', // Azul royal
-  'Cheque': '#7c3aed',          // Violeta vibrante
-  'Não especificado': '#64748b'  // Cinza neutro
+  'Dinheiro': '#0e48fe',
+  'Pix': '#fc6e1f',
+  'PIX': '#fc6e1f',
+  'Cartão de Crédito': '#ffae1e',
+  'Cartão de Débito': '#f30961',
+  'Boleto': 'rgba(14,72,254,0.45)',
+  'Transferência Bancária': 'rgba(14,72,254,0.45)',
+  'Cheque': '#d1d5db',
+  'Não especificado': '#d1d5db'
 };
 
 const PAYMENT_ICONS = {
@@ -77,12 +77,17 @@ const PaymentMethodChart = ({ data, type = 'expense' }) => {
     <div className="space-y-4">
       {/* Payment Methods List */}
       <div className="space-y-3">
-        {aggregatedData.map((item) => {
+        {aggregatedData.map((item, idx) => {
           const percentage = totalAmount > 0 ? (item.total / totalAmount * 100) : 0;
           const Icon = PAYMENT_ICONS[item.method] || Building;
+          const n = aggregatedData.length;
+          const barColor = idx === 0 ? '#0e48fe'
+            : idx === 1 ? '#0e48fe'
+            : idx === n - 1 ? '#d1d5db'
+            : 'rgba(14,72,254,0.45)';
           
           return (
-            <div key={item.method} className="space-y-2">
+            <div key={item.method} className="space-y-1.5">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div 
@@ -111,12 +116,12 @@ const PaymentMethodChart = ({ data, type = 'expense' }) => {
               </div>
               
               {/* Progress Bar */}
-              <div className="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden">
+              <div className="w-full rounded-full overflow-hidden" style={{background:'#f3f4f6',height:6}}>
                 <div 
                   className="h-full rounded-full transition-all duration-500 ease-out"
                   style={{ 
                     width: `${percentage}%`,
-                    backgroundColor: item.color
+                    backgroundColor: barColor
                   }}
                 />
               </div>

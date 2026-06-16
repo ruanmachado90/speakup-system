@@ -1,58 +1,74 @@
-import { useState, useMemo, useEffect } from 'react';
-import { Printer, X, User, Calendar, DollarSign, CheckCircle, Clock, XCircle } from 'lucide-react';
+import { useState, useMemo } from 'react';
+import { Printer, Plus, Trash2, ListTodo, PhoneCall, UserX, RefreshCw, MessageCircle, AlertTriangle, Eye, EyeOff, CheckCircle } from 'lucide-react';
 import { Card, Table, KPI, EvolutionChart, ProfitChart } from '../components';
 import { formatCurrency, formatDate } from '../utils';
-import { collection, getDocs } from 'firebase/firestore';
-import { db } from '../firebase';
+import { useFaltasHoje, useLembretes, useTodos, useAulasStats } from '../hooks/useDashboardData';
+import RegistrationsModal from '../components/dashboard/RegistrationsModal';
+import CancellationsModal from '../components/dashboard/CancellationsModal';
 
-export const Dashboard = ({ 
-  dashboardRange, 
-  setDashboardRange, 
-  printDashboard, 
-  stats, 
-  monthlyData, 
-  teacherStats, 
+export const Dashboard = ({
+  dashboardRange,
+  setDashboardRange,
+  printDashboard,
+  stats,
+  monthlyData,
+  teacherStats,
   filteredExpenses,
   students,
-  payments 
+  payments,
+  role
 }) => {
   const [showRegistrationsModal, setShowRegistrationsModal] = useState(false);
   const [showCancellationsModal, setShowCancellationsModal] = useState(false);
-  const [aulasStats, setAulasStats] = useState({ mes: 0, freqMedia: 0 });
+  const [hideValues, setHideValues] = useState(false);
 
-  // Carregar estatísticas de aulas
-  useEffect(() => {
-    getDocs(collection(db, 'aulas'))
-      .then(snap => {
-        const aulas = snap.docs.map(d => d.data());
-        const now = new Date();
-        const mesAtual = now.getMonth();
-        const anoAtual = now.getFullYear();
+  const { faltasHoje, faltasLoading, carregarFaltasHoje, marcarContatado: handleMarcarContatado } = useFaltasHoje();
+  const { lembretes, addLembrete, deleteLembrete: handleDeleteLembrete } = useLembretes();
+  const { todos, addTodo, toggleTodo: handleToggleTodo, deleteTodo: handleDeleteTodo } = useTodos();
+  const aulasStats = useAulasStats(dashboardRange);
 
-        const aulasPeriodo = aulas.filter(a => {
-          if (!a.data) return false;
-          const [ano, mes] = a.data.split('-').map(Number);
-          return dashboardRange === 'month'
-            ? ano === anoAtual && (mes - 1) === mesAtual
-            : ano === anoAtual;
-        });
+  // ── Lembretes local UI state ───────────────────────────────────────────────
+  const [novoTexto, setNovoTexto] = useState('');
+  const [novaCor, setNovaCor] = useState('yellow');
+  const [showAddLembrete, setShowAddLembrete] = useState(false);
+  const [addingLembrete, setAddingLembrete] = useState(false);
 
-        const freqs = aulas
-          .map(a => {
-            const ch = a.chamadas || [];
-            if (!ch.length) return null;
-            return (ch.filter(c => c.status === 'presente').length / ch.length) * 100;
-          })
-          .filter(f => f !== null);
+  const handleAddLembrete = async (e) => {
+    e.preventDefault();
+    if (!novoTexto.trim()) return;
+    setAddingLembrete(true);
+    try {
+      await addLembrete(novoTexto, novaCor);
+      setNovoTexto('');
+      setNovaCor('yellow');
+      setShowAddLembrete(false);
+    } finally {
+      setAddingLembrete(false);
+    }
+  };
 
-        const freqMedia = freqs.length
-          ? Math.round(freqs.reduce((a, b) => a + b, 0) / freqs.length)
-          : 0;
+  // ── To-Do local UI state ───────────────────────────────────────────────────
+  const [novoTodo, setNovoTodo] = useState('');
+  const [addingTodo, setAddingTodo] = useState(false);
 
-        setAulasStats({ mes: aulasPeriodo.length, freqMedia });
-      })
-      .catch(() => {});
-  }, [dashboardRange]);
+  const handleAddTodo = async (e) => {
+    e.preventDefault();
+    if (!novoTodo.trim()) return;
+    setAddingTodo(true);
+    try {
+      await addTodo(novoTodo);
+      setNovoTodo('');
+    } finally {
+      setAddingTodo(false);
+    }
+  };
+
+  const COR_MAP = {
+    yellow: { bg: 'bg-amber-50', border: 'border-amber-300', dot: 'bg-amber-400', label: 'Atenção' },
+    red:    { bg: 'bg-red-50',   border: 'border-red-300',   dot: 'bg-red-500',   label: 'Urgente' },
+    blue:   { bg: 'bg-blue-50',  border: 'border-blue-300',  dot: 'bg-blue-500',  label: 'Info' },
+    green:  { bg: 'bg-emerald-50', border: 'border-emerald-300', dot: 'bg-emerald-500', label: 'OK' },
+  };
 
   // Filtrar alunos matriculados no período (otimizado com Map lookup)
   const registeredStudents = useMemo(() => {
@@ -81,13 +97,12 @@ export const Dashboard = ({
     return students
       .filter(s => inPeriod(s.createdAt))
       .map(student => {
-        // Lookup O(1) ao invés de filter O(n)
         const studentPayments = paymentsByStudent.get(student.id) || [];
         const sortedPayments = studentPayments
           .sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate));
-        
+
         const firstPayment = sortedPayments[0];
-        
+
         return {
           ...student,
           matriculaDate: student.createdAt ? new Date(Number(student.createdAt)) : null,
@@ -122,483 +137,250 @@ export const Dashboard = ({
       .sort((a, b) => (b.cancelDate?.getTime() || 0) - (a.cancelDate?.getTime() || 0));
   }, [students, dashboardRange]);
 
-  // Função para imprimir lista de matrículas
-  const printRegistrations = () => {
-    const html = `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta charset="UTF-8">
-        <title>Relatório de Matrículas - SpeakUp</title>
-        <style>
-          * { margin: 0; padding: 0; box-sizing: border-box; }
-          body { font-family: Arial, sans-serif; padding: 20px; color: #000; font-size: 11px; }
-          .header { text-align: center; margin-bottom: 20px; border-bottom: 2px solid #000; padding-bottom: 10px; }
-          .logo { font-size: 18px; font-weight: bold; margin-bottom: 5px; }
-          .subtitle { font-size: 10px; margin-top: 3px; }
-          .info-box { margin-bottom: 15px; font-size: 10px; }
-          .info-row { margin-bottom: 3px; }
-          table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-          th { text-align: left; padding: 6px 4px; border-bottom: 1px solid #000; font-size: 10px; font-weight: bold; }
-          td { padding: 5px 4px; border-bottom: 1px solid #ddd; font-size: 10px; vertical-align: top; }
-          .footer { text-align: center; margin-top: 20px; padding-top: 10px; border-top: 1px solid #000; font-size: 9px; }
-          @media print {
-            body { padding: 10px; }
-            table { page-break-inside: auto; }
-            tr { page-break-inside: avoid; page-break-after: auto; }
-          }
-        </style>
-      </head>
-      <body>
-        <div class="header">
-          <div class="logo">SpeakUp English Language Academy</div>
-          <div class="subtitle">Relatório de Novas Matrículas - ${dashboardRange === 'month' ? 'Mês Atual' : 'Ano Atual'}</div>
-          <div class="subtitle">Gerado em: ${new Date().toLocaleDateString('pt-BR')} às ${new Date().toLocaleTimeString('pt-BR')}</div>
-        </div>
-
-        <div class="info-box">
-          <div class="info-row"><strong>Período:</strong> ${dashboardRange === 'month' ? 'Mês Atual' : 'Ano Atual'}</div>
-          <div class="info-row"><strong>Total de Matrículas:</strong> ${registeredStudents.length} ${registeredStudents.length === 1 ? 'aluno' : 'alunos'}</div>
-          <div class="info-row"><strong>Receita Estimada:</strong> ${formatCurrency(registeredStudents.reduce((acc, s) => acc + Number(s.fee || 0), 0))}</div>
-        </div>
-
-        <table>
-          <thead>
-            <tr>
-              <th>Nome</th>
-              <th>Responsável</th>
-              <th>Matrícula</th>
-              <th>Curso</th>
-              <th>Mensalidade</th>
-              <th>Status</th>
-              <th>Vencimento</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${registeredStudents.map(student => {
-              const statusText = 
-                student.paymentStatus === 'Pago' ? 'Pago' :
-                student.paymentStatus === 'Sem pagamento' ? 'Sem Cobrança' :
-                (student.firstPayment?.dueDate && new Date(student.firstPayment.dueDate) < new Date()) ? 'Vencido' :
-                'Pendente';
-
-              return `
-                <tr>
-                  <td><strong>${student.name}</strong></td>
-                  <td>${student.responsibleName || '-'}</td>
-                  <td>${formatDate(student.matriculaDate)}</td>
-                  <td>${student.course || '-'}</td>
-                  <td>${formatCurrency(Number(student.fee || 0))}</td>
-                  <td>${statusText}</td>
-                  <td>${student.firstPayment ? formatDate(student.firstPayment.dueDate) : '-'}</td>
-                </tr>
-              `;
-            }).join('')}
-          </tbody>
-        </table>
-
-        <div class="footer">
-          <p>SpeakUp English Language Academy - Cataguases/MG</p>
-          <p>Total de ${registeredStudents.length} ${registeredStudents.length === 1 ? 'matrícula' : 'matrículas'} listadas</p>
-        </div>
-
-        <script>
-          window.onload = function(){ window.print(); setTimeout(()=>window.close(), 200); };
-        </script>
-      </body>
-      </html>`;
-    
-    const w = window.open('', '_blank', 'width=900,height=700');
-    w.document.write(html);
-    w.document.close();
-  };
-
-  // Função para imprimir lista de cancelamentos
-  const printCancellations = () => {
-    const html = `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta charset="UTF-8">
-        <title>Relatório de Cancelamentos - SpeakUp</title>
-        <style>
-          * { margin: 0; padding: 0; box-sizing: border-box; }
-          body { font-family: Arial, sans-serif; padding: 20px; color: #000; font-size: 11px; }
-          .header { text-align: center; margin-bottom: 20px; border-bottom: 2px solid #000; padding-bottom: 10px; }
-          .logo { font-size: 18px; font-weight: bold; margin-bottom: 5px; }
-          .subtitle { font-size: 10px; margin-top: 3px; }
-          .info-box { margin-bottom: 15px; font-size: 10px; }
-          .info-row { margin-bottom: 3px; }
-          table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-          th { text-align: left; padding: 6px 4px; border-bottom: 1px solid #000; font-size: 10px; font-weight: bold; }
-          td { padding: 5px 4px; border-bottom: 1px solid #ddd; font-size: 10px; vertical-align: top; }
-          .footer { text-align: center; margin-top: 20px; padding-top: 10px; border-top: 1px solid #000; font-size: 9px; }
-          @media print {
-            body { padding: 10px; }
-            table { page-break-inside: auto; }
-            tr { page-break-inside: avoid; page-break-after: auto; }
-          }
-        </style>
-      </head>
-      <body>
-        <div class="header">
-          <div class="logo">SpeakUp English Language Academy</div>
-          <div class="subtitle">Relatório de Cancelamentos - ${dashboardRange === 'month' ? 'Mês Atual' : 'Ano Atual'}</div>
-          <div class="subtitle">Gerado em: ${new Date().toLocaleDateString('pt-BR')} às ${new Date().toLocaleTimeString('pt-BR')}</div>
-        </div>
-
-        <div class="info-box">
-          <div class="info-row"><strong>Período:</strong> ${dashboardRange === 'month' ? 'Mês Atual' : 'Ano Atual'}</div>
-          <div class="info-row"><strong>Total de Cancelamentos:</strong> ${cancelledStudents.length}</div>
-        </div>
-
-        <table>
-          <thead>
-            <tr>
-              <th>Nome</th>
-              <th>Responsável</th>
-              <th>Cancelamento</th>
-              <th>Professor</th>
-              <th>Curso</th>
-              <th>Mensalidade</th>
-              <th>Telefone</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${cancelledStudents.map(student => `
-              <tr>
-                <td><strong>${student.name || '---'}</strong></td>
-                <td>${student.responsibleName || '-'}</td>
-                <td>${formatDate(student.cancelDate)}</td>
-                <td>${student.teacher || '-'}</td>
-                <td>${student.course || '-'}</td>
-                <td>${formatCurrency(Number(student.fee || 0))}</td>
-                <td>${student.responsiblePhone || student.phone || '-'}</td>
-              </tr>
-            `).join('')}
-          </tbody>
-        </table>
-
-        <div class="footer">
-          <p>SpeakUp English Language Academy - Cataguases/MG</p>
-          <p>Total de ${cancelledStudents.length} cancelamento${cancelledStudents.length !== 1 ? 's' : ''} listado${cancelledStudents.length !== 1 ? 's' : ''}</p>
-        </div>
-
-        <script>
-          window.onload = function(){ window.print(); setTimeout(()=>window.close(), 200); };
-        </script>
-      </body>
-      </html>`;
-    
-    const w = window.open('', '_blank', 'width=900,height=700');
-    w.document.write(html);
-    w.document.close();
-  };
-
-  // Modal de alunos matriculados
-  const RegistrationsModal = () => {
-    if (!showRegistrationsModal) return null;
-
-    return (
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-        <div className="bg-white rounded-2xl shadow-2xl max-w-5xl w-full max-h-[90vh] overflow-hidden flex flex-col">
-          {/* Header */}
-          <div className="bg-gradient-to-r from-emerald-500 to-emerald-600 text-white p-6 flex items-center justify-between">
-            <div>
-              <h2 className="text-2xl font-bold">Novas Matrículas</h2>
-              <p className="text-emerald-100 text-sm mt-1">
-                {dashboardRange === 'month' ? 'Alunos matriculados neste mês' : 'Alunos matriculados neste ano'}
-              </p>
-            </div>
-            <button
-              onClick={() => setShowRegistrationsModal(false)}
-              className="p-2 hover:bg-white/20 rounded-lg transition-colors"
-              aria-label="Fechar"
-            >
-              <X size={24} />
-            </button>
-          </div>
-
-          {/* Content */}
-          <div className="flex-1 overflow-y-auto p-6">
-            {registeredStudents.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-12 text-center">
-                <div className="bg-gray-100 rounded-full p-6 mb-4">
-                  <User size={48} className="text-gray-400" />
-                </div>
-                <h3 className="text-lg font-semibold text-gray-700 mb-2">
-                  Nenhuma matrícula encontrada
-                </h3>
-                <p className="text-sm text-gray-500">
-                  Não há matrículas registradas no período selecionado.
-                </p>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {registeredStudents.map(student => {
-                  const getStatusIcon = () => {
-                    if (student.paymentStatus === 'Pago') {
-                      return <CheckCircle size={18} className="text-emerald-600" />;
-                    }
-                    if (student.paymentStatus === 'Sem pagamento') {
-                      return <XCircle size={18} className="text-gray-400" />;
-                    }
-                    const isOverdue = student.firstPayment?.dueDate && 
-                      new Date(student.firstPayment.dueDate) < new Date();
-                    return isOverdue ? 
-                      <XCircle size={18} className="text-red-600" /> : 
-                      <Clock size={18} className="text-amber-600" />;
-                  };
-
-                  const getStatusColor = () => {
-                    if (student.paymentStatus === 'Pago') return 'bg-emerald-50 border-emerald-200';
-                    if (student.paymentStatus === 'Sem pagamento') return 'bg-gray-50 border-gray-200';
-                    const isOverdue = student.firstPayment?.dueDate && 
-                      new Date(student.firstPayment.dueDate) < new Date();
-                    return isOverdue ? 'bg-red-50 border-red-200' : 'bg-amber-50 border-amber-200';
-                  };
-
-                  return (
-                    <div 
-                      key={student.id} 
-                      className={`border rounded-xl p-4 ${getStatusColor()} transition-all hover:shadow-md`}
-                    >
-                      <div className="flex items-start justify-between gap-4">
-                        {/* Student Info */}
-                        <div className="flex items-start gap-3 flex-1">
-                          <div className="p-2 bg-white rounded-full shadow-sm">
-                            <User size={20} className="text-emerald-600" />
-                          </div>
-                          <div className="flex-1">
-                            <h3 className="font-bold text-gray-900">{student.name}</h3>
-                            {student.responsibleName && (
-                              <p className="text-sm text-gray-600 mt-1">
-                                Resp.: {student.responsibleName}
-                              </p>
-                            )}
-                            <div className="flex items-center gap-4 mt-2 text-xs text-gray-500">
-                              <span className="flex items-center gap-1">
-                                <Calendar size={14} />
-                                Matrícula: {formatDate(student.matriculaDate)}
-                              </span>
-                              {student.course && (
-                                <span>Curso: {student.course}</span>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Payment Info */}
-                        <div className="flex items-center gap-6">
-                          <div className="text-right">
-                            <p className="text-xs text-gray-500 mb-1">Mensalidade</p>
-                            <p className="text-lg font-bold text-gray-900">
-                              {formatCurrency(Number(student.fee || 0))}
-                            </p>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <div className="text-right mr-2">
-                              <p className="text-xs text-gray-500 mb-1">Status</p>
-                              <p className="text-xs font-semibold">
-                                {student.paymentStatus === 'Sem pagamento' 
-                                  ? 'Sem cobrança' 
-                                  : student.paymentStatus}
-                              </p>
-                            </div>
-                            {getStatusIcon()}
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* First Payment Details */}
-                      {student.firstPayment && (
-                        <div className="mt-3 pt-3 border-t border-gray-200 flex items-center justify-between text-xs">
-                          <span className="text-gray-600">
-                            Vencimento: {formatDate(student.firstPayment.dueDate)}
-                          </span>
-                          {student.firstPayment.paymentMethod && (
-                            <span className="text-gray-600">
-                              Forma: {student.firstPayment.paymentMethod}
-                            </span>
-                          )}
-                          <span className="text-gray-600">
-                            Valor: {formatCurrency(Number(student.firstPayment.valuePlanned || 0))}
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-
-          {/* Footer */}
-          <div className="border-t border-gray-200 p-4 bg-gray-50 flex items-center justify-between">
-            <p className="text-sm text-gray-600">
-              Total: <span className="font-bold">{registeredStudents.length}</span> {registeredStudents.length === 1 ? 'matrícula' : 'matrículas'}
-            </p>
-            <div className="flex gap-2">
-              <button
-                onClick={printRegistrations}
-                className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors flex items-center gap-2"
-              >
-                <Printer size={16} />
-                Imprimir
-              </button>
-              <button
-                onClick={() => setShowRegistrationsModal(false)}
-                className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
-              >
-                Fechar
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  };
-
-  const CancellationsModal = () => {
-    if (!showCancellationsModal) return null;
-
-    return (
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-        <div className="bg-white rounded-2xl shadow-2xl max-w-5xl w-full max-h-[90vh] overflow-hidden flex flex-col">
-          {/* Header */}
-          <div className="bg-gradient-to-r from-red-500 to-red-600 text-white p-6 flex items-center justify-between">
-            <div>
-              <h2 className="text-2xl font-bold">Alunos Cancelados</h2>
-              <p className="text-red-100 text-sm mt-1">
-                {dashboardRange === 'month' ? 'Alunos cancelados neste mês' : 'Alunos cancelados neste ano'}
-              </p>
-            </div>
-            <button
-              onClick={() => setShowCancellationsModal(false)}
-              className="p-2 hover:bg-white/20 rounded-lg transition-colors"
-              aria-label="Fechar"
-            >
-              <X size={24} />
-            </button>
-          </div>
-
-          {/* Content */}
-          <div className="flex-1 overflow-y-auto p-6">
-            {cancelledStudents.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-12 text-center">
-                <div className="bg-gray-100 rounded-full p-6 mb-4">
-                  <User size={48} className="text-gray-400" />
-                </div>
-                <h3 className="text-lg font-semibold text-gray-700 mb-2">
-                  Nenhum cancelamento encontrado
-                </h3>
-                <p className="text-sm text-gray-500">
-                  Não há cancelamentos registrados no período selecionado.
-                </p>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {cancelledStudents.map(student => (
-                  <div 
-                    key={student.id} 
-                    className="border border-red-200 bg-red-50 rounded-xl p-4 transition-all hover:shadow-md"
-                  >
-                    <div className="flex items-start justify-between gap-4">
-                      {/* Student Info */}
-                      <div className="flex items-start gap-3 flex-1">
-                        <div className="p-2 bg-white rounded-full shadow-sm">
-                          <User size={20} className="text-red-600" />
-                        </div>
-                        <div className="flex-1">
-                          <h3 className="font-bold text-gray-900">{student.name}</h3>
-                          {student.responsibleName && (
-                            <p className="text-sm text-gray-600 mt-1">
-                              Resp.: {student.responsibleName}
-                            </p>
-                          )}
-                          <div className="flex items-center gap-4 mt-2 text-xs text-gray-500">
-                            <span className="flex items-center gap-1">
-                              <Calendar size={14} />
-                              Cancelamento: {formatDate(student.cancelDate)}
-                            </span>
-                            {student.teacher && (
-                              <span>Professor: {student.teacher}</span>
-                            )}
-                            {student.course && (
-                              <span>Curso: {student.course}</span>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Fee Info */}
-                      <div className="text-right">
-                        <p className="text-xs text-gray-500 mb-1">Mensalidade</p>
-                        <p className="text-lg font-bold text-gray-900">
-                          {formatCurrency(Number(student.fee || 0))}
-                        </p>
-                      </div>
-                    </div>
-
-                    {/* Additional Details */}
-                    {student.responsiblePhone && (
-                      <div className="mt-3 pt-3 border-t border-red-200 text-xs text-gray-600">
-                        Telefone: {student.responsiblePhone}
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Footer */}
-          <div className="border-t border-gray-200 p-4 bg-gray-50 flex items-center justify-between">
-            <p className="text-sm text-gray-600">
-              Total: <span className="font-bold">{cancelledStudents.length}</span> {cancelledStudents.length === 1 ? 'cancelamento' : 'cancelamentos'}
-            </p>
-            <div className="flex gap-2">
-              <button
-                onClick={printCancellations}
-                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors flex items-center gap-2"
-              >
-                <Printer size={16} />
-                Imprimir
-              </button>
-              <button
-                onClick={() => setShowCancellationsModal(false)}
-                className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
-              >
-                Fechar
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  };
-
   return (
     <>
+      {/* ── Central do Dia ────────────────────────────────────────────── */}
+      <div>
+        <h2 className="text-base font-semibold text-slate-700 mb-3">Central do Dia</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+        {/* ── Vencimentos ─────────────────────────────────────────── */}
+        <Card>
+          {(() => {
+            const hoje = new Date(); hoje.setHours(0,0,0,0);
+            const em5dias = new Date(hoje); em5dias.setDate(em5dias.getDate() + 5);
+            const vencendoHoje = payments.filter(p => {
+              if (p.status === 'Pago') return false;
+              const d = new Date(p.dueDate); d.setHours(0,0,0,0);
+              return d.getTime() === hoje.getTime();
+            });
+            const proximosVencimentos = payments.filter(p => {
+              if (p.status === 'Pago') return false;
+              const d = new Date(p.dueDate); d.setHours(0,0,0,0);
+              return d > hoje && d <= em5dias;
+            }).sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate));
+
+            const enviarWhatsApp = (payment) => {
+              const student = students.find(s => s.id === payment.studentId);
+              const paymentLink = `${window.location.origin}/pagamento/${payment.id}`;
+              const nome = student?.responsibleName || payment.studentName || 'Cliente';
+              const valor = Number(payment.valuePlanned || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+              const dVenc = new Date(payment.dueDate);
+              const dataFmt = dVenc.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+              const dias = Math.ceil((dVenc - new Date()) / 86400000);
+              const diasTexto = dias === 0 ? 'vence hoje' : `daqui a ${dias} dia${dias !== 1 ? 's' : ''}`;
+              const statusMsg = dias === 0 ? 'Cobranca vence hoje' : 'Lembrete de cobranca';
+              const descricao = payment.description || 'Mensalidade - SpeakUp English School';
+              let pixInfo = '';
+              if (payment.pixCode) pixInfo += `\n\n*PIX Copia e Cola:*\n${payment.pixCode}`;
+              if (payment.pixQRCode) pixInfo += `\n\n*QR Code PIX disponivel no link acima.*`;
+              const msg = `*${statusMsg}*\n\nOla, ${nome}\n\nLembramos que a sua cobranca no valor de *${valor}* ${diasTexto} (${dataFmt}).\n\n*Descricao:* ${descricao}\n\nClique no link abaixo para visualizar a cobranca:\n${paymentLink}${pixInfo}\n\nAtenciosamente,\n*Equipe SpeakUp*`;
+              const tel = (student?.responsiblePhone || student?.phone || '').replace(/\D/g, '');
+              window.open(tel ? `https://wa.me/55${tel}?text=${encodeURIComponent(msg)}` : `https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
+            };
+
+            const RenderItem = ({ p, cor }) => (
+              <div className={`flex items-center gap-3 px-3 py-2.5 rounded-xl border ${cor === 'red' ? 'bg-red-50 border-red-200' : 'bg-amber-50 border-amber-200'}`}>
+                <div className="flex-1 min-w-0">
+                  <p className={`text-sm font-medium truncate ${cor === 'red' ? 'text-red-800' : 'text-amber-900'}`}>{p.studentName}</p>
+                  <p className="text-xs text-slate-500 truncate">
+                    {p.description || 'Mensalidade'} · {Number(p.valuePlanned||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'})}
+                    {cor !== 'red' && <span className="ml-1 text-amber-600 font-medium">· {p.dueDate ? p.dueDate.substring(8,10) + '/' + p.dueDate.substring(5,7) : ''}</span>}
+                  </p>
+                </div>
+                <button
+                  onClick={() => enviarWhatsApp(p)}
+                  className={`flex-shrink-0 flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-lg text-white transition-colors ${cor === 'red' ? 'bg-red-500 hover:bg-red-600' : 'bg-amber-500 hover:bg-amber-600'}`}
+                  title="Enviar aviso por WhatsApp"
+                >
+                  <MessageCircle size={12} /> Avisar
+                </button>
+              </div>
+            );
+
+            return (
+              <>
+                <div className="flex items-center gap-2 mb-3">
+                  <AlertTriangle size={16} className="text-amber-500" />
+                  <h3 className="font-bold">Vencimentos</h3>
+                  <span className="ml-auto text-xs text-slate-400">{vencendoHoje.length + proximosVencimentos.length} cobrança{vencendoHoje.length + proximosVencimentos.length !== 1 ? 's' : ''}</span>
+                </div>
+                {vencendoHoje.length === 0 && proximosVencimentos.length === 0 ? (
+                  <p className="text-sm text-slate-400 text-center py-4">Nenhum vencimento nos próximos 5 dias</p>
+                ) : (
+                  <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
+                    {vencendoHoje.length > 0 && (
+                      <>
+                        <p className="text-xs font-semibold text-red-600 uppercase tracking-wide">Vencem hoje</p>
+                        {vencendoHoje.map(p => <RenderItem key={p.id} p={p} cor="red" />)}
+                      </>
+                    )}
+                    {proximosVencimentos.length > 0 && (
+                      <>
+                        <p className={`text-xs font-semibold text-amber-600 uppercase tracking-wide ${vencendoHoje.length > 0 ? 'mt-3' : ''}`}>Próximos 5 dias</p>
+                        {proximosVencimentos.map(p => <RenderItem key={p.id} p={p} cor="amber" />)}
+                      </>
+                    )}
+                  </div>
+                )}
+              </>
+            );
+          })()}
+        </Card>
+
+        {/* ── Faltas Hoje ─────────────────────────────────────────────── */}
+        <Card>
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="font-bold flex items-center gap-2">
+              <UserX size={16} className="text-red-500" />
+              Faltas Hoje
+            </h3>
+            <div className="flex items-center gap-2">
+              {faltasHoje.length > 0 && (
+                <span className="text-xs text-slate-400">
+                  {faltasHoje.filter(f => f.contatado).length}/{faltasHoje.length} contatados
+                </span>
+              )}
+              <button
+                onClick={carregarFaltasHoje}
+                className="p-1.5 text-slate-400 hover:text-[#005DE4] hover:bg-slate-100 rounded-lg transition-colors"
+                title="Atualizar"
+              >
+                <RefreshCw size={13} />
+              </button>
+            </div>
+          </div>
+
+          {faltasLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <div className="w-5 h-5 border-2 border-[#005DE4] border-t-transparent rounded-full animate-spin" />
+            </div>
+          ) : faltasHoje.length === 0 ? (
+            <div className="text-center py-6">
+              <CheckCircle size={28} className="text-emerald-400 mx-auto mb-2" />
+              <p className="text-sm text-slate-400">Nenhuma falta registrada hoje</p>
+            </div>
+          ) : (
+            <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
+              {faltasHoje.map(f => (
+                <div
+                  key={f.id}
+                  className={`flex items-center gap-3 px-3 py-2.5 rounded-xl border transition-colors ${
+                    f.contatado ? 'bg-emerald-50 border-emerald-200' : 'bg-red-50 border-red-200'
+                  }`}
+                >
+                  <div className="flex-1 min-w-0">
+                    <p className={`text-sm font-medium leading-snug ${
+                      f.contatado ? 'text-emerald-700 line-through' : 'text-slate-800'
+                    }`}>
+                      {f.alunoNome}
+                    </p>
+                    <p className="text-xs text-slate-400 mt-0.5 truncate">
+                      {f.turmaNome} · {f.professor}
+                    </p>
+                  </div>
+                  {f.contatado ? (
+                    <span className="flex items-center gap-1 text-xs text-emerald-600 font-medium flex-shrink-0">
+                      <CheckCircle size={13} /> Contatado
+                    </span>
+                  ) : (
+                    <button
+                      onClick={() => handleMarcarContatado(f)}
+                      className="flex items-center gap-1 text-xs px-2.5 py-1.5 bg-[#005DE4] text-white rounded-lg hover:bg-[#0041a8] transition-colors flex-shrink-0"
+                    >
+                      <PhoneCall size={12} /> Contatar
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </Card>
+
+        {/* ── To-Do List ──────────────────────────────────────────────── */}
+        <Card>
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="font-bold flex items-center gap-2">
+              <ListTodo size={16} className="text-[#005DE4]" />
+              To-Do
+            </h3>
+            <span className="text-xs text-slate-400">{todos.filter(t => !t.feito).length} pendente{todos.filter(t => !t.feito).length !== 1 ? 's' : ''}</span>
+          </div>
+
+          <form onSubmit={handleAddTodo} className="flex gap-2 mb-3">
+            <input
+              value={novoTodo}
+              onChange={e => setNovoTodo(e.target.value)}
+              placeholder="Nova tarefa..."
+              className="flex-1 border border-slate-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#005DE4]"
+            />
+            <button
+              type="submit"
+              disabled={addingTodo || !novoTodo.trim()}
+              className="px-3 py-1.5 bg-[#005DE4] text-white text-xs rounded-lg hover:bg-[#0041a8] disabled:opacity-50 transition-colors flex items-center gap-1"
+            >
+              <Plus size={13} />
+            </button>
+          </form>
+
+          {todos.length === 0 ? (
+            <p className="text-sm text-slate-400 text-center py-4">Nenhuma tarefa</p>
+          ) : (
+            <div className="space-y-1.5 max-h-72 overflow-y-auto pr-1">
+              {todos.map(t => (
+                <div key={t.id} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl border transition-colors ${t.feito ? 'bg-slate-50 border-slate-200' : 'bg-white border-slate-200 hover:border-[#005DE4]/30'}`}>
+                  <button
+                    onClick={() => handleToggleTodo(t)}
+                    className={`flex-shrink-0 w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${
+                      t.feito ? 'bg-emerald-500 border-emerald-500' : 'border-slate-300 hover:border-[#005DE4]'
+                    }`}
+                  >
+                    {t.feito && <CheckCircle size={12} className="text-white" strokeWidth={3} />}
+                  </button>
+                  <span className={`flex-1 text-sm leading-snug ${t.feito ? 'line-through text-slate-400' : 'text-slate-800'}`}>
+                    {t.texto}
+                  </span>
+                  <button
+                    onClick={() => handleDeleteTodo(t.id)}
+                    className="p-1 rounded-lg text-slate-300 hover:text-red-500 hover:bg-red-50 transition-colors flex-shrink-0"
+                    title="Remover"
+                  >
+                    <Trash2 size={13} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </Card>
+        </div>
+      </div>
+
+      {/* ── Toggle Mês/Ano + KPIs ───────────────────────────────────── */}
       <div className="flex items-center justify-between">
-        <div className="flex gap-2">
-          <button 
-            onClick={() => setDashboardRange('month')} 
+        <div className="flex gap-2 items-center">
+          <button
+            onClick={() => setDashboardRange('month')}
             className={`px-3 py-1 rounded ${dashboardRange === 'month' ? 'bg-[#005DE4] text-white' : 'bg-slate-100 text-slate-700'}`}
           >
             Mês atual
           </button>
-          <button 
-            onClick={() => setDashboardRange('year')} 
+          <button
+            onClick={() => setDashboardRange('year')}
             className={`px-3 py-1 rounded ${dashboardRange === 'year' ? 'bg-[#005DE4] text-white' : 'bg-slate-100 text-slate-700'}`}
           >
             Ano
           </button>
+          <button
+            onClick={() => setHideValues(v => !v)}
+            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
+            title={hideValues ? 'Mostrar valores' : 'Ocultar valores'}
+          >
+            {hideValues ? <EyeOff size={16} /> : <Eye size={16} />}
+          </button>
         </div>
 
         <div className="flex items-center gap-4">
-          <button 
-            onClick={printDashboard} 
+          <button
+            onClick={printDashboard}
             className="px-4 py-2 rounded-full bg-slate-100 flex gap-2 items-center hover:bg-slate-200"
           >
             <Printer size={16}/> Imprimir
@@ -607,27 +389,30 @@ export const Dashboard = ({
         </div>
       </div>
 
-      <div className="grid grid-cols-4 gap-6">
-        <KPI label="Receita Prevista" value={stats.planned} accent="blue" />
-        <KPI label="Receita Recebida" value={stats.paid} positive accent="green" />
-        <KPI label="Pendências" value={stats.pending} warn accent="yellow" />
-        <KPI label="Cobranças Vencidas" value={stats.overdue} accent="red" />
-        <KPI label="Alunos Ativos" value={stats.students} format="number" accent="blue" />
-        <div 
+      <div className="grid grid-cols-4 gap-4">
+        {/* Linha 1: métricas financeiras principais */}
+        <KPI label="Receita prevista" value={stats.planned} accent="blue" hidden={hideValues} />
+        <KPI label="Receita recebida" value={stats.paid} accent="green" hidden={hideValues} />
+        <KPI label="Pendências" value={stats.pending} accent="yellow" hidden={hideValues} />
+        <KPI label="Cobranças vencidas" value={stats.overdue} accent="red" badge={stats.overdue > 0 ? 'Alerta' : undefined} hidden={hideValues} />
+
+        {/* Linha 2: métricas operacionais */}
+        <KPI label="Alunos ativos" value={stats.students} format="number" accent="blue" />
+        <div
           onClick={() => setShowRegistrationsModal(true)}
-          className="cursor-pointer transition-transform hover:scale-105"
+          className="cursor-pointer transition-transform hover:scale-[1.02]"
           title="Clique para ver detalhes das matrículas"
         >
           <KPI label="Matrículas" value={stats.registrations} format="number" accent="green" />
         </div>
-        <div 
+        <div
           onClick={() => setShowCancellationsModal(true)}
-          className="cursor-pointer transition-transform hover:scale-105"
+          className="cursor-pointer transition-transform hover:scale-[1.02]"
           title="Clique para ver detalhes dos cancelamentos"
         >
           <KPI label="Cancelamentos" value={stats.cancellations} format="number" accent="red" />
         </div>
-        <KPI label="Inadimplência" value={stats.inadimplenciaPercent} format="percent" warn />
+        <KPI label="Inadimplência" value={stats.inadimplenciaPercent} format="percent" accent="yellow" />
       </div>
 
       <div className="grid grid-cols-1 gap-6">
@@ -636,31 +421,179 @@ export const Dashboard = ({
           <EvolutionChart labels={monthlyData.labels} planned={monthlyData.planned} paid={monthlyData.paid} />
         </Card>
 
-        <Card>
-          <h3 className="font-bold mb-2">Evolução do Lucro (Mensal)</h3>
-          <ProfitChart labels={monthlyData.labels} profit={monthlyData.profit} />
-        </Card>
+        {role === 'admin' && (
+          <Card>
+            <h3 className="font-bold mb-2">Evolução do Lucro (Mensal)</h3>
+            <ProfitChart labels={monthlyData.labels} profit={monthlyData.profit} />
+          </Card>
+        )}
 
-        <Card>
-          <h3 className="font-bold mb-2">Alunos por Professor</h3>
-          <Table
-            header={["Professor", "Quantidade de Alunos", "Mensalidade Total"]}
-            data={teacherStats}
-            render={item => (
-              <>
-                <td key="teacher" className="px-6 py-3 font-semibold">{item.teacher}</td>
-                <td key="count" className="px-6 py-3">
-                  <span className="inline-flex items-center justify-center bg-[#005DE4] text-white rounded-full w-8 h-8 text-sm font-bold">
-                    {item.count}
-                  </span>
-                </td>
-                <td key="revenue" className="px-6 py-3 font-semibold">
-                  R$ {Number(item.revenue || 0).toLocaleString('pt-BR', {minimumFractionDigits: 2})}
-                </td>
-              </>
-            )}
-          />
-        </Card>
+        {role === 'admin' && (() => {
+          // Normaliza o nome do curso para as categorias principais
+          const normalizeCourse = (raw) => {
+            const c = (raw || '').toUpperCase().trim();
+            if (c.includes('TEEN')) return 'TEENS';
+            if (c.includes('KID')) return 'KIDS';
+            if (c.includes('VIP')) return 'VIP';
+            if (c.includes('INCOMPANY') || c.includes('IN COMPANY') || c.includes('IN-COMPANY')) return 'IN COMPANY';
+            return 'OUTROS';
+          };
+
+          // Estatísticas por curso (alunos ativos)
+          const courseMap = {};
+          (students || []).filter(s => s.status !== 'cancelado').forEach(s => {
+            const c = normalizeCourse(s.course);
+            courseMap[c] = (courseMap[c] || 0) + 1;
+          });
+          const courseStats = Object.entries(courseMap)
+            .map(([label, value]) => ({ label, value }))
+            .sort((a, b) => b.value - a.value);
+
+          const COLORS = ['#0e48fe','#fc6e1f','#ffae1e','#f30961','#d1d5db','#9ca3af'];
+          const maxCount   = Math.max(...(teacherStats || []).map(t => t.count), 1);
+          const maxRevenue = Math.max(...(teacherStats || []).map(t => t.revenue), 1);
+
+          // Doughnut
+          const total = courseStats.reduce((s, d) => s + d.value, 0) || 1;
+          const DCX = 90, DCY = 90, D_OUTER = 82, D_INNER = 46;
+          let dStartAngle = -Math.PI / 2;
+          const segments = courseStats.map((d, i) => {
+            const angle = (d.value / total) * 2 * Math.PI;
+            const endAngle = dStartAngle + angle;
+            const cos1 = Math.cos(dStartAngle), sin1 = Math.sin(dStartAngle);
+            const cos2 = Math.cos(endAngle), sin2 = Math.sin(endAngle);
+            const largeArc = angle > Math.PI ? 1 : 0;
+            const path = [
+              `M ${DCX + D_OUTER*cos1} ${DCY + D_OUTER*sin1}`,
+              `A ${D_OUTER} ${D_OUTER} 0 ${largeArc} 1 ${DCX + D_OUTER*cos2} ${DCY + D_OUTER*sin2}`,
+              `L ${DCX + D_INNER*cos2} ${DCY + D_INNER*sin2}`,
+              `A ${D_INNER} ${D_INNER} 0 ${largeArc} 0 ${DCX + D_INNER*cos1} ${DCY + D_INNER*sin1}`,
+              'Z'
+            ].join(' ');
+            const seg = { path, color: COLORS[i % COLORS.length], label: d.label, value: d.value };
+            dStartAngle = endAngle;
+            return seg;
+          });
+
+          return (
+            <div key="charts3col" className="grid grid-cols-1 md:grid-cols-3 gap-4">
+
+              {/* 1. Barra vertical — alunos por professor */}
+              <Card>
+                <h3 className="font-bold text-sm text-slate-700 mb-4 flex items-center gap-2">
+                  <span className="w-1 h-4 rounded-full bg-[#0e48fe] inline-block" />
+                  Alunos por professor
+                </h3>
+                {(() => {
+                  const VW = 300, VH = 180, VPL = 8, VPR = 8, VPT = 28, VPB = 28;
+                  const vChartW = VW - VPL - VPR;
+                  const vChartH = VH - VPT - VPB;
+                  const n = (teacherStats || []).length || 1;
+                  const bW = Math.max(10, (vChartW / n) * 0.55);
+                  const xV = (i) => VPL + (i + 0.5) * (vChartW / n);
+                  const yV = (v) => VPT + (1 - v / maxCount) * vChartH;
+                  return (
+                    <div className="flex-1 flex items-center justify-start">
+                      <svg viewBox={`0 0 ${VW} ${VH}`} className="w-full">
+                        {[0,1,2,3,4].map(gi => (
+                        <line key={gi} x1={VPL} x2={VW-VPR}
+                          y1={VPT + (gi/4)*vChartH} y2={VPT + (gi/4)*vChartH}
+                          stroke="rgba(0,0,0,0.04)" strokeWidth={1} />
+                      ))}
+                      {(teacherStats || []).map((t, i) => {
+                        const x   = xV(i);
+                        const bH  = Math.max((t.count / maxCount) * vChartH, 2);
+                        const barY = yV(t.count);
+                        const firstName = t.teacher.split(' ')[0];
+                        return (
+                          <g key={i}>
+                            <rect x={x - bW/2} y={barY} width={bW} height={bH}
+                              fill={i === 0 ? '#0e48fe' : i === (teacherStats||[]).length - 1 ? '#d1d5db' : 'rgba(14,72,254,0.45)'} rx={5} />
+                            <text x={x} y={VH - 8} fontSize={9} textAnchor="middle" fill="#9ca3af" fontFamily="Montserrat,sans-serif">{firstName}</text>
+                            <text x={x} y={Math.max(barY - 5, VPT - 4)} fontSize={8.5} textAnchor="middle" fill="#9ca3af" fontFamily="Montserrat,sans-serif">{t.count}</text>
+                          </g>
+                        );
+                      })}
+                      </svg>
+                    </div>
+                  );
+                })()}
+              </Card>
+
+              {/* 2. Pizza — receita por professor */}
+              <Card>
+                <h3 className="font-bold text-sm text-slate-700 mb-4 flex items-center gap-2">
+                  <span className="w-1 h-4 rounded-full bg-emerald-500 inline-block" />
+                  Receita por professor
+                </h3>
+                {(() => {
+                  const PCX = 90, PCY = 90, PIE_R = 82;
+                  const totalRev = (teacherStats || []).reduce((s, t) => s + t.revenue, 0) || 1;
+                  const fmtRev = (v) => v >= 1000 ? `R$${(v/1000).toFixed(1)}k` : `R$${v.toFixed(0)}`;
+                  let startAngle = -Math.PI / 2;
+                  const pieSegs = (teacherStats || []).map((t, i) => {
+                    const angle = (t.revenue / totalRev) * 2 * Math.PI;
+                    const endAngle = startAngle + angle;
+                    const x1 = PCX + PIE_R * Math.cos(startAngle);
+                    const y1 = PCY + PIE_R * Math.sin(startAngle);
+                    const x2 = PCX + PIE_R * Math.cos(endAngle);
+                    const y2 = PCY + PIE_R * Math.sin(endAngle);
+                    const largeArc = angle > Math.PI ? 1 : 0;
+                    const d = `M ${PCX} ${PCY} L ${x1} ${y1} A ${PIE_R} ${PIE_R} 0 ${largeArc} 1 ${x2} ${y2} Z`;
+                    const seg = { d, color: COLORS[i % COLORS.length], label: t.teacher.split(' ')[0], revenue: t.revenue };
+                    startAngle = endAngle;
+                    return seg;
+                  });
+                  return (
+                    <div className="flex-1 flex items-center justify-between gap-2">
+                      <svg viewBox="0 0 180 180" className="w-48 flex-shrink-0">
+                        {pieSegs.map((seg, i) => (
+                          <path key={i} d={seg.d} fill={seg.color} stroke="white" strokeWidth={2} />
+                        ))}
+                      </svg>
+                      <div className="flex flex-col gap-2.5 min-w-0">
+                        {pieSegs.map((seg, i) => (
+                          <div key={i} className="flex items-center gap-2 min-w-0">
+                            <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: seg.color }} />
+                            <span className="text-[11px] text-slate-600 font-medium truncate flex-1">{seg.label}</span>
+                            <span className="text-[11px] text-slate-400 font-semibold tabular-nums flex-shrink-0">{fmtRev(seg.revenue)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })()}
+              </Card>
+
+              {/* 3. Doughnut — alunos por curso */}
+              <Card>
+                <h3 className="font-bold text-sm text-slate-700 mb-4 flex items-center gap-2">
+                  <span className="w-1 h-4 rounded-full bg-amber-400 inline-block" />
+                  Alunos por curso
+                </h3>
+                <div className="flex-1 flex items-center justify-between gap-2">
+                  <svg viewBox="0 0 180 180" className="w-48 flex-shrink-0">
+                    {segments.map((seg, i) => (
+                      <path key={i} d={seg.path} fill={seg.color} stroke="white" strokeWidth={2} />
+                    ))}
+                    <text x={DCX} y={DCY - 6} fontSize={18} fontWeight="700" fontFamily="Montserrat,sans-serif" textAnchor="middle" fill="#111827">{total}</text>
+                    <text x={DCX} y={DCY + 12} fontSize={9} fontFamily="Montserrat,sans-serif" textAnchor="middle" fill="#9ca3af">alunos</text>
+                  </svg>
+                  <div className="flex flex-col gap-2.5 min-w-0">
+                    {segments.map((seg, i) => (
+                      <div key={i} className="flex items-center gap-2 min-w-0">
+                        <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: seg.color }} />
+                        <span className="text-[11px] text-slate-600 font-medium truncate flex-1">{seg.label}</span>
+                        <span className="text-[11px] text-slate-400 font-semibold tabular-nums flex-shrink-0">{seg.value}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </Card>
+
+            </div>
+          );
+        })()}
 
         <Card>
           <h3 className="font-bold mb-2">Despesas do {dashboardRange === 'month' ? 'Mês' : 'Ano'}</h3>
@@ -686,11 +619,18 @@ export const Dashboard = ({
         </Card>
       </div>
 
-      {/* Modal de Matrículas */}
-      <RegistrationsModal />
-
-      {/* Modal de Cancelamentos */}
-      <CancellationsModal />
+      <RegistrationsModal
+        isOpen={showRegistrationsModal}
+        onClose={() => setShowRegistrationsModal(false)}
+        students={registeredStudents}
+        dashboardRange={dashboardRange}
+      />
+      <CancellationsModal
+        isOpen={showCancellationsModal}
+        onClose={() => setShowCancellationsModal(false)}
+        students={cancelledStudents}
+        dashboardRange={dashboardRange}
+      />
     </>
   );
 };

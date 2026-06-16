@@ -1,8 +1,8 @@
 import React, { createContext, useContext, useEffect, useMemo } from 'react';
 import { db, auth } from '../firebase';
+import { useAuth } from '../hooks/useAuth';
+import { useFirestore } from '../hooks/useFirestore';
 import { 
-  useAuth, 
-  useFirestore, 
   useStats, 
   useTeacherStats, 
   useFilteredExpenses, 
@@ -11,7 +11,7 @@ import {
   useFilteredPayments, 
   useFilteredExpensesData, 
   useExpenseEvolutionData 
-} from '../hooks';
+} from '../hooks/useStats';
 import { showToast, APP_ID, EXPENSE_CATEGORIES } from '../utils';
 import { useFilters } from './FilterContext';
 import { useUI } from './UIContext';

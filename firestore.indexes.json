@@ -1,0 +1,21 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "recados",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "professorSlug", "order": "ASCENDING" },
+        { "fieldPath": "resposta", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "recados",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "lido", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}

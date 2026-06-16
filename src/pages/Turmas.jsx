@@ -1,670 +1,306 @@
-import React, { useState, useEffect, useMemo } from "react";
-import { Card, Table } from "../components";
-import { Users, Plus, Edit, Trash2, School, Search, X, ChevronDown, ChevronUp, AlertTriangle, Loader2, FileText, Printer, GraduationCap, UserCheck, Clock, BookOpen, Link, Copy, Check } from "lucide-react";
-import { collection, addDoc, getDocs, updateDoc, deleteDoc, doc, query, where, onSnapshot } from 'firebase/firestore';
-import { db } from '../firebase';
+﻿import React, { useState, useMemo, useCallback } from "react";
+import {
+  Users, Plus, Edit, Trash2, School, X, ChevronDown,
+  Loader2, FileText, Printer, GraduationCap, UserCheck, Clock, BookOpen,
+} from "lucide-react";
 
-export default function Turmas({ students = [] }) {
-  // Estados principais
-  const [turmas, setTurmas] = useState([]);
+import {
+  PROFESSORES, NIVEIS, DIAS_DISPONIVEIS,
+  DEFAULT_MAX_ALUNOS, DEFAULT_TOTAL_AULAS,
+} from '../constants/turmasConfig';
+import { normalizarDias, calcularHorasAula, contarDiasAula, normalizarString, escapeHtml } from '../utils/turmas';
+
+import { useTurmas } from '../hooks/useTurmas';
+import { useConfirm } from '../hooks/useConfirm';
+import { useErrorHandler } from '../hooks/useErrorHandler';
+
+import TurmasForm from '../components/turmas/TurmasForm';
+import ProfessorReport from '../components/turmas/ProfessorReport';
+import ConfirmDialog from '../components/ui/ConfirmDialog';
+
+function showToastMsg(message, type) {
+  const iconMap = { success: '\u2713', error: '\u2717', warning: '\u26A0', info: '\u2139' };
+  const bgMap = { success: 'bg-green-500', error: 'bg-red-500', warning: 'bg-yellow-500', info: 'bg-blue-500' };
+  const t = type || 'info';
+  const el = document.createElement('div');
+  el.className = 'fixed top-4 right-4 ' + (bgMap[t] || bgMap.info) + ' text-white px-4 py-3 rounded-lg shadow-lg z-[100] flex items-center gap-2 transition-opacity';
+  el.innerHTML = '<span>' + (iconMap[t] || '') + '</span><span>' + message + '</span>';
+  document.body.appendChild(el);
+  setTimeout(function() {
+    el.style.opacity = '0';
+    setTimeout(function() { document.body.contains(el) && document.body.removeChild(el); }, 300);
+  }, 3000);
+}
+
+const FORM_INICIAL = {
+  nome: '', nivel: '', professor: '', horarios: [],
+  maxAlunos: DEFAULT_MAX_ALUNOS, totalAulas: DEFAULT_TOTAL_AULAS,
+};
+
+function validateForm(form) {
+  const errors = {};
+  if (!form.nome?.trim()) errors.nome = 'Nome da turma é obrigatório';
+  else if (form.nome.length < 3) errors.nome = 'Nome deve ter pelo menos 3 caracteres';
+  else if (form.nome.length > 50) errors.nome = 'Nome muito longo (máx. 50 caracteres)';
+  if (!form.nivel) errors.nivel = 'Selecione um nível';
+  else if (!NIVEIS.includes(form.nivel)) errors.nivel = 'Nível inválido';
+  if (!form.professor) errors.professor = 'Selecione um professor';
+  else if (!PROFESSORES.includes(form.professor)) errors.professor = 'Professor inválido';
+  if (!form.horarios?.length) errors.horarios = 'Selecione ao menos um dia com horário';
+  else if (form.horarios.some(function(h) { return !h.horario; })) errors.horarios = 'Informe o horário de cada dia selecionado';
+  if (form.maxAlunos < 1 || form.maxAlunos > 30) errors.maxAlunos = 'Máximo de alunos deve ser entre 1 e 30';
+  return errors;
+}
+
+// Converte array de horarios para string legível para exibição
+function formatarHorarios(horarios) {
+  if (!horarios?.length) return '';
+  if (horarios.length === 1) return horarios[0].dia + ' ' + horarios[0].horario;
+  return horarios.map(function(h) { return h.dia.slice(0, 3) + ' ' + h.horario; }).join(' · ');
+}
+
+// Extrai string de dias a partir do array de horarios (para funções legadas)
+function extrairDias(horarios) {
+  if (!horarios?.length) return '';
+  return horarios.map(function(h) { return h.dia; }).join(', ');
+}
+
+const DIA_NUM_MAP = {
+  domingo: 0,
+  segunda: 1, 'segunda-feira': 1,
+  terca: 2, 'terça': 2, 'terca-feira': 2, 'terça-feira': 2,
+  quarta: 3, 'quarta-feira': 3,
+  quinta: 4, 'quinta-feira': 4,
+  sexta: 5, 'sexta-feira': 5,
+  sabado: 6, 'sábado': 6,
+};
+
+function gerarDiasAulaMes(turma, mes, ano) {
+  if (!turma.dias) return [];
+  const nums = turma.dias.split(',').map(function(d) { return DIA_NUM_MAP[normalizarString(d)]; }).filter(function(n) { return n !== undefined; });
+  const dias = [];
+  const ultimo = new Date(ano, mes + 1, 0).getDate();
+  for (let d = 1; d <= ultimo; d++) {
+    if (nums.includes(new Date(ano, mes, d).getDay())) dias.push(d);
+  }
+  return dias;
+}
+
+export default function Turmas({ students }) {
+  const alunosProp = students || [];
+  const { turmas, aulas: aulasRegistradas, loading, criarTurma, editarTurma, excluirTurma, verificarDuplicata } = useTurmas();
+  const { handleError } = useErrorHandler(showToastMsg);
+  const { confirmState, requestConfirm, handleConfirm, handleCancel } = useConfirm();
+
   const [showModal, setShowModal] = useState(false);
   const [editingTurma, setEditingTurma] = useState(null);
-  const [searchAluno, setSearchAluno] = useState('');
-  const [selectedAlunos, setSelectedAlunos] = useState([]);
-  const [expandedTurmas, setExpandedTurmas] = useState(new Set());
-  const [showProfessorReport, setShowProfessorReport] = useState(false);
-  const [aulasRegistradas, setAulasRegistradas] = useState([]);
-  const [copiedLink, setCopiedLink] = useState(null);
-  const [expandedProfessores, setExpandedProfessores] = useState(new Set());
-  
-  // Estados de UI e loading
-  const [loading, setLoading] = useState(true);
+  const [form, setForm] = useState(FORM_INICIAL);
+  const [formErrors, setFormErrors] = useState({});
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(null);
-  
-  // Estados de filtros
-  const [filtros, setFiltros] = useState({
-    professor: 'all',
-    dia: 'all',
-    nivel: 'all'
-  });
-  
-  // Estados do formulário
-  const [form, setForm] = useState({
-    nome: '',
-    nivel: '',
-    professor: '',
-    horario: '',
-    dias: '',
-    maxAlunos: 15,
-    totalAulas: 40,
-  });
-  const [formErrors, setFormErrors] = useState({});
-  
-  // Sistema de Toast
-  const showToast = (message, type = 'info') => {
-    // Implementação simples de toast
-    const toastTypes = {
-      success: { bg: 'bg-green-500', icon: '\u2713' },
-      error: { bg: 'bg-red-500', icon: '\u2717' },
-      warning: { bg: 'bg-yellow-500', icon: '\u26A0' },
-      info: { bg: 'bg-blue-500', icon: '\u2139' }
-    };
-    
-    const toast = document.createElement('div');
-    const config = toastTypes[type];
-    toast.className = `fixed top-4 right-4 ${config.bg} text-white px-4 py-3 rounded-lg shadow-lg z-50 flex items-center gap-2`;
-    toast.innerHTML = `<span>${config.icon}</span><span>${message}</span>`;
-    document.body.appendChild(toast);
-    
-    setTimeout(() => {
-      toast.style.opacity = '0';
-      setTimeout(() => document.body.removeChild(toast), 300);
-    }, 3000);
-  };
-  
-  const showConfirm = (message) => {
-    return confirm(message);
-  };
+  const [selectedAlunos, setSelectedAlunos] = useState([]);
+  const [searchAluno, setSearchAluno] = useState('');
+  const [expandedTurmas, setExpandedTurmas] = useState(new Set());
+  const [expandedProfessores, setExpandedProfessores] = useState(new Set());
+  const [copiedLink, setCopiedLink] = useState(null);
+  const [filtros, setFiltros] = useState({ professor: 'all', dia: 'all', nivel: 'all' });
 
-  // Configurações do sistema
-  const professores = [
-    'Ruan Machado',
-    'Bárbara Dias', 
-    'Fernando Machado',
-    'Vera Machado',
-    'Bruna Amorim'
-  ];
+  const alunosAtivos = useMemo(function() { return alunosProp.filter(function(a) { return a.status !== 'cancelado'; }); }, [alunosProp]);
 
-  const niveis = ['A1', 'A2', 'A2+', 'B1', 'B2', 'B2+', 'C1'];
+  const alunosFiltrados = useMemo(function() {
+    const s = searchAluno.toLowerCase();
+    return alunosAtivos.filter(function(a) { return a.name && a.name.toLowerCase().includes(s); });
+  }, [alunosAtivos, searchAluno]);
 
-  const diasDisponiveis = [
-    'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'
-  ];
-
-  // Validação do formulário
-  const validateForm = () => {
-    const errors = {};
-    
-    if (!form.nome?.trim()) {
-      errors.nome = 'Nome da turma é obrigatório';
-    } else if (form.nome.length < 3) {
-      errors.nome = 'Nome deve ter pelo menos 3 caracteres';
-    } else if (form.nome.length > 50) {
-      errors.nome = 'Nome muito longo (máx. 50 caracteres)';
-    }
-    
-    if (!form.nivel) {
-      errors.nivel = 'Selecione um nível';
-    }
-    
-    if (!form.professor) {
-      errors.professor = 'Selecione um professor';
-    }
-    
-    if (!form.horario?.trim()) {
-      errors.horario = 'Horário é obrigatório';
-    } else if (!/^\d{1,2}:\d{2}\s*-\s*\d{1,2}:\d{2}$/.test(form.horario.trim())) {
-      errors.horario = 'Formato inválido (ex: 14:00 - 15:30)';
-    }
-    
-    if (!form.dias?.trim()) {
-      errors.dias = 'Dias da semana são obrigatórios';
-    }
-    
-    if (form.maxAlunos < 1 || form.maxAlunos > 30) {
-      errors.maxAlunos = 'Máximo de alunos deve ser entre 1 e 30';
-    }
-    
-    return errors;
-  };
-
-  // Obter alunos da turma baseado nos IDs salvos
-  const getAlunosDaTurma = (turma) => {
-    if (!turma.alunosIds || !Array.isArray(turma.alunosIds)) {
-      return [];
-    }
-    
-    return students.filter(student => turma.alunosIds.includes(student.id));
-  };
-
-  // Carregar turmas do Firebase
-  useEffect(() => {
-    const loadTurmas = async () => {
-      try {
-        setLoading(true);
-        const turmasRef = collection(db, 'turmas');
-        const snapshot = await getDocs(turmasRef);
-        const turmasData = snapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        }));
-        setTurmas(turmasData);
-      } catch (error) {
-        console.error('Erro ao carregar turmas:', error);
-        showToast('Erro ao carregar turmas', 'error');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadTurmas();
-  }, []);
-
-  // Carregar aulas registradas pelos professores
-  useEffect(() => {
-    const loadAulas = async () => {
-      try {
-        const snapshot = await getDocs(collection(db, 'aulas'));
-        setAulasRegistradas(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
-      } catch (e) {
-        console.error('Erro ao carregar aulas:', e);
-      }
-    };
-    loadAulas();
-  }, []);
-
-  // Filtrar turmas com dados reais do Firebase
-  const todasTurmasSemFiltro = useMemo(() => {
-    return turmas.map(turma => ({
-      ...turma,
-      alunos: turma.alunosCount || 0 // Compatibilidade
-    }));
-  }, [turmas]);
-
-  // Turmas filtradas com otimização - DEVE VIR ANTES de getProfessorStats
-  const turmasFiltradas = useMemo(() => {
-    return todasTurmasSemFiltro.filter(turma => {
-      // Filtro por professor
-      if (filtros.professor !== 'all' && turma.professor !== filtros.professor) {
-        return false;
-      }
-      
-      // Filtro por dia
-      if (filtros.dia !== 'all' && !turma.dias.includes(filtros.dia)) {
-        return false;
-      }
-      
-      // Filtro por nível
-      if (filtros.nivel !== 'all' && turma.nivel !== filtros.nivel) {
-        return false;
-      }
-      
+  const turmasFiltradas = useMemo(function() {
+    return turmas.filter(function(t) {
+      if (filtros.professor !== 'all' && t.professor !== filtros.professor) return false;
+      if (filtros.dia !== 'all' && !normalizarDias(t.dias || '').includes(filtros.dia)) return false;
+      if (filtros.nivel !== 'all' && t.nivel !== filtros.nivel) return false;
       return true;
     });
-  }, [todasTurmasSemFiltro, filtros]);
+  }, [turmas, filtros]);
 
-  // Função para calcular horas de uma aula baseado no horário (ex: "14:00 - 15:30" = 1.5)
-  const calcularHorasAula = (horario) => {
-    try {
-      const [inicio, fim] = horario.split('-').map(h => h.trim());
-      const [horaInicio, minInicio] = inicio.split(':').map(Number);
-      const [horaFim, minFim] = fim.split(':').map(Number);
-      
-      const minutosInicio = horaInicio * 60 + minInicio;
-      const minutosFim = horaFim * 60 + minFim;
-      
-      return (minutosFim - minutosInicio) / 60;
-    } catch (error) {
-      return 0;
-    }
-  };
+  const getAlunosDaTurma = useCallback(function(turma) {
+    if (!Array.isArray(turma.alunosIds)) return [];
+    return alunosProp.filter(function(s) { return turma.alunosIds.includes(s.id); });
+  }, [alunosProp]);
 
-  // Função para contar dias de aula na semana
-  const contarDiasAula = (dias) => {
-    if (!dias) return 0;
-    return dias.split(',').map(d => d.trim()).filter(d => d).length;
-  };
-
-  // Calcular estatísticas por professor
-  const getProfessorStats = useMemo(() => {
+  const professorStats = useMemo(function() {
     const stats = {};
-    
-    turmasFiltradas.forEach(turma => {
+    turmasFiltradas.forEach(function(turma) {
       if (!stats[turma.professor]) {
-        stats[turma.professor] = {
-          nome: turma.professor,
-          turmas: [],
-          totalTurmas: 0,
-          totalAlunos: 0,
-          horasPorSemana: 0,
-          horasPorMes: 0
-        };
+        stats[turma.professor] = { nome: turma.professor, turmas: [], totalTurmas: 0, totalAlunos: 0, horasPorSemana: 0, horasPorMes: 0 };
       }
-      
       const horasAula = calcularHorasAula(turma.horario);
       const diasSemana = contarDiasAula(turma.dias);
       const horasSemanais = horasAula * diasSemana;
-      const alunosDaTurma = getAlunosDaTurma(turma);
-      
-      stats[turma.professor].turmas.push({
-        ...turma,
-        horasAula,
-        diasSemana,
-        horasSemanais,
-        alunos: alunosDaTurma
-      });
-      
+      const alunos = getAlunosDaTurma(turma);
+      stats[turma.professor].turmas.push(Object.assign({}, turma, { horasAula, diasSemana, horasSemanais, alunos }));
       stats[turma.professor].totalTurmas += 1;
-      stats[turma.professor].totalAlunos += alunosDaTurma.length;
+      stats[turma.professor].totalAlunos += alunos.length;
       stats[turma.professor].horasPorSemana += horasSemanais;
-      stats[turma.professor].horasPorMes = stats[turma.professor].horasPorSemana * 4; // Aproximação: 4 semanas por mês
+      stats[turma.professor].horasPorMes = stats[turma.professor].horasPorSemana * 4;
     });
-    
-    return Object.values(stats).sort((a, b) => b.horasPorSemana - a.horasPorSemana);
-  }, [turmasFiltradas, students]);
+    return Object.values(stats).sort(function(a, b) { return b.horasPorSemana - a.horasPorSemana; });
+  }, [turmasFiltradas, getAlunosDaTurma]);
 
-  // Toggle expansão do relatório de professor
-  const toggleProfessorExpansion = (professorNome) => {
-    const newExpanded = new Set(expandedProfessores);
-    if (newExpanded.has(professorNome)) {
-      newExpanded.delete(professorNome);
-    } else {
-      newExpanded.add(professorNome);
-    }
-    setExpandedProfessores(newExpanded);
-  };
-
-  // Filtrar alunos ativos para pesquisa
-  const alunosAtivos = students.filter(aluno => 
-    aluno.status !== 'cancelado'
-  );
-
-  // Filtrar alunos baseado na pesquisa
-  const alunosFiltrados = alunosAtivos.filter(aluno => 
-    aluno.name?.toLowerCase().includes(searchAluno.toLowerCase())
-  );
-
-  // Adicionar aluno à turma
-  const adicionarAluno = (aluno) => {
-    if (!selectedAlunos.find(a => a.id === aluno.id)) {
-      setSelectedAlunos([...selectedAlunos, aluno]);
-    }
-    setSearchAluno('');
-  };
-
-  // Remover aluno da turma
-  const removerAluno = (alunoId) => {
-    setSelectedAlunos(selectedAlunos.filter(a => a.id !== alunoId));
-  };
-
-  // Salvar nova turma ou editar existente
-  const salvarTurma = async () => {
-    const errors = validateForm();
-    
-    if (Object.keys(errors).length > 0) {
-      setFormErrors(errors);
-      showToast('Corrija os erros no formulário', 'error');
-      return;
-    }
-
-    try {
-      setSaving(true);
-      setFormErrors({});
-      
-      const turmaData = {
-        nome: form.nome.trim(),
-        professor: form.professor,
-        nivel: form.nivel,
-        horario: form.horario.trim(),
-        dias: form.dias.trim(),
-        maxAlunos: parseInt(form.maxAlunos),
-        totalAulas: parseInt(form.totalAulas) || 40,
-        alunosIds: selectedAlunos.map(a => a.id),
-        alunosCount: selectedAlunos.length,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      };
-
-      if (editingTurma) {
-        // Editar turma existente
-        const turmaRef = doc(db, 'turmas', editingTurma.id);
-        await updateDoc(turmaRef, {
-          ...turmaData,
-          createdAt: editingTurma.createdAt // Preservar data de criação
-        });
-        
-        // Atualizar estado local
-        setTurmas(prev => prev.map(turma => 
-          turma.id === editingTurma.id 
-            ? { ...turma, ...turmaData }
-            : turma
-        ));
-        
-        showToast('Turma editada com sucesso!', 'success');
-      } else {
-        // Criar nova turma
-        const docRef = await addDoc(collection(db, 'turmas'), turmaData);
-        
-        // Atualizar estado local
-        const novaTurma = {
-          id: docRef.id,
-          ...turmaData
-        };
-        setTurmas(prev => [...prev, novaTurma]);
-        
-        showToast('Turma criada com sucesso!', 'success');
-      }
-
-      // Resetar formulário
-      resetForm();
-    } catch (error) {
-      console.error('Erro ao salvar turma:', error);
-      showToast('Erro ao salvar turma', 'error');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  // Reset do formulário
-  const resetForm = () => {
-    setForm({ 
-      nome: '', 
-      nivel: '', 
-      professor: '', 
-      horario: '', 
-      dias: '',
-      maxAlunos: 15 
+  const toggleTurmaExpansion = useCallback(function(id) {
+    setExpandedTurmas(function(prev) {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
     });
+  }, []);
+
+  const toggleProfessorExpansion = useCallback(function(nome) {
+    setExpandedProfessores(function(prev) {
+      const next = new Set(prev);
+      next.has(nome) ? next.delete(nome) : next.add(nome);
+      return next;
+    });
+  }, []);
+
+  const handleCopyLink = useCallback(function(nome) {
+    setCopiedLink(nome);
+    setTimeout(function() { setCopiedLink(null); }, 2000);
+  }, []);
+
+  const resetForm = useCallback(function() {
+    setForm(FORM_INICIAL);
     setSelectedAlunos([]);
     setEditingTurma(null);
     setShowModal(false);
     setFormErrors({});
-  };
+  }, []);
 
-  // Abrir modal para editar turma
-  const handleEditTurma = (turma) => {
-    setEditingTurma(turma);
-    setForm({
-      nome: turma.nome,
-      nivel: turma.nivel,
-      professor: turma.professor,
-      horario: turma.horario,
-      dias: normalizarDias(turma.dias),
-      maxAlunos: turma.maxAlunos || 15,
-      totalAulas: turma.totalAulas || 40,
-    });
-    
-    // Carregar alunos da turma
-    if (turma.alunosIds && turma.alunosIds.length > 0) {
-      const alunosDaTurma = students.filter(s => turma.alunosIds.includes(s.id));
-      setSelectedAlunos(alunosDaTurma);
-    } else {
-      setSelectedAlunos([]);
-    }
-    
-    setFormErrors({});
-    setShowModal(true);
-  };
-
-  // Excluir turma
-  const handleDeleteTurma = async (turma) => {
-    if (!showConfirm(`Tem certeza que deseja excluir a turma "${turma.nome}"?\n\nEsta ação não pode ser desfeita.`)) {
-      return;
-    }
-
-    try {
-      setDeleting(turma.id);
-      
-      // Excluir do Firebase
-      const turmaRef = doc(db, 'turmas', turma.id);
-      await deleteDoc(turmaRef);
-      
-      // Atualizar estado local
-      setTurmas(prev => prev.filter(t => t.id !== turma.id));
-      
-      showToast('Turma excluída com sucesso!', 'success');
-    } catch (error) {
-      console.error('Erro ao excluir turma:', error);
-      showToast('Erro ao excluir turma', 'error');
-    } finally {
-      setDeleting(null);
-    }
-  };
-
-  // Toggle expansão da turma
-  const toggleTurmaExpansion = (turmaId) => {
-    const newExpanded = new Set(expandedTurmas);
-    if (newExpanded.has(turmaId)) {
-      newExpanded.delete(turmaId);
-    } else {
-      newExpanded.add(turmaId);
-    }
-    setExpandedTurmas(newExpanded);
-  };
-
-  // Função auxiliar para normalizar string (remover acentos)
-  const normalizarString = (str) => {
-    return str.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
-  };
-
-  // Normaliza uma string de dias (qualquer variante) para o padrão de diasDisponiveis
-  const normalizarDias = (diasStr) => {
-    if (!diasStr) return '';
-    const mapa = {
-      'segunda-feira': 'Segunda', 'segunda': 'Segunda', 'seg': 'Segunda',
-      'terca-feira': 'Terça', 'terca': 'Terça', 'ter': 'Terça',
-      'quarta-feira': 'Quarta', 'quarta': 'Quarta', 'qua': 'Quarta',
-      'quinta-feira': 'Quinta', 'quinta': 'Quinta', 'qui': 'Quinta',
-      'sexta-feira': 'Sexta', 'sexta': 'Sexta', 'sex': 'Sexta',
-      'sabado': 'Sábado', 'sabado-feira': 'Sábado', 'sab': 'Sábado',
-    };
-    return diasStr
-      .split(',')
-      .map(d => {
-        const norm = d.trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
-        return mapa[norm] || d.trim();
-      })
-      .filter(Boolean)
-      .join(', ');
-  };
-
-  // Gerar dias de aula do mês baseado nos dias da semana da turma
-  const gerarDiasAulaMes = (turma, mes = new Date().getMonth(), ano = new Date().getFullYear()) => {
-    // Mapeamento robusto: aceita com e sem acento, completo ou abreviado
-    const diasSemana = {
-      'domingo': 0, 
-      'segunda': 1, 'segunda-feira': 1, 'seg': 1,
-      'terca': 2, 'terça': 2, 'terca-feira': 2, 'terça-feira': 2, 'ter': 2,
-      'quarta': 3, 'quarta-feira': 3, 'qua': 3,
-      'quinta': 4, 'quinta-feira': 4, 'qui': 4,
-      'sexta': 5, 'sexta-feira': 5, 'sex': 5,
-      'sabado': 6, 'sábado': 6, 'sabado-feira': 6, 'sábado-feira': 6, 'sab': 6
-    };
-    
-    if (!turma.dias || typeof turma.dias !== 'string') {
-      console.error('Turma sem dias definidos:', turma);
-      return [];
-    }
-    
-    const diasTurma = turma.dias.split(',').map(d => normalizarString(d));
-    const numerosDias = diasTurma
-      .map(dia => diasSemana[dia])
-      .filter(n => n !== undefined);
-    
-    // Debug: se não encontrou dias, mostrar o problema
-    if (numerosDias.length === 0) {
-      console.error('Nenhum dia válido encontrado para turma:', {
-        turma: turma.nome,
-        diasOriginal: turma.dias,
-        diasNormalizados: diasTurma
-      });
-    }
-    
-    const diasAula = [];
-    const ultimoDiaMes = new Date(ano, mes + 1, 0).getDate();
-    
-    for (let dia = 1; dia <= ultimoDiaMes; dia++) {
-      const data = new Date(ano, mes, dia);
-      if (numerosDias.includes(data.getDay())) {
-        diasAula.push(dia);
-      }
-    }
-    
-    return diasAula;
-  };
-
-  // Função para gerar e imprimir a chamada
-  const gerarChamada = (turma) => {
-    const alunosDaTurma = getAlunosDaTurma(turma);
-    const agora = new Date();
-    const mesAtual = agora.getMonth();
-    const anoAtual = agora.getFullYear();
-    const nomesMeses = [
-      'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
-      'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
-    ];
-    
-    const diasAula = gerarDiasAulaMes(turma, mesAtual, anoAtual);
-    
-    const chamadaHTML = `
-      <html>
-        <head>
-          <title>Lista de Presença - ${turma.nome}</title>
-          <style>
-            body { font-family: Arial, sans-serif; margin: 20px; }
-            .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #005DE4; padding-bottom: 15px; }
-            .logo { color: #005DE4; font-size: 24px; font-weight: bold; margin-bottom: 10px; }
-            .logo img { max-width: 150px; height: auto; }
-            .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px; }
-            .info-item { padding: 8px; border: 1px solid #ccc; }
-            .info-label { font-weight: bold; width: 80px; display: inline-block; }
-            table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
-            th, td { border: 1px solid #000; padding: 8px; text-align: center; height: 0.3in; }
-            th { background-color: #f5f5f5; font-weight: bold; }
-            .aluno-col { text-align: left; width: 300px; font-size: 12px; }
-            .dia-col { width: 30px; height: 0.3in; }
-            .footer { margin-top: 30px; }
-            .footer-table { width: 100%; border-collapse: collapse; }
-            .footer-table th, .footer-table td { border: 1px solid #000; padding: 8px; text-align: left; }
-            .footer-table th { background-color: #f5f5f5; font-weight: bold; }
-            .data-col { width: 100px; }
-            .content-cell { height: 0.3in; vertical-align: top; }
-          </style>
-        </head>
-        <body>
-          <div class="header">
-            <div class="logo">
-              <img src="https://www.speakupcataguases.com/wp-content/uploads/2026/02/logo-speakup-azul.png" alt="SpeakUp Logo" />
-            </div>
-            <p>Praça Governador Valadares 119, Centro - Cataguases MG</p>
-            <p>CNPJ: 28.649.636-000/88</p>
-          </div>
-          
-          <div class="info-grid">
-            <div class="info-item">
-              <span class="info-label">Turma:</span> ${turma.nome}
-            </div>
-            <div class="info-item">
-              <span class="info-label">Mês:</span> ${nomesMeses[mesAtual]}/${anoAtual}
-            </div>
-            <div class="info-item">
-              <span class="info-label">Nível:</span> ${turma.nivel}
-            </div>
-            <div class="info-item">
-              <span class="info-label">Dia:</span> ${turma.dias}
-            </div>
-            <div class="info-item">
-              <span class="info-label">Professor:</span> ${turma.professor}
-            </div>
-            <div class="info-item">
-              <span class="info-label">Horário:</span> ${turma.horario}
-            </div>
-          </div>
-
-          <table>
-            <thead>
-              <tr>
-                <th class="aluno-col">Aluno</th>
-                ${diasAula.map(dia => `<th class="dia-col">${dia}</th>`).join('')}
-              </tr>
-            </thead>
-            <tbody>
-              ${(() => {
-                const linhas = [];
-                // Garantir sempre 10 linhas na tabela de alunos
-                for (let i = 0; i < 10; i++) {
-                  const aluno = alunosDaTurma[i];
-                  const nomeAluno = aluno ? (aluno.name || 'Nome não informado') : '';
-                  linhas.push(`
-                    <tr>
-                      <td class="aluno-col">${nomeAluno}</td>
-                      ${diasAula.map(() => '<td class="dia-col"></td>').join('')}
-                    </tr>
-                  `);
-                }
-                return linhas.join('');
-              })()}
-            </tbody>
-          </table>
-
-          <table class="footer-table">
-            <tr>
-              <th class="data-col">Data</th>
-              <th>Conteúdo Lecionado</th>
-            </tr>
-            <tr>
-              <td class="content-cell data-col"></td>
-              <td class="content-cell"></td>
-            </tr>
-            <tr>
-              <td class="content-cell data-col"></td>
-              <td class="content-cell"></td>
-            </tr>
-            <tr>
-              <td class="content-cell data-col"></td>
-              <td class="content-cell"></td>
-            </tr>
-            <tr>
-              <td class="content-cell data-col"></td>
-              <td class="content-cell"></td>
-            </tr>
-            <tr>
-              <td class="content-cell data-col"></td>
-              <td class="content-cell"></td>
-            </tr>
-            <tr>
-              <td class="content-cell data-col"></td>
-              <td class="content-cell"></td>
-            </tr>
-            <tr>
-              <td class="content-cell data-col"></td>
-              <td class="content-cell"></td>
-            </tr>
-          </table>
-        </body>
-      </html>
-    `;
-    
-    // Abrir em nova janela para impressão
-    const janelaImpressao = window.open('', '_blank');
-    janelaImpressao.document.write(chamadaHTML);
-    janelaImpressao.document.close();
-    janelaImpressao.print();
-    
-    showToast('Lista de presença gerada com sucesso!', 'success');
-  };
-
-  // Abrir modal para nova turma
-  const abrirNovoModal = () => {
+  const abrirNovoModal = useCallback(function() {
     setEditingTurma(null);
-    setForm({ 
-      nome: '', 
-      nivel: '', 
-      professor: '', 
-      horario: '', 
-      dias: '',
-      maxAlunos: 15,
-      totalAulas: 40,
-    });
+    setForm(FORM_INICIAL);
     setSelectedAlunos([]);
     setFormErrors({});
     setShowModal(true);
-  };
+  }, []);
+
+  const handleEditTurma = useCallback(function(turma) {
+    setEditingTurma(turma);
+    // Converter formato antigo (dias + horario) para o novo (horarios array)
+    var horarios = turma.horarios || [];
+    if (!horarios.length && turma.dias) {
+      var diasArr = turma.dias.split(',').map(function(d) { return d.trim(); }).filter(Boolean);
+      var horarioInicio = turma.horario ? turma.horario.split(' - ')[0].trim() : '';
+      horarios = diasArr.map(function(dia) { return { dia: dia, horario: horarioInicio }; });
+    }
+    setForm({
+      nome: turma.nome, nivel: turma.nivel, professor: turma.professor,
+      horarios: horarios,
+      maxAlunos: turma.maxAlunos || DEFAULT_MAX_ALUNOS, totalAulas: turma.totalAulas || DEFAULT_TOTAL_AULAS,
+    });
+    setSelectedAlunos(turma.alunosIds && turma.alunosIds.length ? alunosProp.filter(function(s) { return turma.alunosIds.includes(s.id); }) : []);
+    setFormErrors({});
+    setShowModal(true);
+  }, [alunosProp]);
+
+  const handleFormChange = useCallback(function(newForm) {
+    if (newForm._clearError) {
+      const { _clearError } = newForm;
+      const rest = Object.assign({}, newForm);
+      delete rest._clearError;
+      setFormErrors(function(prev) { return Object.assign({}, prev, { [_clearError]: '' }); });
+      setForm(rest);
+    } else {
+      setForm(newForm);
+    }
+  }, []);
+
+  const adicionarAluno = useCallback(function(aluno) {
+    setSelectedAlunos(function(prev) { return prev.find(function(a) { return a.id === aluno.id; }) ? prev : [...prev, aluno]; });
+    setSearchAluno('');
+  }, []);
+
+  const removerAluno = useCallback(function(id) {
+    setSelectedAlunos(function(prev) { return prev.filter(function(a) { return a.id !== id; }); });
+  }, []);
+
+  const salvarTurma = useCallback(async function() {
+    const errors = validateForm(form);
+    if (Object.keys(errors).length > 0) {
+      setFormErrors(errors);
+      showToastMsg('Corrija os erros no formulário', 'error');
+      return;
+    }
+    var horarios = form.horarios || [];
+    var turmaData = {
+      nome: form.nome.trim(), professor: form.professor, nivel: form.nivel,
+      horarios: horarios,
+      // Campos legados para compatibilidade com ChamadaForm e filtros
+      dias: extrairDias(horarios),
+      horario: formatarHorarios(horarios),
+      maxAlunos: Math.max(1, Math.min(30, parseInt(form.maxAlunos, 10) || DEFAULT_MAX_ALUNOS)),
+      totalAulas: Math.max(1, parseInt(form.totalAulas, 10) || DEFAULT_TOTAL_AULAS),
+      alunosIds: selectedAlunos.map(function(a) { return a.id; }),
+    };
+    if (verificarDuplicata(turmaData, editingTurma ? editingTurma.id : null)) {
+      showToastMsg('Já existe turma para este professor no mesmo dia e horário', 'warning');
+      return;
+    }
+    try {
+      setSaving(true);
+      setFormErrors({});
+      if (editingTurma) {
+        await editarTurma(editingTurma.id, turmaData, editingTurma.createdAt);
+        showToastMsg('Turma editada com sucesso!', 'success');
+      } else {
+        await criarTurma(turmaData);
+        showToastMsg('Turma criada com sucesso!', 'success');
+      }
+      resetForm();
+    } catch (err) {
+      handleError(err, 'salvar turma');
+    } finally {
+      setSaving(false);
+    }
+  }, [form, selectedAlunos, editingTurma, verificarDuplicata, criarTurma, editarTurma, handleError, resetForm]);
+
+  const handleDeleteTurma = useCallback(async function(turma) {
+    const confirmed = await requestConfirm({
+      title: 'Excluir "' + turma.nome + '"?',
+      message: 'Esta ação não pode ser desfeita. Todos os dados da turma serão removidos permanentemente.',
+      variant: 'danger', confirmLabel: 'Excluir',
+    });
+    if (!confirmed) return;
+    try {
+      setDeleting(turma.id);
+      await excluirTurma(turma.id);
+      showToastMsg('Turma excluída com sucesso!', 'success');
+    } catch (err) {
+      handleError(err, 'excluir turma');
+    } finally {
+      setDeleting(null);
+    }
+  }, [requestConfirm, excluirTurma, handleError]);
+
+  const gerarChamada = useCallback(function(turma) {
+    const alunosDaTurma = getAlunosDaTurma(turma);
+    const agora = new Date();
+    const mes = agora.getMonth();
+    const ano = agora.getFullYear();
+    const meses = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+    const diasAula = gerarDiasAulaMes(turma, mes, ano);
+    const linhas = Array.from({ length: 10 }, function(_, i) {
+      const a = alunosDaTurma[i];
+      return '<tr><td class="aluno-col">' + escapeHtml(a ? (a.name || '') : '') + '</td>' + diasAula.map(function() { return '<td class="dia-col"></td>'; }).join('') + '</tr>';
+    }).join('');
+    const html = '<html><head><title>Lista de Presença - ' + escapeHtml(turma.nome) + '</title><style>body{font-family:Arial,sans-serif;margin:20px}.header{text-align:center;margin-bottom:30px;border-bottom:2px solid #005DE4;padding-bottom:15px}.logo img{max-width:150px}.info-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:20px}.info-item{padding:8px;border:1px solid #ccc}.info-label{font-weight:bold;width:80px;display:inline-block}table{width:100%;border-collapse:collapse;margin-bottom:20px}th,td{border:1px solid #000;padding:8px;text-align:center;height:.3in}th{background-color:#f5f5f5;font-weight:bold}.aluno-col{text-align:left;width:300px;font-size:12px}.dia-col{width:30px}.footer-table th,.footer-table td{border:1px solid #000;padding:8px;text-align:left}.footer-table th{background-color:#f5f5f5;font-weight:bold}.data-col{width:100px}.content-cell{height:.3in;vertical-align:top}</style></head><body><div class="header"><div class="logo"><img src="https://www.speakupcataguases.com/wp-content/uploads/2026/02/logo-speakup-azul.png" alt="SpeakUp"/></div><p>Praça Governador Valadares 119, Centro - Cataguases MG</p><p>CNPJ: 28.649.636-000/88</p></div><div class="info-grid"><div class="info-item"><span class="info-label">Turma:</span> ' + escapeHtml(turma.nome) + '</div><div class="info-item"><span class="info-label">Mês:</span> ' + meses[mes] + '/' + ano + '</div><div class="info-item"><span class="info-label">Nível:</span> ' + escapeHtml(turma.nivel) + '</div><div class="info-item"><span class="info-label">Dia:</span> ' + escapeHtml(turma.dias) + '</div><div class="info-item"><span class="info-label">Professor:</span> ' + escapeHtml(turma.professor) + '</div><div class="info-item"><span class="info-label">Horário:</span> ' + escapeHtml(turma.horario) + '</div></div><table><thead><tr><th class="aluno-col">Aluno</th>' + diasAula.map(function(d) { return '<th class="dia-col">' + d + '</th>'; }).join('') + '</tr></thead><tbody>' + linhas + '</tbody></table><table class="footer-table"><tr><th class="data-col">Data</th><th>Conteúdo Lecionado</th></tr>' + Array.from({length:7},function(){return '<tr><td class="content-cell data-col"></td><td class="content-cell"></td></tr>';}).join('') + '</table></body></html>';
+    const win = window.open('', '_blank');
+    win.document.write(html);
+    win.document.close();
+    win.print();
+    showToastMsg('Lista de presença gerada!', 'success');
+  }, [getAlunosDaTurma]);
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="mb-8">
         <div className="flex flex-col lg:flex-row gap-6 lg:gap-8 items-start lg:items-center justify-between mb-8">
           <div className="space-y-2">
@@ -672,456 +308,71 @@ export default function Turmas({ students = [] }) {
               <Users className="text-[#005DE4]" size={32} />
               Gestão de Turmas
             </h1>
-            <p className="text-gray-600 font-medium">
-              Gerencie suas turmas, horários e alunos matriculados
-            </p>
+            <p className="text-gray-600 font-medium">Gerencie suas turmas, horários e alunos matriculados</p>
           </div>
         </div>
 
-        {/* Estatísticas */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6">
           {loading ? (
-            // Loading skeleton para estatísticas
-            Array.from({ length: 4 }).map((_, index) => (
-              <div key={index} className="bg-gray-50 p-6 rounded-xl animate-pulse">
-                <div className="h-8 bg-gray-300 rounded mb-2"></div>
-                <div className="h-4 bg-gray-300 rounded w-3/4"></div>
-              </div>
-            ))
+            Array.from({ length: 4 }).map(function(_, i) {
+              return (
+                <div key={i} className="bg-gray-50 p-6 rounded-xl animate-pulse">
+                  <div className="h-8 bg-gray-300 rounded mb-2" />
+                  <div className="h-4 bg-gray-300 rounded w-3/4" />
+                </div>
+              );
+            })
           ) : (
             <>
-              <div className="bg-gradient-to-br from-blue-50 to-blue-100 border border-blue-200/50 p-6 rounded-xl">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="inline-flex items-center justify-center w-10 h-10 bg-blue-500 rounded-lg">
-                    <School size={20} className="text-white" />
-                  </div>
-                  <span className="text-2xl font-bold text-blue-700">{turmasFiltradas.length}</span>
-                </div>
-                <p className="text-sm font-semibold text-blue-600">Total de Turmas</p>
-                <p className="text-xs text-blue-500 mt-1">Turmas ativas</p>
-              </div>
-
-              <div className="bg-gradient-to-br from-green-50 to-green-100 border border-green-200/50 p-6 rounded-xl">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="inline-flex items-center justify-center w-10 h-10 bg-green-500 rounded-lg">
-                    <GraduationCap size={20} className="text-white" />
-                  </div>
-                  <span className="text-2xl font-bold text-green-700">{turmasFiltradas.reduce((acc, t) => acc + (t.alunosIds?.length || 0), 0)}</span>
-                </div>
-                <p className="text-sm font-semibold text-green-600">Total de Alunos</p>
-                <p className="text-xs text-green-500 mt-1">Estudantes matriculados</p>
-              </div>
-
-              <div className="bg-gradient-to-br from-purple-50 to-purple-100 border border-purple-200/50 p-6 rounded-xl">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="inline-flex items-center justify-center w-10 h-10 bg-purple-500 rounded-lg">
-                    <UserCheck size={20} className="text-white" />
-                  </div>
-                  <span className="text-2xl font-bold text-purple-700">{new Set(turmasFiltradas.map(t => t.professor)).size}</span>
-                </div>
-                <p className="text-sm font-semibold text-purple-600">Professores</p>
-                <p className="text-xs text-purple-500 mt-1">Docentes ativos</p>
-              </div>
-
-              <div className="bg-gradient-to-br from-orange-50 to-orange-100 border border-orange-200/50 p-6 rounded-xl">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="inline-flex items-center justify-center w-10 h-10 bg-orange-500 rounded-lg">
-                    <Clock size={20} className="text-white" />
-                  </div>
-                  <span className="text-2xl font-bold text-orange-700">
-                    {turmasFiltradas.length > 0 
-                      ? Math.round((turmasFiltradas.reduce((acc, t) => acc + (t.alunosIds?.length || 0), 0) / turmasFiltradas.reduce((acc, t) => acc + (t.maxAlunos || 15), 0)) * 100)
-                      : 0}%
-                  </span>
-                </div>
-                <p className="text-sm font-semibold text-orange-600">Taxa de Ocupação</p>
-                <p className="text-xs text-orange-500 mt-1">Capacidade utilizada</p>
-              </div>
+              <StatCard2 color="blue" icon={<School size={20} className="text-white" />} value={turmasFiltradas.length} label="Total de Turmas" sub="Turmas ativas" />
+              <StatCard2 color="green" icon={<GraduationCap size={20} className="text-white" />} value={turmasFiltradas.reduce(function(a, t) { return a + (t.alunosIds ? t.alunosIds.length : 0); }, 0)} label="Total de Alunos" sub="Estudantes matriculados" />
+              <StatCard2 color="purple" icon={<UserCheck size={20} className="text-white" />} value={new Set(turmasFiltradas.map(function(t) { return t.professor; })).size} label="Professores" sub="Docentes ativos" />
+              <StatCard2 color="orange" icon={<Clock size={20} className="text-white" />}
+                value={(function() {
+                  const totalAlunos = turmasFiltradas.reduce(function(a, t) { return a + (t.alunosIds ? t.alunosIds.length : 0); }, 0);
+                  const totalMax = turmasFiltradas.reduce(function(a, t) { return a + (t.maxAlunos || DEFAULT_MAX_ALUNOS); }, 0);
+                  return turmasFiltradas.length > 0 ? Math.round((totalAlunos / totalMax) * 100) + '%' : '0%';
+                })()}
+                label="Taxa de Ocupação" sub="Capacidade utilizada" />
             </>
           )}
         </div>
       </div>
 
-      
-      {/* Relatório de Professores */}
+      <ProfessorReport
+        professorStats={professorStats}
+        expandedProfessores={expandedProfessores}
+        copiedLink={copiedLink}
+        onToggleProfessor={toggleProfessorExpansion}
+        onCopyLink={handleCopyLink}
+      />
+
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-        {/* Header do Relatório - Clicável */}
-        <button
-          onClick={() => setShowProfessorReport(!showProfessorReport)}
-          className="w-full p-6 flex items-center justify-between hover:bg-gray-50 transition-colors"
-        >
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl flex items-center justify-center">
-              <UserCheck size={20} className="text-white" />
-            </div>
-            <div className="text-left">
-              <h3 className="text-lg font-bold text-gray-900">Relatório de Professores</h3>
-              <p className="text-sm text-gray-500">
-                Horas trabalhadas, turmas e alunos por professor
-              </p>
-            </div>
-          </div>
-          <div className="flex items-center gap-3">
-            <span className="px-3 py-1 bg-purple-100 text-purple-700 rounded-lg text-sm font-semibold">
-              {getProfessorStats.length} {getProfessorStats.length === 1 ? 'professor' : 'professores'}
-            </span>
-            <ChevronDown 
-              size={20} 
-              className={`text-gray-400 transform transition-transform duration-200 ${
-                showProfessorReport ? 'rotate-180' : ''
-              }`}
-            />
-          </div>
-        </button>
-
-        {/* Conteúdo do Relatório - Colapsável */}
-        {showProfessorReport && (
-          <div className="border-t border-gray-200 bg-gray-50">
-            {getProfessorStats.length === 0 ? (
-              <div className="p-8 text-center">
-                <div className="inline-flex items-center justify-center w-12 h-12 bg-gray-100 rounded-full mb-3">
-                  <UserCheck size={20} className="text-gray-400" />
-                </div>
-                <p className="text-sm text-gray-500">Nenhum professor com turmas ativas</p>
-              </div>
-            ) : (
-              <div className="p-6 space-y-4">
-                {/* Cards de Professores */}
-                {getProfessorStats.map((prof, index) => {
-                  const isExpanded = expandedProfessores.has(prof.nome);
-                  
-                  return (
-                    <div 
-                      key={`professor-${index}`}
-                      className="bg-white rounded-xl border border-gray-200 overflow-hidden hover:shadow-md transition-all duration-200"
-                    >
-                      {/* Header do Professor - Clicável */}
-                      <button
-                        onClick={() => toggleProfessorExpansion(prof.nome)}
-                        className="w-full p-5 flex items-center justify-between hover:bg-gray-50 transition-colors"
-                      >
-                        <div className="flex items-center gap-4">
-                          {/* Avatar e Nome */}
-                          <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-purple-600 rounded-full flex items-center justify-center">
-                            <span className="text-white font-bold text-lg">
-                              {prof.nome.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase()}
-                            </span>
-                          </div>
-                          <div className="text-left">
-                            <h4 className="font-bold text-gray-900 text-lg">{prof.nome}</h4>
-                            <p className="text-sm text-gray-500">
-                              {prof.totalTurmas} {prof.totalTurmas === 1 ? 'turma' : 'turmas'} • {prof.totalAlunos} {prof.totalAlunos === 1 ? 'aluno' : 'alunos'}
-                            </p>
-                          </div>
-                        </div>
-
-                        {/* Estatísticas Rápidas */}
-                        <div className="flex items-center gap-4">
-                          {/* Horas Semanais */}
-                          <div className="text-right">
-                            <div className="text-2xl font-bold text-purple-600">
-                              {prof.horasPorSemana.toFixed(1)}h
-                            </div>
-                            <div className="text-xs text-gray-500 font-medium">por semana</div>
-                          </div>
-
-                          {/* Horas Mensais */}
-                          <div className="text-right">
-                            <div className="text-2xl font-bold text-blue-600">
-                              {prof.horasPorMes.toFixed(0)}h
-                            </div>
-                            <div className="text-xs text-gray-500 font-medium">por mês</div>
-                          </div>
-
-                          {/* Botão Copiar Link - fora do button pai */}
-                          <div onClick={e => e.stopPropagation()}>
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                const slug = prof.nome.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, '-');
-                                const url = `${window.location.origin}/professor/${slug}`;
-                                navigator.clipboard.writeText(url).then(() => {
-                                  setCopiedLink(prof.nome);
-                                  setTimeout(() => setCopiedLink(null), 2000);
-                                });
-                              }}
-                              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                                copiedLink === prof.nome
-                                  ? 'bg-emerald-100 text-emerald-700 border border-emerald-300'
-                                  : 'bg-white border border-gray-300 text-gray-600 hover:border-[#005DE4] hover:text-[#005DE4]'
-                              }`}
-                              title="Copiar link do painel do professor"
-                            >
-                              {copiedLink === prof.nome ? <Check size={13} /> : <Copy size={13} />}
-                              {copiedLink === prof.nome ? 'Copiado!' : 'Copiar link'}
-                            </button>
-                          </div>
-
-                          {/* Ícone de Expansão */}
-                          <ChevronDown 
-                            size={20} 
-                            className={`text-gray-400 transform transition-transform duration-200 ${
-                              isExpanded ? 'rotate-180' : ''
-                            }`}
-                          />
-                        </div>
-                      </button>
-
-                      {/* Detalhes Expandidos */}
-                      {isExpanded && (
-                        <div className="border-t border-gray-100 p-5 bg-gray-50/50 space-y-4">
-                          {/* Grid de Estatísticas */}
-                          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                            {/* Total de Turmas */}
-                            <div className="bg-white border border-blue-200 rounded-lg p-4">
-                              <div className="flex items-center gap-2 mb-2">
-                                <School size={16} className="text-blue-600" />
-                                <span className="text-xs font-semibold text-blue-600 uppercase">Turmas</span>
-                              </div>
-                              <div className="text-2xl font-bold text-blue-700">{prof.totalTurmas}</div>
-                              <div className="text-xs text-gray-500 mt-1">turmas ativas</div>
-                            </div>
-
-                            {/* Total de Alunos */}
-                            <div className="bg-white border border-green-200 rounded-lg p-4">
-                              <div className="flex items-center gap-2 mb-2">
-                                <GraduationCap size={16} className="text-green-600" />
-                                <span className="text-xs font-semibold text-green-600 uppercase">Alunos</span>
-                              </div>
-                              <div className="text-2xl font-bold text-green-700">{prof.totalAlunos}</div>
-                              <div className="text-xs text-gray-500 mt-1">
-                                {prof.totalTurmas > 0 ? `${(prof.totalAlunos / prof.totalTurmas).toFixed(1)} por turma` : '-'}
-                              </div>
-                            </div>
-
-                            {/* Horas Semanais */}
-                            <div className="bg-white border border-purple-200 rounded-lg p-4">
-                              <div className="flex items-center gap-2 mb-2">
-                                <Clock size={16} className="text-purple-600" />
-                                <span className="text-xs font-semibold text-purple-600 uppercase">Semanal</span>
-                              </div>
-                              <div className="text-2xl font-bold text-purple-700">{prof.horasPorSemana.toFixed(1)}h</div>
-                              <div className="text-xs text-gray-500 mt-1">horas por semana</div>
-                            </div>
-
-                            {/* Horas Mensais */}
-                            <div className="bg-white border border-orange-200 rounded-lg p-4">
-                              <div className="flex items-center gap-2 mb-2">
-                                <Clock size={16} className="text-orange-600" />
-                                <span className="text-xs font-semibold text-orange-600 uppercase">Mensal</span>
-                              </div>
-                              <div className="text-2xl font-bold text-orange-700">{prof.horasPorMes.toFixed(0)}h</div>
-                              <div className="text-xs text-gray-500 mt-1">horas por mês</div>
-                            </div>
-                          </div>
-
-                          {/* Lista de Turmas do Professor */}
-                          <div>
-                            <h5 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
-                              <School size={16} className="text-gray-600" />
-                              Turmas ({prof.turmas.length})
-                            </h5>
-                            <div className="space-y-2">
-                              {prof.turmas.map((turma, idx) => (
-                                <div 
-                                  key={`prof-turma-${idx}`}
-                                  className="bg-white border border-gray-200 rounded-lg p-4 hover:border-purple-300 transition-colors"
-                                >
-                                  <div className="flex items-start justify-between">
-                                    {/* Info da Turma */}
-                                    <div className="flex-1">
-                                      <div className="flex items-center gap-3 mb-2">
-                                        <h6 className="font-bold text-gray-900">{turma.nome}</h6>
-                                        <span className="px-2 py-1 bg-purple-100 text-purple-700 rounded text-xs font-semibold">
-                                          {turma.nivel}
-                                        </span>
-                                      </div>
-                                      
-                                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
-                                        {/* Horário */}
-                                        <div className="flex items-center gap-2">
-                                          <Clock size={14} className="text-gray-400" />
-                                          <span className="text-gray-700">{turma.horario}</span>
-                                        </div>
-
-                                        {/* Dias */}
-                                        <div className="flex items-center gap-2">
-                                          <span className="text-gray-500 text-xs">📅</span>
-                                          <span className="text-gray-700">{turma.dias}</span>
-                                        </div>
-
-                                        {/* Alunos */}
-                                        <div className="flex items-center gap-2">
-                                          <GraduationCap size={14} className="text-gray-400" />
-                                          <span className="text-gray-700">
-                                            {turma.alunos.length}/{turma.maxAlunos} alunos
-                                          </span>
-                                        </div>
-
-                                        {/* Horas Semanais */}
-                                        <div className="flex items-center gap-2">
-                                          <span className="text-purple-600 font-semibold">
-                                            {turma.horasSemanais.toFixed(1)}h/semana
-                                          </span>
-                                        </div>
-                                      </div>
-                                    </div>
-                                  </div>
-
-                                  {/* Lista de Alunos da Turma (se houver) */}
-                                  {turma.alunos.length > 0 && (
-                                    <div className="mt-3 pt-3 border-t border-gray-100">
-                                      <div className="flex flex-wrap gap-2">
-                                        {turma.alunos.slice(0, 5).map((aluno, alunoIdx) => (
-                                          <span 
-                                            key={`turma-aluno-${alunoIdx}`}
-                                            className="px-2 py-1 bg-blue-50 text-blue-700 rounded text-xs"
-                                          >
-                                            {aluno.name}
-                                          </span>
-                                        ))}
-                                        {turma.alunos.length > 5 && (
-                                          <span className="px-2 py-1 bg-gray-100 text-gray-600 rounded text-xs">
-                                            +{turma.alunos.length - 5} mais
-                                          </span>
-                                        )}
-                                      </div>
-                                    </div>
-                                  )}
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-
-                          {/* Cálculo de Salário Sugerido (exemplo) */}
-                          <div className="bg-gradient-to-r from-purple-50 to-blue-50 border border-purple-200 rounded-lg p-4">
-                            <div className="flex items-start justify-between">
-                              <div>
-                                <h6 className="font-semibold text-gray-900 mb-1">💰 Estimativa de Trabalho</h6>
-                                <p className="text-sm text-gray-600 mb-3">
-                                  Baseado em {prof.horasPorSemana.toFixed(1)} horas semanais
-                                </p>
-                                <div className="grid grid-cols-2 gap-4 text-sm">
-                                  <div>
-                                    <span className="text-gray-500">Horas/Semana:</span>
-                                    <span className="ml-2 font-bold text-purple-700">{prof.horasPorSemana.toFixed(1)}h</span>
-                                  </div>
-                                  <div>
-                                    <span className="text-gray-500">Horas/Mês:</span>
-                                    <span className="ml-2 font-bold text-purple-700">{prof.horasPorMes.toFixed(0)}h</span>
-                                  </div>
-                                </div>
-                              </div>
-                              <div className="text-right">
-                                <div className="text-xs text-gray-500 mb-1">Carga Horária</div>
-                                <div className="text-3xl font-bold text-purple-600">
-                                  {prof.horasPorSemana.toFixed(1)}h
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-
-                {/* Resumo Geral */}
-                <div className="bg-gradient-to-r from-purple-500 to-blue-500 rounded-xl p-6 text-white mt-6">
-                  <h5 className="font-bold text-lg mb-4 flex items-center gap-2">
-                    <span>📊</span>
-                    Resumo Geral
-                  </h5>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <div>
-                      <div className="text-white/80 text-sm mb-1">Total de Professores</div>
-                      <div className="text-3xl font-bold">{getProfessorStats.length}</div>
-                    </div>
-                    <div>
-                      <div className="text-white/80 text-sm mb-1">Total de Turmas</div>
-                      <div className="text-3xl font-bold">
-                        {getProfessorStats.reduce((acc, p) => acc + p.totalTurmas, 0)}
-                      </div>
-                    </div>
-                    <div>
-                      <div className="text-white/80 text-sm mb-1">Total de Alunos</div>
-                      <div className="text-3xl font-bold">
-                        {getProfessorStats.reduce((acc, p) => acc + p.totalAlunos, 0)}
-                      </div>
-                    </div>
-                    <div>
-                      <div className="text-white/80 text-sm mb-1">Horas Semanais</div>
-                      <div className="text-3xl font-bold">
-                        {getProfessorStats.reduce((acc, p) => acc + p.horasPorSemana, 0).toFixed(1)}h
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-      
-      {/* Lista de Turmas */}
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-        {/* Cabeçalho integrado */}
         <div className="px-5 pt-5 pb-3 border-b border-gray-100">
           <div className="flex items-center justify-between mb-3">
             <div>
-              <h2 className="text-base font-bold text-gray-900">Lista de Turmas</h2>
+              <h2 className="text-base font-bold text-gray-900">Lista de turmas</h2>
               <p className="text-sm text-gray-500">Total: {turmasFiltradas.length} turma{turmasFiltradas.length !== 1 ? 's' : ''}</p>
             </div>
-            <button
-              onClick={abrirNovoModal}
-              disabled={loading}
-              className="bg-[#005DE4] text-white px-4 py-2 rounded-lg font-semibold flex gap-1.5 items-center hover:bg-[#0048b3] transition-colors text-sm disabled:opacity-50"
-            >
-              <Plus size={16} />
-              Nova Turma
+            <button onClick={abrirNovoModal} disabled={loading} className="bg-[#005DE4] text-white px-4 py-2 rounded-lg font-semibold flex gap-1.5 items-center hover:bg-[#0048b3] transition-colors text-sm disabled:opacity-50">
+              <Plus size={16} /> Nova Turma
             </button>
           </div>
-
-          {/* Filtros em linha */}
           <div className="flex flex-wrap items-center gap-3">
-            <select
-              value={filtros.professor}
-              onChange={(e) => setFiltros(f => ({ ...f, professor: e.target.value }))}
-              className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#005DE4] focus:border-[#005DE4] bg-white"
-            >
+            <select value={filtros.professor} onChange={function(e) { setFiltros(function(f) { return Object.assign({}, f, { professor: e.target.value }); }); }} className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#005DE4] bg-white">
               <option value="all">Todos os professores</option>
-              {professores.map((prof, i) => (
-                <option key={i} value={prof}>{prof}</option>
-              ))}
+              {PROFESSORES.map(function(p) { return <option key={p} value={p}>{p}</option>; })}
             </select>
-
-            <select
-              value={filtros.dia}
-              onChange={(e) => setFiltros(f => ({ ...f, dia: e.target.value }))}
-              className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#005DE4] focus:border-[#005DE4] bg-white"
-            >
+            <select value={filtros.dia} onChange={function(e) { setFiltros(function(f) { return Object.assign({}, f, { dia: e.target.value }); }); }} className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#005DE4] bg-white">
               <option value="all">Todos os dias</option>
-              {diasDisponiveis.map((dia, i) => (
-                <option key={i} value={dia}>{dia}</option>
-              ))}
+              {DIAS_DISPONIVEIS.map(function(d) { return <option key={d} value={d}>{d}</option>; })}
             </select>
-
-            <select
-              value={filtros.nivel}
-              onChange={(e) => setFiltros(f => ({ ...f, nivel: e.target.value }))}
-              className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#005DE4] focus:border-[#005DE4] bg-white"
-            >
+            <select value={filtros.nivel} onChange={function(e) { setFiltros(function(f) { return Object.assign({}, f, { nivel: e.target.value }); }); }} className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#005DE4] bg-white">
               <option value="all">Todos os níveis</option>
-              {niveis.map((nivel, i) => (
-                <option key={i} value={nivel}>{nivel}</option>
-              ))}
+              {NIVEIS.map(function(n) { return <option key={n} value={n}>{n}</option>; })}
             </select>
-
             {(filtros.professor !== 'all' || filtros.dia !== 'all' || filtros.nivel !== 'all') && (
-              <button
-                onClick={() => setFiltros({ professor: 'all', dia: 'all', nivel: 'all' })}
-                className="text-xs text-red-500 hover:text-red-700 font-medium flex items-center gap-1 hover:bg-red-50 px-2 py-1.5 rounded-lg transition-colors"
-              >
+              <button onClick={function() { setFiltros({ professor: 'all', dia: 'all', nivel: 'all' }); }} className="text-xs text-red-500 hover:text-red-700 font-medium flex items-center gap-1 hover:bg-red-50 px-2 py-1.5 rounded-lg transition-colors">
                 <X size={12} /> Limpar
               </button>
             )}
@@ -1129,81 +380,41 @@ export default function Turmas({ students = [] }) {
         </div>
 
         {loading ? (
-          // Loading skeleton para turmas
-          <div className="space-y-4">
-            {Array.from({ length: 3 }).map((_, index) => (
-              <div key={index} className="bg-white border border-gray-200 rounded-lg shadow-sm p-6 animate-pulse">
-                <div className="flex justify-between items-start">
-                  <div className="flex-1">
-                    <div className="h-6 bg-gray-300 rounded w-1/3 mb-3"></div>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <div className="flex items-center gap-2">
-                        <div className="w-8 h-8 bg-gray-300 rounded-full"></div>
-                        <div>
-                          <div className="h-3 bg-gray-300 rounded w-16 mb-1"></div>
-                          <div className="h-4 bg-gray-300 rounded w-24"></div>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <div className="w-8 h-8 bg-gray-300 rounded-full"></div>
-                        <div>
-                          <div className="h-3 bg-gray-300 rounded w-16 mb-1"></div>
-                          <div className="h-4 bg-gray-300 rounded w-20"></div>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <div className="w-8 h-8 bg-gray-300 rounded-full"></div>
-                        <div>
-                          <div className="h-3 bg-gray-300 rounded w-16 mb-1"></div>
-                          <div className="h-4 bg-gray-300 rounded w-12"></div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex gap-2 ml-4">
-                    <div className="w-10 h-10 bg-gray-300 rounded-lg"></div>
-                    <div className="w-10 h-10 bg-gray-300 rounded-lg"></div>
-                    <div className="w-20 h-10 bg-gray-300 rounded-lg"></div>
-                  </div>
+          <div className="space-y-4 p-4">
+            {Array.from({ length: 3 }).map(function(_, i) {
+              return (
+                <div key={i} className="bg-white border border-gray-200 rounded-lg p-6 animate-pulse">
+                  <div className="h-6 bg-gray-300 rounded w-1/3 mb-3" />
+                  <div className="h-4 bg-gray-300 rounded w-2/3" />
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         ) : turmasFiltradas.length === 0 ? (
-          <div className="text-center py-16 bg-white rounded-xl border border-gray-200">
+          <div className="text-center py-16">
             <div className="inline-flex items-center justify-center w-16 h-16 bg-gray-100 rounded-xl mb-4">
               <School size={28} className="text-gray-400" />
             </div>
             <h3 className="text-xl font-semibold text-gray-700 mb-2">Nenhuma turma encontrada</h3>
             <p className="text-gray-500 mb-6 max-w-md mx-auto">
-              {(filtros.professor !== 'all' || filtros.dia !== 'all' || filtros.nivel !== 'all') 
-                ? 'Tente ajustar os filtros para ver mais resultados ou criar uma nova turma.'
-                : 'Ainda não há turmas cadastradas no sistema. Comece criando sua primeira turma!'
-              }
+              {(filtros.professor !== 'all' || filtros.dia !== 'all' || filtros.nivel !== 'all')
+                ? 'Tente ajustar os filtros para ver mais resultados.'
+                : 'Ainda não há turmas cadastradas. Comece criando sua primeira turma!'}
             </p>
             {(filtros.professor !== 'all' || filtros.dia !== 'all' || filtros.nivel !== 'all') ? (
-              <button
-                onClick={() => setFiltros({ professor: 'all', dia: 'all', nivel: 'all' })}
-                className="text-sm text-[#005DE4] hover:text-[#0048b3] font-semibold bg-blue-50 px-4 py-2 rounded-lg transition-colors"
-              >
-                Limpar filtros
-              </button>
+              <button onClick={function() { setFiltros({ professor: 'all', dia: 'all', nivel: 'all' }); }} className="text-sm text-[#005DE4] hover:text-[#0048b3] font-semibold bg-blue-50 px-4 py-2 rounded-lg transition-colors">Limpar filtros</button>
             ) : (
-              <button
-                onClick={abrirNovoModal}
-                className="bg-[#005DE4] text-white px-6 py-3 rounded-xl font-semibold flex gap-2 items-center hover:bg-[#0048b3] transition-all duration-200 mx-auto"
-              >
-                <Plus size={20} />
-                Criar primeira turma
+              <button onClick={abrirNovoModal} className="bg-[#005DE4] text-white px-6 py-3 rounded-xl font-semibold flex gap-2 items-center hover:bg-[#0048b3] transition-all mx-auto">
+                <Plus size={20} /> Criar primeira turma
               </button>
             )}
           </div>
         ) : (
-          <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+          <div className="overflow-hidden">
             <table className="w-full text-sm">
               <thead>
                 <tr className="bg-[#005DE4] text-xs font-semibold text-white uppercase tracking-wider">
-                  <th className="px-4 py-3 text-left w-6"></th>
+                  <th className="px-4 py-3 text-left w-6" />
                   <th className="px-4 py-3 text-left">Turma</th>
                   <th className="px-4 py-3 text-left">Professor</th>
                   <th className="px-4 py-3 text-left">Dias</th>
@@ -1216,129 +427,89 @@ export default function Turmas({ students = [] }) {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {turmasFiltradas.map(turma => {
+                {turmasFiltradas.map(function(turma) {
                   const alunosDaTurma = getAlunosDaTurma(turma);
                   const isExpanded = expandedTurmas.has(turma.id);
-                  const max = turma.maxAlunos || 15;
+                  const max = turma.maxAlunos || DEFAULT_MAX_ALUNOS;
                   const ocupacao = Math.round((alunosDaTurma.length / max) * 100);
-                  const aulasDadas = aulasRegistradas.filter(a => a.turmaId === turma.id).length;
-                  const aulasPrevistas = turma.totalAulas || 40;
+                  const aulasDadas = aulasRegistradas.filter(function(a) { return a.turmaId === turma.id; }).length;
+                  const aulasPrevistas = turma.totalAulas || DEFAULT_TOTAL_AULAS;
                   const aulasProgress = Math.min(Math.round((aulasDadas / aulasPrevistas) * 100), 100);
                   const aulasBarColor = aulasProgress >= 100 ? 'bg-emerald-500' : aulasProgress >= 60 ? 'bg-[#005DE4]' : 'bg-amber-400';
-                  const nivelColor =
-                    turma.nivel === 'A1' || turma.nivel === 'A2' ? 'bg-emerald-100 text-emerald-700' :
-                    turma.nivel === 'A2+' || turma.nivel === 'B1' ? 'bg-amber-100 text-amber-700' :
-                    turma.nivel === 'B2' || turma.nivel === 'B2+' ? 'bg-orange-100 text-orange-700' :
-                    'bg-red-100 text-red-700';
+                  const nivelColor = turma.nivel === 'A1' || turma.nivel === 'A2' ? 'bg-emerald-100 text-emerald-700' : turma.nivel === 'A2+' || turma.nivel === 'B1' ? 'bg-amber-100 text-amber-700' : turma.nivel === 'B2' || turma.nivel === 'B2+' ? 'bg-orange-100 text-orange-700' : 'bg-red-100 text-red-700';
                   const statusLabel = alunosDaTurma.length === max ? 'Lotada' : alunosDaTurma.length > max * 0.8 ? 'Quase cheia' : 'Disponível';
                   const statusColor = alunosDaTurma.length === max ? 'bg-red-100 text-red-700' : alunosDaTurma.length > max * 0.8 ? 'bg-amber-100 text-amber-700' : 'bg-green-100 text-green-700';
                   const barColor = alunosDaTurma.length === max ? 'bg-red-500' : alunosDaTurma.length > max * 0.8 ? 'bg-amber-400' : 'bg-[#005DE4]';
-
                   return (
-                    <>
-                      <tr
-                        key={turma.id}
-                        className={`hover:bg-blue-50/40 transition-colors ${isExpanded ? 'bg-blue-50/20' : ''}`}
-                      >
-                        {/* Chevron */}
+                    <React.Fragment key={turma.id}>
+                      <tr className={'hover:bg-blue-50/40 transition-colors ' + (isExpanded ? 'bg-blue-50/20' : '')}>
                         <td className="px-4 py-3 text-center">
-                          <button
-                            onClick={() => toggleTurmaExpansion(turma.id)}
-                            className="text-gray-400 hover:text-[#005DE4] transition-colors"
-                            title={isExpanded ? 'Recolher' : 'Ver alunos'}
-                          >
-                            <ChevronDown size={16} className={`transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
+                          <button onClick={function() { toggleTurmaExpansion(turma.id); }} className="text-gray-400 hover:text-[#005DE4] transition-colors" aria-label={isExpanded ? 'Recolher detalhes da turma' : 'Expandir detalhes da turma'}>
+                            <ChevronDown size={16} className={'transition-transform duration-200 ' + (isExpanded ? 'rotate-180' : '')} />
                           </button>
                         </td>
-
-                        {/* Turma + Nível */}
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-2">
                             <span className="font-semibold text-gray-900">{turma.nome}</span>
-                            <span className={`px-2 py-0.5 rounded text-xs font-semibold ${nivelColor}`}>{turma.nivel}</span>
+                            <span className={'px-2 py-0.5 rounded text-xs font-semibold ' + nivelColor}>{turma.nivel}</span>
                           </div>
                         </td>
-
-                        {/* Professor */}
                         <td className="px-4 py-3 text-gray-700">{turma.professor}</td>
-
-                        {/* Dias */}
-                        <td className="px-4 py-3 text-gray-600">{turma.dias}</td>
-
-                        {/* Horário */}
-                        <td className="px-4 py-3 text-gray-700 font-medium">{turma.horario}</td>
-
-                        {/* Alunos */}
+                        <td className="px-4 py-3 text-gray-600" colSpan={2}>
+                          {turma.horarios?.length ? (
+                            <div className="flex flex-wrap gap-1.5">
+                              {turma.horarios.map(function(h) {
+                                return (
+                                  <span key={h.dia} className="inline-flex items-center gap-1 bg-blue-50 text-[#005DE4] text-xs font-semibold px-2 py-0.5 rounded-full border border-blue-100">
+                                    {h.dia} {h.horario}
+                                  </span>
+                                );
+                              })}
+                            </div>
+                          ) : (
+                            <span className="text-gray-500">{turma.dias} {turma.horario && '· ' + turma.horario}</span>
+                          )}
+                        </td>
                         <td className="px-4 py-3 text-center">
                           <span className="font-semibold text-gray-900">{alunosDaTurma.length}</span>
                           <span className="text-gray-400">/{max}</span>
                         </td>
-
-                        {/* Aulas dadas / previstas */}
                         <td className="px-4 py-3 text-center">
                           <div className="flex flex-col items-center gap-1">
-                            <span className="text-sm font-semibold text-gray-900">
-                              {aulasDadas}
-                              <span className="text-gray-400 font-normal">/{aulasPrevistas}</span>
-                            </span>
+                            <span className="text-sm font-semibold text-gray-900">{aulasDadas}<span className="text-gray-400 font-normal">/{aulasPrevistas}</span></span>
                             <div className="w-16 bg-gray-200 rounded-full h-1">
-                              <div className={`h-1 rounded-full ${aulasBarColor}`} style={{ width: `${aulasProgress}%` }} />
+                              <div className={'h-1 rounded-full ' + aulasBarColor} style={{ width: aulasProgress + '%' }} />
                             </div>
                           </div>
                         </td>
-
-                        {/* Barra de ocupação */}
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-2">
                             <div className="flex-1 bg-gray-200 rounded-full h-1.5">
-                              <div
-                                className={`h-1.5 rounded-full ${barColor}`}
-                                style={{ width: `${Math.min(ocupacao, 100)}%` }}
-                              />
+                              <div className={'h-1.5 rounded-full ' + barColor} style={{ width: Math.min(ocupacao, 100) + '%' }} />
                             </div>
                             <span className="text-xs text-gray-500 w-8 text-right">{ocupacao}%</span>
                           </div>
                         </td>
-
-                        {/* Status */}
                         <td className="px-4 py-3 text-center">
-                          <span className={`px-2 py-1 rounded-full text-xs font-semibold ${statusColor}`}>{statusLabel}</span>
+                          <span className={'px-2 py-1 rounded-full text-xs font-semibold ' + statusColor}>{statusLabel}</span>
                         </td>
-
-                        {/* Ações */}
                         <td className="px-4 py-3">
                           <div className="flex items-center justify-end gap-1">
-                            <button
-                              onClick={() => gerarChamada(turma)}
-                              className="p-1.5 text-gray-400 hover:text-[#005DE4] hover:bg-blue-50 rounded-lg transition-colors"
-                              title="Gerar lista de chamada"
-                            >
+                            <button onClick={function() { gerarChamada(turma); }} className="p-1.5 text-gray-400 hover:text-[#005DE4] hover:bg-blue-50 rounded-lg transition-colors" aria-label="Gerar lista de chamada">
                               <FileText size={16} />
                             </button>
-                            <button
-                              onClick={() => handleEditTurma(turma)}
-                              disabled={saving}
-                              className="p-1.5 text-gray-400 hover:text-[#005DE4] hover:bg-blue-50 rounded-lg transition-colors disabled:opacity-50"
-                              title="Editar"
-                            >
+                            <button onClick={function() { handleEditTurma(turma); }} disabled={saving} className="p-1.5 text-gray-400 hover:text-[#005DE4] hover:bg-blue-50 rounded-lg transition-colors disabled:opacity-50" aria-label="Editar turma">
                               <Edit size={16} />
                             </button>
-                            <button
-                              onClick={() => handleDeleteTurma(turma)}
-                              disabled={deleting === turma.id}
-                              className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
-                              title="Excluir"
-                            >
+                            <button onClick={function() { handleDeleteTurma(turma); }} disabled={deleting === turma.id} className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50" aria-label="Excluir turma">
                               {deleting === turma.id ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />}
                             </button>
                           </div>
                         </td>
                       </tr>
-
-                      {/* Linha expansível com alunos */}
                       {isExpanded && (
-                        <tr key={`${turma.id}-expanded`} className="bg-gray-50">
-                          <td colSpan={9} className="px-6 py-4">
+                        <tr className="bg-gray-50">
+                          <td colSpan={10} className="px-6 py-4">
                             {alunosDaTurma.length > 0 ? (
                               <div className="space-y-3">
                                 <div className="flex items-center justify-between">
@@ -1346,36 +517,24 @@ export default function Turmas({ students = [] }) {
                                     <Users size={14} className="text-[#005DE4]" />
                                     {alunosDaTurma.length} aluno{alunosDaTurma.length !== 1 ? 's' : ''} matriculado{alunosDaTurma.length !== 1 ? 's' : ''} · {max - alunosDaTurma.length} vaga{max - alunosDaTurma.length !== 1 ? 's' : ''} livre{max - alunosDaTurma.length !== 1 ? 's' : ''}
                                   </p>
-                                  <button
-                                    onClick={() => gerarChamada(turma)}
-                                    className="flex items-center gap-1.5 px-3 py-1.5 bg-[#005DE4] text-white rounded-lg hover:bg-[#0048b3] text-xs font-medium transition-colors"
-                                  >
-                                    <Printer size={13} />
-                                    Gerar Lista
+                                  <button onClick={function() { gerarChamada(turma); }} className="flex items-center gap-1.5 px-3 py-1.5 bg-[#005DE4] text-white rounded-lg hover:bg-[#0048b3] text-xs font-medium transition-colors">
+                                    <Printer size={13} /> Gerar Lista
                                   </button>
                                 </div>
                                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
-                                  {alunosDaTurma.map((aluno, index) => {
-                                    // Calc frequência do aluno nesta turma
-                                    const aulasT = aulasRegistradas.filter(a => a.turmaId === turma.id);
-                                    const presencas = aulasT.filter(a =>
-                                      (a.chamadas || []).find(c => c.alunoId === aluno.id && c.status === 'presente')
-                                    ).length;
+                                  {alunosDaTurma.map(function(aluno, idx) {
+                                    const aulasT = aulasRegistradas.filter(function(a) { return a.turmaId === turma.id; });
+                                    const presencas = aulasT.filter(function(a) { return (a.chamadas || []).find(function(c) { return c.alunoId === aluno.id && c.status === 'presente'; }); }).length;
                                     const pct = aulasT.length > 0 ? Math.round((presencas / aulasT.length) * 100) : null;
                                     const lowFreq = pct !== null && pct < 75;
                                     return (
-                                      <div
-                                        key={`${turma.id}-aluno-${aluno.id || index}`}
-                                        className={`border rounded-lg px-3 py-2 flex items-center gap-2 ${lowFreq ? 'bg-red-50 border-red-200' : 'bg-white border-gray-200'}`}
-                                      >
-                                        <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 ${lowFreq ? 'bg-red-100' : 'bg-blue-100'}`}>
-                                          <span className={`text-xs ${lowFreq ? 'text-red-600' : 'text-blue-600'}`}>{lowFreq ? '⚠' : '👤'}</span>
+                                      <div key={turma.id + '-aluno-' + (aluno.id || idx)} className={'border rounded-lg px-3 py-2 flex items-center gap-2 ' + (lowFreq ? 'bg-red-50 border-red-200' : 'bg-white border-gray-200')}>
+                                        <div className={'w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 ' + (lowFreq ? 'bg-red-100' : 'bg-blue-100')}>
+                                          <span className={'text-xs ' + (lowFreq ? 'text-red-600' : 'text-blue-600')}>{lowFreq ? '⚠' : '👤'}</span>
                                         </div>
                                         <div className="min-w-0 flex-1">
                                           <p className="text-xs font-medium text-gray-900 truncate">{aluno.name || 'Sem nome'}</p>
-                                          {pct !== null && (
-                                            <p className={`text-xs ${lowFreq ? 'text-red-600 font-semibold' : 'text-gray-400'}`}>{pct}% freq.</p>
-                                          )}
+                                          {pct !== null && <p className={'text-xs ' + (lowFreq ? 'text-red-600 font-semibold' : 'text-gray-400')}>{pct}% freq.</p>}
                                         </div>
                                       </div>
                                     );
@@ -1385,66 +544,51 @@ export default function Turmas({ students = [] }) {
                             ) : (
                               <p className="text-sm text-gray-500 text-center py-2">Nenhum aluno matriculado nesta turma.</p>
                             )}
-
-                            {/* Histórico de Aulas */}
                             <div className="mt-4 border-t border-gray-200 pt-3">
                               <div className="flex items-center justify-between mb-2">
                                 <p className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-                                  <BookOpen size={14} className="text-[#005DE4]" />
-                                  Aulas Registradas
+                                  <BookOpen size={14} className="text-[#005DE4]" /> Aulas Registradas
                                 </p>
                                 <div className="flex items-center gap-2">
-                                  <span className="text-sm font-bold text-[#005DE4]">{aulasRegistradas.filter(a => a.turmaId === turma.id).length}</span>
-                                  <span className="text-xs text-gray-400">de {turma.totalAulas || 40} previstas</span>
+                                  <span className="text-sm font-bold text-[#005DE4]">{aulasRegistradas.filter(function(a) { return a.turmaId === turma.id; }).length}</span>
+                                  <span className="text-xs text-gray-400">de {turma.totalAulas || DEFAULT_TOTAL_AULAS} previstas</span>
                                   <div className="w-20 bg-gray-200 rounded-full h-1.5">
-                                    <div
-                                      className={`h-1.5 rounded-full ${
-                                        Math.min(Math.round((aulasRegistradas.filter(a => a.turmaId === turma.id).length / (turma.totalAulas || 40)) * 100), 100) >= 100
-                                          ? 'bg-emerald-500'
-                                          : 'bg-[#005DE4]'
-                                      }`}
-                                      style={{ width: `${Math.min(Math.round((aulasRegistradas.filter(a => a.turmaId === turma.id).length / (turma.totalAulas || 40)) * 100), 100)}%` }}
-                                    />
+                                    <div className={'h-1.5 rounded-full ' + (aulasProgress >= 100 ? 'bg-emerald-500' : 'bg-[#005DE4]')} style={{ width: aulasProgress + '%' }} />
                                   </div>
-                                  <span className="text-xs text-gray-500">
-                                    {Math.min(Math.round((aulasRegistradas.filter(a => a.turmaId === turma.id).length / (turma.totalAulas || 40)) * 100), 100)}%
-                                  </span>
+                                  <span className="text-xs text-gray-500">{aulasProgress}%</span>
                                 </div>
                               </div>
-                              {aulasRegistradas.filter(a => a.turmaId === turma.id).length === 0 ? (
+                              {aulasRegistradas.filter(function(a) { return a.turmaId === turma.id; }).length === 0 ? (
                                 <p className="text-xs text-gray-400 text-center py-2">Nenhuma aula registrada pelo professor ainda.</p>
                               ) : (
                                 <div className="space-y-1.5 max-h-52 overflow-y-auto pr-1">
-                                  {aulasRegistradas
-                                    .filter(a => a.turmaId === turma.id)
-                                    .sort((a, b) => (b.data || '').localeCompare(a.data || ''))
-                                    .map((aula, i) => {
-                                      const presentes = (aula.chamadas || []).filter(c => c.status === 'presente').length;
-                                      const faltas = (aula.chamadas || []).filter(c => c.status === 'falta').length;
-                                      const total = (aula.chamadas || []).length;
-                                      const dataFmt = aula.data ? aula.data.split('-').reverse().join('/') : '—';
-                                      const pct = total > 0 ? Math.round(presentes / total * 100) : null;
-                                      return (
-                                        <div key={i} className="bg-white border border-gray-200 rounded-lg px-3 py-2 flex items-center justify-between">
-                                          <div className="flex items-center gap-3 min-w-0">
-                                            <span className="text-xs font-semibold text-gray-800 whitespace-nowrap">{dataFmt}</span>
-                                            {aula.conteudo && <span className="text-xs text-gray-500 truncate">· {aula.conteudo}</span>}
-                                          </div>
-                                          <div className="flex items-center gap-2 text-xs flex-shrink-0 ml-2">
-                                            <span className="text-emerald-600 font-medium">✓ {presentes}</span>
-                                            <span className="text-red-500 font-medium">✗ {faltas}</span>
-                                            {pct !== null && <span className="text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded">{pct}%</span>}
-                                          </div>
+                                  {aulasRegistradas.filter(function(a) { return a.turmaId === turma.id; }).sort(function(a, b) { return (b.data || '').localeCompare(a.data || ''); }).map(function(aula, i) {
+                                    const presentes = (aula.chamadas || []).filter(function(c) { return c.status === 'presente'; }).length;
+                                    const faltas = (aula.chamadas || []).filter(function(c) { return c.status === 'falta'; }).length;
+                                    const total = (aula.chamadas || []).length;
+                                    const dataFmt = aula.data ? aula.data.split('-').reverse().join('/') : '—';
+                                    const pct = total > 0 ? Math.round(presentes / total * 100) : null;
+                                    return (
+                                      <div key={i} className="bg-white border border-gray-200 rounded-lg px-3 py-2 flex items-center justify-between">
+                                        <div className="flex items-center gap-3 min-w-0">
+                                          <span className="text-xs font-semibold text-gray-800 whitespace-nowrap">{dataFmt}</span>
+                                          {aula.conteudo && <span className="text-xs text-gray-500 truncate">· {aula.conteudo}</span>}
                                         </div>
-                                      );
-                                    })}
+                                        <div className="flex items-center gap-2 text-xs flex-shrink-0 ml-2">
+                                          <span className="text-emerald-600 font-medium">✓ {presentes}</span>
+                                          <span className="text-red-500 font-medium">✗ {faltas}</span>
+                                          {pct !== null && <span className="text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded">{pct}%</span>}
+                                        </div>
+                                      </div>
+                                    );
+                                  })}
                                 </div>
                               )}
                             </div>
                           </td>
                         </tr>
                       )}
-                    </>
+                    </React.Fragment>
                   );
                 })}
               </tbody>
@@ -1453,329 +597,52 @@ export default function Turmas({ students = [] }) {
         )}
       </div>
 
-      {/* Modal funcional para Nova Turma */}
-      {showModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white p-6 rounded-lg w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-xl font-bold">{editingTurma ? 'Editar Turma' : 'Nova Turma'}</h3>
-              <button 
-                onClick={() => setShowModal(false)}
-                className="text-gray-500 hover:text-gray-700"
-              >
-                <X size={24} />
-              </button>
-            </div>
-            
-            <div className="grid grid-cols-2 gap-4 mb-4">
-              {/* Nome da Turma */}
-              <div>
-                <label className="block text-sm font-semibold mb-2">
-                  Nome da Turma *
-                  {formErrors.nome && (
-                    <span className="text-red-500 text-xs ml-2 flex items-center gap-1">
-                      <AlertTriangle size={12} />
-                      {formErrors.nome}
-                    </span>
-                  )}
-                </label>
-                <input
-                  type="text"
-                  value={form.nome}
-                  onChange={(e) => {
-                    setForm({...form, nome: e.target.value});
-                    if (formErrors.nome) {
-                      setFormErrors({...formErrors, nome: ''});
-                    }
-                  }}
-                  className={`w-full border rounded-lg px-3 py-2 transition-colors ${
-                    formErrors.nome 
-                      ? 'border-red-300 focus:border-red-500 focus:ring-red-200' 
-                      : 'border-gray-300 focus:border-[#005DE4] focus:ring-blue-200'
-                  } focus:outline-none focus:ring-2`}
-                  placeholder="Ex: Kids Avançado"
-                  disabled={saving}
-                />
-              </div>
+      <TurmasForm
+        isOpen={showModal}
+        editingTurma={editingTurma}
+        form={form}
+        formErrors={formErrors}
+        saving={saving}
+        selectedAlunos={selectedAlunos}
+        searchAluno={searchAluno}
+        alunosFiltrados={alunosFiltrados}
+        onClose={resetForm}
+        onSave={salvarTurma}
+        onFormChange={handleFormChange}
+        onAdicionarAluno={adicionarAluno}
+        onRemoverAluno={removerAluno}
+        onSearchChange={setSearchAluno}
+      />
 
-              {/* Nível */}
-              <div>
-                <label className="block text-sm font-semibold mb-2">
-                  Nível *
-                  {formErrors.nivel && (
-                    <span className="text-red-500 text-xs ml-2 flex items-center gap-1">
-                      <AlertTriangle size={12} />
-                      {formErrors.nivel}
-                    </span>
-                  )}
-                </label>
-                <select
-                  value={form.nivel}
-                  onChange={(e) => {
-                    setForm({...form, nivel: e.target.value});
-                    if (formErrors.nivel) {
-                      setFormErrors({...formErrors, nivel: ''});
-                    }
-                  }}
-                  className={`w-full border rounded-lg px-3 py-2 transition-colors ${
-                    formErrors.nivel 
-                      ? 'border-red-300 focus:border-red-500 focus:ring-red-200' 
-                      : 'border-gray-300 focus:border-[#005DE4] focus:ring-blue-200'
-                  } focus:outline-none focus:ring-2`}
-                  disabled={saving}
-                >
-                  <option value="">Selecione o nível</option>
-                  {niveis.map((nivel, index) => (
-                    <option key={`form-nivel-${index}`} value={nivel}>{nivel}</option>
-                  ))}
-                </select>
-              </div>
+      <ConfirmDialog
+        isOpen={confirmState.isOpen}
+        title={confirmState.title}
+        message={confirmState.message}
+        variant={confirmState.variant}
+        confirmLabel={confirmState.confirmLabel}
+        cancelLabel={confirmState.cancelLabel}
+        onConfirm={handleConfirm}
+        onCancel={handleCancel}
+      />
+    </div>
+  );
+}
 
-              {/* Professor */}
-              <div>
-                <label className="block text-sm font-semibold mb-2">
-                  Professor *
-                  {formErrors.professor && (
-                    <span className="text-red-500 text-xs ml-2 flex items-center gap-1">
-                      <AlertTriangle size={12} />
-                      {formErrors.professor}
-                    </span>
-                  )}
-                </label>
-                <select
-                  value={form.professor}
-                  onChange={(e) => {
-                    setForm({...form, professor: e.target.value});
-                    if (formErrors.professor) {
-                      setFormErrors({...formErrors, professor: ''});
-                    }
-                  }}
-                  className={`w-full border rounded-lg px-3 py-2 transition-colors ${
-                    formErrors.professor 
-                      ? 'border-red-300 focus:border-red-500 focus:ring-red-200' 
-                      : 'border-gray-300 focus:border-[#005DE4] focus:ring-blue-200'
-                  } focus:outline-none focus:ring-2`}
-                  disabled={saving}
-                >
-                  <option value="">Selecione o professor</option>
-                  {professores.map((prof, index) => (
-                    <option key={`form-professor-${index}`} value={prof}>{prof}</option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Horário */}
-              <div>
-                <label className="block text-sm font-semibold mb-2">
-                  Horário *
-                  {formErrors.horario && (
-                    <span className="text-red-500 text-xs ml-2 flex items-center gap-1">
-                      <AlertTriangle size={12} />
-                      {formErrors.horario}
-                    </span>
-                  )}
-                </label>
-                <input
-                  type="text"
-                  value={form.horario}
-                  onChange={(e) => {
-                    setForm({...form, horario: e.target.value});
-                    if (formErrors.horario) {
-                      setFormErrors({...formErrors, horario: ''});
-                    }
-                  }}
-                  className={`w-full border rounded-lg px-3 py-2 transition-colors ${
-                    formErrors.horario 
-                      ? 'border-red-300 focus:border-red-500 focus:ring-red-200' 
-                      : 'border-gray-300 focus:border-[#005DE4] focus:ring-blue-200'
-                  } focus:outline-none focus:ring-2`}
-                  placeholder="Ex: 14:00 - 15:30"
-                  disabled={saving}
-                />
-              </div>
-            </div>
-
-            {/* Dias da Semana e Máx Alunos */}
-            <div className="grid grid-cols-2 gap-4 mb-4">
-              <div>
-                <label className="block text-sm font-semibold mb-2">
-                  Dias da Semana *
-                  {formErrors.dias && (
-                    <span className="text-red-500 text-xs ml-2 flex items-center gap-1">
-                      <AlertTriangle size={12} />
-                      {formErrors.dias}
-                    </span>
-                  )}
-                </label>
-                <div className={`flex flex-wrap gap-2 p-2 border rounded-lg ${formErrors.dias ? 'border-red-300' : 'border-gray-300'}`}>
-                  {diasDisponiveis.map(dia => {
-                    const diasSel = form.dias ? form.dias.split(',').map(d => d.trim()).filter(Boolean) : [];
-                    const selecionado = diasSel.includes(dia);
-                    return (
-                      <button
-                        key={dia}
-                        type="button"
-                        disabled={saving}
-                        onClick={() => {
-                          const atual = form.dias ? form.dias.split(',').map(d => d.trim()).filter(Boolean) : [];
-                          const novo = selecionado ? atual.filter(d => d !== dia) : [...atual, dia];
-                          setForm({...form, dias: novo.join(', ')});
-                          if (formErrors.dias) setFormErrors({...formErrors, dias: ''});
-                        }}
-                        className={`px-3 py-1 rounded-full text-sm font-medium border transition-colors ${
-                          selecionado
-                            ? 'bg-[#005DE4] text-white border-[#005DE4]'
-                            : 'bg-white text-gray-600 border-gray-300 hover:border-[#005DE4] hover:text-[#005DE4]'
-                        } ${saving ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
-                      >
-                        {dia}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-              
-              <div>
-                <label className="block text-sm font-semibold mb-2">
-                  Máximo de Alunos *
-                  {formErrors.maxAlunos && (
-                    <span className="text-red-500 text-xs ml-2 flex items-center gap-1">
-                      <AlertTriangle size={12} />
-                      {formErrors.maxAlunos}
-                    </span>
-                  )}
-                </label>
-                <input
-                  type="number"
-                  value={form.maxAlunos}
-                  onChange={(e) => {
-                    setForm({...form, maxAlunos: parseInt(e.target.value) || 15});
-                    if (formErrors.maxAlunos) {
-                      setFormErrors({...formErrors, maxAlunos: ''});
-                    }
-                  }}
-                  className={`w-full border rounded-lg px-3 py-2 transition-colors ${
-                    formErrors.maxAlunos 
-                      ? 'border-red-300 focus:border-red-500 focus:ring-red-200' 
-                      : 'border-gray-300 focus:border-[#005DE4] focus:ring-blue-200'
-                  } focus:outline-none focus:ring-2`}
-                  min="1"
-                  max="30"
-                  placeholder="15"
-                  disabled={saving}
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-semibold mb-2">
-                  Total de Aulas Previstas
-                </label>
-                <input
-                  type="number"
-                  value={form.totalAulas}
-                  onChange={(e) => setForm({...form, totalAulas: parseInt(e.target.value) || 40})}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#005DE4] focus:border-[#005DE4] transition-colors"
-                  min="1"
-                  max="200"
-                  placeholder="40"
-                  disabled={saving}
-                />
-                <p className="text-xs text-gray-400 mt-1">Quantidade total de aulas planejadas para esta turma</p>
-              </div>
-            </div>
-
-            {/* Busca de Alunos */}
-            <div className="mb-4">
-              <label className="block text-sm font-semibold mb-2">Adicionar Alunos</label>
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
-                <input
-                  type="text"
-                  value={searchAluno}
-                  onChange={(e) => setSearchAluno(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#005DE4] focus:border-transparent transition-colors"
-                  placeholder="Buscar alunos para adicionar..."
-                  disabled={saving}
-                />
-                
-                {/* Lista de sugestões */}
-                {searchAluno && alunosFiltrados.length > 0 && (
-                  <div className="absolute top-full left-0 right-0 bg-white border border-t-0 rounded-b-lg max-h-40 overflow-y-auto z-10 shadow-lg">
-                    {alunosFiltrados.slice(0, 5).map((aluno, index) => (
-                      <button
-                        key={`aluno-suggestion-${aluno.id || index}`}
-                        onClick={() => adicionarAluno(aluno)}
-                        disabled={saving || selectedAlunos.find(a => a.id === aluno.id)}
-                        className="w-full text-left px-3 py-2 hover:bg-gray-100 flex justify-between items-center disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                      >
-                        <span className="font-medium">{aluno.name}</span>
-                        <span className="text-xs text-gray-500">{aluno.course || 'Sem curso'}</span>
-                      </button>
-                    ))}
-                    {alunosFiltrados.length === 0 && (
-                      <div className="px-3 py-2 text-gray-500 text-sm">
-                        Nenhum aluno encontrado
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Alunos Selecionados */}
-            {selectedAlunos.length > 0 && (
-              <div className="mb-4">
-                <label className="block text-sm font-semibold mb-2">
-                  Alunos da Turma ({selectedAlunos.length}/{form.maxAlunos})
-                  {selectedAlunos.length >= form.maxAlunos && (
-                    <span className="text-orange-600 text-xs ml-2">Turma lotada</span>
-                  )}
-                </label>
-                <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto p-3 bg-gray-50 rounded-lg border">
-                  {selectedAlunos.map((aluno, index) => (
-                    <div key={`selected-aluno-${aluno.id || index}`} className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full flex items-center gap-2 text-sm">
-                      <span>{aluno.name}</span>
-                      <button
-                        onClick={() => removerAluno(aluno.id)}
-                        disabled={saving}
-                        className="text-blue-600 hover:text-blue-800 disabled:opacity-50 transition-colors"
-                        title="Remover aluno"
-                      >
-                        <X size={14} />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-                {selectedAlunos.length >= form.maxAlunos && (
-                  <p className="text-xs text-orange-600 mt-1 flex items-center gap-1">
-                    <AlertTriangle size={12} />
-                    Limite de alunos atingido. Aumente o máximo ou remova alguns alunos.
-                  </p>
-                )}
-              </div>
-            )}
-
-            {/* Botões */}
-            <div className="flex justify-end gap-3">
-              <button
-                onClick={() => setShowModal(false)}
-                disabled={saving}
-                className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={salvarTurma}
-                disabled={saving}
-                className="bg-[#005DE4] text-white px-4 py-2 rounded-lg hover:bg-[#0048b3] disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 transition-colors"
-              >
-                {saving && <Loader2 size={16} className="animate-spin" />}
-                {editingTurma ? 'Salvar Alterações' : 'Criar Turma'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+function StatCard2({ color, icon, value, label, sub }) {
+  const cfg = {
+    blue:   { bg: 'from-blue-50 to-blue-100',    border: 'border-blue-200/50',    iconBg: 'bg-blue-500',   val: 'text-blue-700',   lbl: 'text-blue-600',   sub2: 'text-blue-500' },
+    green:  { bg: 'from-green-50 to-green-100',   border: 'border-green-200/50',   iconBg: 'bg-green-500',  val: 'text-green-700',  lbl: 'text-green-600',  sub2: 'text-green-500' },
+    purple: { bg: 'from-purple-50 to-purple-100', border: 'border-purple-200/50',  iconBg: 'bg-purple-500', val: 'text-purple-700', lbl: 'text-purple-600', sub2: 'text-purple-500' },
+    orange: { bg: 'from-orange-50 to-orange-100', border: 'border-orange-200/50',  iconBg: 'bg-orange-500', val: 'text-orange-700', lbl: 'text-orange-600', sub2: 'text-orange-500' },
+  }[color] || {};
+  return (
+    <div className={'bg-gradient-to-br ' + cfg.bg + ' border ' + cfg.border + ' p-6 rounded-xl'}>
+      <div className="flex items-center justify-between mb-2">
+        <div className={'inline-flex items-center justify-center w-10 h-10 ' + cfg.iconBg + ' rounded-lg'}>{icon}</div>
+        <span className={'text-2xl font-bold ' + cfg.val}>{value}</span>
+      </div>
+      <p className={'text-sm font-semibold ' + cfg.lbl}>{label}</p>
+      <p className={'text-xs ' + cfg.sub2 + ' mt-1'}>{sub}</p>
     </div>
   );
 }

@@ -1,24 +1,14 @@
 import { useState, useEffect } from 'react';
-import { signInAnonymously, onAuthStateChanged } from 'firebase/auth';
+import { onAuthStateChanged } from 'firebase/auth';
 
-export const useAuth = (auth, onError) => {
+// Observa o estado de autenticação sem forçar login anônimo.
+// O login é gerenciado pelo AuthContext (Google / magic link).
+export const useAuth = (auth) => {
   const [user, setUser] = useState(null);
 
   useEffect(() => {
-    // Try sign-in and handle errors
-    (async () => {
-      try {
-        await signInAnonymously(auth);
-      } catch (err) {
-        console.error('Erro na autenticação:', err);
-        if (onError) {
-          onError('Erro na autenticação. Recarregue a página.');
-        }
-      }
-    })();
-
     return onAuthStateChanged(auth, setUser);
-  }, [auth, onError]);
+  }, [auth]);
 
   return user;
 };

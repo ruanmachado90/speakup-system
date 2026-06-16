@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
+import { formatDate } from '../../utils/formatters';
 
 const PixInfoForm = ({ isOpen, onClose, onSave, payment, isSaving = false }) => {
   const [pixQRCode, setPixQRCode] = useState('');
@@ -130,7 +131,7 @@ const PixInfoForm = ({ isOpen, onClose, onSave, payment, isSaving = false }) => 
                     <p><span className="font-medium">Aluno:</span> {payment?.studentName || 'N/A'}</p>
                     <p><span className="font-medium">Valor:</span> R$ {Number(payment?.valuePlanned || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
                     {payment?.dueDate && (
-                      <p><span className="font-medium">Vencimento:</span> {new Date(payment.dueDate).toLocaleDateString('pt-BR')}</p>
+                      <p><span className="font-medium">Vencimento:</span> {formatDate(payment.dueDate)}</p>
                     )}
                   </div>
                 </div>

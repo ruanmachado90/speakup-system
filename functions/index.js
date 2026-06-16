@@ -1,4 +1,7 @@
 const functions = require("firebase-functions");
+const admin = require("firebase-admin");
+
+admin.initializeApp();
 
 // ============================================
 // CONFIGURAÇÕES
@@ -165,4 +168,110 @@ exports.chatWithAI = functions.https.onRequest(async (req, res) => {
       details: process.env.NODE_ENV === "development" ? error.data : undefined,
     });
   }
+});
+
+// ============================================
+// CRIAR CONTA DE PROFESSOR
+// ============================================
+
+/**
+ * Cria conta de professor no Firebase Auth + doc no Firestore /users/{uid}
+ * Somente admins podem chamar (verificado via token)
+ * Callable: httpsCallable(functions, 'createProfessor')
+ */
+exports.createProfessor = functions.https.onCall(async (data, context) => {
+  // Verifica autenticação do chamador
+  if (!context.auth) {
+    throw new functions.https.HttpsError("unauthenticated", "Não autorizado.");
+  }
+
+  // Verifica que o chamador é admin
+  const callerSnap = await admin.firestore().doc(`users/${context.auth.uid}`).get();
+  if (!callerSnap.exists || callerSnap.data().role !== "admin") {
+    throw new functions.https.HttpsError("permission-denied", "Apenas administradores podem criar professores.");
+  }
+
+  const { email, password, nome, slug } = data;
+
+  if (!email || !password || !nome || !slug) {
+    throw new functions.https.HttpsError("invalid-argument", "Email, senha, nome e slug são obrigatórios.");
+  }
+
+  if (password.length < 6) {
+    throw new functions.https.HttpsError("invalid-argument", "A senha deve ter pelo menos 6 caracteres.");
+  }
+
+  // Cria o usuário no Firebase Auth (ou recupera existente do magic link)
+  let userRecord;
+  try {
+    userRecord = await admin.auth().createUser({
+      email: email.trim().toLowerCase(),
+      password,
+      displayName: nome.trim(),
+    });
+  } catch (err) {
+    if (err.code === "auth/email-already-exists") {
+      // Conta já existe (ex: criada via magic link) — apenas atualiza a senha
+      userRecord = await admin.auth().getUserByEmail(email.trim().toLowerCase());
+      await admin.auth().updateUser(userRecord.uid, { password, displayName: nome.trim() });
+    } else {
+      throw new functions.https.HttpsError("internal", err.message);
+    }
+  }
+
+  // Salva/atualiza doc no Firestore (merge para não sobrescrever dados extras)
+  await admin.firestore().doc(`users/${userRecord.uid}`).set({
+    role: "professor",
+    nome: nome.trim(),
+    slug: slug.trim(),
+    email: email.trim().toLowerCase(),
+    criadoEm: admin.firestore.FieldValue.serverTimestamp(),
+  }, { merge: true });
+
+  return { uid: userRecord.uid, email: userRecord.email };
+});
+
+/**
+ * Atualiza a senha de um professor (chamado pelo admin)
+ */
+exports.updateProfessorPassword = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError("unauthenticated", "Não autorizado.");
+  }
+
+  const callerSnap = await admin.firestore().doc(`users/${context.auth.uid}`).get();
+  if (!callerSnap.exists || callerSnap.data().role !== "admin") {
+    throw new functions.https.HttpsError("permission-denied", "Apenas administradores podem alterar senhas.");
+  }
+
+  const { uid, password } = data;
+  if (!uid || !password || password.length < 6) {
+    throw new functions.https.HttpsError("invalid-argument", "UID e senha (mín. 6 caracteres) são obrigatórios.");
+  }
+
+  await admin.auth().updateUser(uid, { password });
+  return { success: true };
+});
+
+/**
+ * Remove conta de professor do Firebase Auth + doc Firestore
+ */
+exports.deleteProfessor = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError("unauthenticated", "Não autorizado.");
+  }
+
+  const callerSnap = await admin.firestore().doc(`users/${context.auth.uid}`).get();
+  if (!callerSnap.exists || callerSnap.data().role !== "admin") {
+    throw new functions.https.HttpsError("permission-denied", "Apenas administradores podem remover professores.");
+  }
+
+  const { uid } = data;
+  if (!uid) {
+    throw new functions.https.HttpsError("invalid-argument", "UID é obrigatório.");
+  }
+
+  await admin.auth().deleteUser(uid);
+  await admin.firestore().doc(`users/${uid}`).delete();
+  return { success: true };
 });

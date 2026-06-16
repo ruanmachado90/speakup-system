@@ -54,7 +54,7 @@ function KpiCard({ title, value, sub, statusEl, icon }) {
 function Section({ title, children }) {
   return (
     <div style={{ marginBottom: 24 }}>
-      <div style={{ fontWeight: 700, fontSize: 15, color: "#0f172a", borderBottom: "2px solid #005DE4", paddingBottom: 6, marginBottom: 12 }}>
+      <div style={{ fontWeight: 700, fontSize: 15, color: "#0f172a", borderBottom: "2px solid #0e48fe", paddingBottom: 6, marginBottom: 12 }}>
         {title}
       </div>
       {children}
@@ -263,7 +263,7 @@ export default function MonthlyReport({ onClose, students = [], payments = [], e
     const compVJ  = JSON.stringify([Math.round(d.revenue), Math.round(d.pendingAmt), Math.round(d.lateAmt)]);
     const momDS   = hist3.map((h, i) => {
       const a = ((i+1)/hist3.length).toFixed(2);
-      return `{label:'${h.label}',data:[${(h.revenue/1000).toFixed(1)},${(h.expenses/1000).toFixed(1)},${(h.profit/1000).toFixed(1)},${h.paid}],backgroundColor:'rgba(0,93,228,${a})',borderRadius:3}`;
+      return `{label:'${h.label}',data:[${(h.revenue/1000).toFixed(1)},${(h.expenses/1000).toFixed(1)},${(h.profit/1000).toFixed(1)},${h.paid}],backgroundColor:'rgba(14,72,254,${a})',borderRadius:5}`;
     }).join(',');
 
     // Expense donut data
@@ -366,7 +366,7 @@ export default function MonthlyReport({ onClose, students = [], payments = [], e
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"><\/script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box;}
-:root{--blue:#005DE4;--blue-d:#0041a8;--blue-l:#e8f0fd;--green:#10b981;--green-l:#d1fae5;--red:#ef4444;--red-l:#fee2e2;--amber:#f59e0b;--amber-l:#fef3c7;--s900:#0f172a;--s700:#334155;--s500:#64748b;--s300:#cbd5e1;--s100:#f1f5f9;--white:#fff;--font:'Montserrat',sans-serif;--mono:'DM Mono',monospace;}
+:root{--blue:#0e48fe;--blue-d:#0b3ad4;--blue-l:#eef2ff;--green:#10b981;--green-l:#d1fae5;--red:#f30961;--red-l:#ffe4ef;--amber:#fc6e1f;--amber-l:#fff0e6;--s900:#111827;--s700:#374151;--s500:#9ca3af;--s300:#d1d5db;--s100:#f3f4f6;--white:#fff;--font:'Montserrat',sans-serif;--mono:'DM Mono',monospace;}
 body{font-family:var(--font);background:#d1d5db;color:var(--s900);font-size:10px;line-height:1.4;}
 .a4{width:210mm;height:297mm;background:var(--white);margin:5mm auto;padding:10mm 12mm 14mm;position:relative;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.2);page-break-after:always;break-after:page;}
 .a4:last-of-type{page-break-after:auto;break-after:auto;}
@@ -630,14 +630,15 @@ body{font-family:var(--font);background:#d1d5db;color:var(--s900);font-size:10px
 
 <script>
 Chart.defaults.font.family="'Montserrat',sans-serif";
-Chart.defaults.font.size=9;
-const B='#005DE4',G='#10b981',R='#ef4444',A='#f59e0b',S='#94a3b8',B2='#60a5fa';
-const leg={labels:{font:{family:"'Montserrat',sans-serif",size:9},boxWidth:9,padding:9}};
-const tip={bodyFont:{family:"'Montserrat',sans-serif",size:9},titleFont:{family:"'Montserrat',sans-serif",size:9}};
-const xAx={grid:{display:false},ticks:{font:{size:8}}};
-const yAx={grid:{color:'#f1f5f9'},ticks:{font:{size:8}}};
+Chart.defaults.font.size=11;
+Chart.defaults.color='#9ca3af';
+const B='#0e48fe',G='#10b981',R='#f30961',A='#fc6e1f',S='#9ca3af',B2='rgba(14,72,254,0.45)';
+const leg={labels:{font:{family:"'Montserrat',sans-serif",size:11,weight:'600'},usePointStyle:true,pointStyleWidth:10,padding:16,color:'#6b7280'}};
+const tip={backgroundColor:'#111827',titleColor:'#ffffff',bodyColor:'#d1d5db',padding:10,cornerRadius:8,titleFont:{family:"'Montserrat',sans-serif",weight:'700',size:12},bodyFont:{family:"'Montserrat',sans-serif",size:11}};
+const xAx={grid:{color:'rgba(0,0,0,0.04)',drawBorder:false},border:{display:false},ticks:{font:{family:"'Montserrat',sans-serif",size:11},color:'#9ca3af'}};
+const yAx={grid:{color:'rgba(0,0,0,0.04)',drawBorder:false},border:{display:false},ticks:{font:{family:"'Montserrat',sans-serif",size:11},color:'#9ca3af'}};
 
-new Chart(document.getElementById('receitaChart'),{type:'bar',data:{labels:${hlabels},datasets:[{label:'Receita',data:${hrev},backgroundColor:'rgba(0,93,228,.75)',borderRadius:4},{label:'Despesas',data:${hexp},backgroundColor:'rgba(239,68,68,.7)',borderRadius:4},{label:'Lucro',data:${hpro},backgroundColor:'rgba(16,185,129,.8)',borderRadius:4}]},options:{plugins:{legend:leg,tooltip:tip},scales:{y:{...yAx,beginAtZero:true,ticks:{...yAx.ticks,callback:v=>'R$'+(v/1000).toFixed(1)+'k'}},x:xAx}}});
+new Chart(document.getElementById('receitaChart'),{type:'bar',data:{labels:${hlabels},datasets:[{label:'Receita',data:${hrev},backgroundColor:B,borderRadius:5},{label:'Despesas',data:${hexp},backgroundColor:R,borderRadius:5},{label:'Lucro',data:${hpro},backgroundColor:G,borderRadius:5}]},options:{plugins:{legend:leg,tooltip:tip},scales:{y:{...yAx,beginAtZero:true,ticks:{...yAx.ticks,callback:v=>'R$'+(v/1000).toFixed(1)+'k'}},x:xAx}}});
 
 new Chart(document.getElementById('margemChart'),{type:'line',data:{labels:${hlabels},datasets:[{label:'Margem %',data:${hmar},borderColor:G,backgroundColor:'rgba(16,185,129,.08)',borderWidth:2.5,pointBackgroundColor:G,pointRadius:5,tension:.3,fill:true},{label:'Meta 25%',data:[25,25,25],borderColor:A,borderWidth:1.5,borderDash:[5,4],pointRadius:0}]},options:{plugins:{legend:leg,tooltip:tip},scales:{y:{...yAx,min:0,max:80,ticks:{...yAx.ticks,callback:v=>v+'%'}},x:xAx}}});
 
@@ -655,7 +656,7 @@ new Chart(document.getElementById('ticketChart'),{type:'line',data:{labels:${hla
 
 new Chart(document.getElementById('cobChart'),{type:'bar',data:{labels:${hlabels},datasets:[{label:'Pagas',data:${hpaid},backgroundColor:'rgba(16,185,129,.75)',borderRadius:4},{label:'Atrasadas',data:${hlate},backgroundColor:'rgba(239,68,68,.8)',borderRadius:4}]},options:{plugins:{legend:leg,tooltip:tip},scales:{y:{...yAx,beginAtZero:true,ticks:{...yAx.ticks,stepSize:10}},x:xAx}}});
 
-${expCats.length > 0 ? `new Chart(document.getElementById('expCatChart'),{type:'doughnut',data:{labels:${expCJ},datasets:[{data:${expVjson},backgroundColor:['#005DE4','#10b981','#f59e0b','#ef4444','#8b5cf6','#06b6d4'],borderWidth:0,hoverOffset:3}]},options:{maintainAspectRatio:false,cutout:'55%',plugins:{legend:{...leg,position:'bottom'},tooltip:tip}}});` : ''}
+${expCats.length > 0 ? `new Chart(document.getElementById('expCatChart'),{type:'doughnut',data:{labels:${expCJ},datasets:[{data:${expVjson},backgroundColor:['#0e48fe','#10b981','#f59e0b','#ef4444','#8b5cf6','#06b6d4'],borderWidth:0,hoverOffset:3}]},options:{maintainAspectRatio:false,cutout:'55%',plugins:{legend:{...leg,position:'bottom'},tooltip:tip}}});` : ''}
 <\/script>
 </body>
 </html>`;
@@ -696,7 +697,7 @@ ${expCats.length > 0 ? `new Chart(document.getElementById('expCatChart'),{type:'
         <div style={{
           display: "flex", alignItems: "center", justifyContent: "space-between",
           padding: "18px 24px", borderBottom: "1px solid #e2e8f0",
-          background: "linear-gradient(135deg,#005DE4,#0041a8)", borderRadius: "16px 16px 0 0", color: "white",
+          background: "linear-gradient(135deg,#0e48fe,#0041a8)", borderRadius: "16px 16px 0 0", color: "white",
         }}>
           <div>
             <div style={{ fontWeight: 700, fontSize: 17 }}>📋 Relatório Mensal — SpeakUp</div>
@@ -751,7 +752,7 @@ ${expCats.length > 0 ? `new Chart(document.getElementById('expCatChart'),{type:'
           </div>
 
           {/* ── 1. FINANCEIRO ── */}
-          <div className="section-title" style={{ fontWeight: 700, fontSize: 14, borderBottom: "2px solid #005DE4", paddingBottom: 6, marginBottom: 12, color: "#0f172a" }}>
+          <div className="section-title" style={{ fontWeight: 700, fontSize: 14, borderBottom: "2px solid #0e48fe", paddingBottom: 6, marginBottom: 12, color: "#0f172a" }}>
             💰 1. Financeiro
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 10, marginBottom: 16 }}>
@@ -810,7 +811,7 @@ ${expCats.length > 0 ? `new Chart(document.getElementById('expCatChart'),{type:'
           {/* ── 2. DESPESAS POR CATEGORIA ── */}
           {Object.keys(data.expByCategory).length > 0 && (
             <>
-              <div className="section-title" style={{ fontWeight: 700, fontSize: 14, borderBottom: "2px solid #005DE4", paddingBottom: 6, marginBottom: 12, color: "#0f172a" }}>
+              <div className="section-title" style={{ fontWeight: 700, fontSize: 14, borderBottom: "2px solid #0e48fe", paddingBottom: 6, marginBottom: 12, color: "#0f172a" }}>
                 💸 2. Despesas por Categoria
               </div>
               <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, marginBottom: 20 }}>
@@ -844,7 +845,7 @@ ${expCats.length > 0 ? `new Chart(document.getElementById('expCatChart'),{type:'
           )}
 
           {/* ── 3. ALUNOS & MATRÍCULAS ── */}
-          <div className="section-title" style={{ fontWeight: 700, fontSize: 14, borderBottom: "2px solid #005DE4", paddingBottom: 6, marginBottom: 12, color: "#0f172a" }}>
+          <div className="section-title" style={{ fontWeight: 700, fontSize: 14, borderBottom: "2px solid #0e48fe", paddingBottom: 6, marginBottom: 12, color: "#0f172a" }}>
             🎓 3. Alunos & Matrículas
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 10, marginBottom: 16 }}>
@@ -880,7 +881,7 @@ ${expCats.length > 0 ? `new Chart(document.getElementById('expCatChart'),{type:'
           </div>
 
           {/* ── 4. LEADS & CONVERSÃO ── */}
-          <div className="section-title" style={{ fontWeight: 700, fontSize: 14, borderBottom: "2px solid #005DE4", paddingBottom: 6, marginBottom: 12, color: "#0f172a" }}>
+          <div className="section-title" style={{ fontWeight: 700, fontSize: 14, borderBottom: "2px solid #0e48fe", paddingBottom: 6, marginBottom: 12, color: "#0f172a" }}>
             🎯 4. Leads & Conversão
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 10, marginBottom: 16 }}>
@@ -914,7 +915,7 @@ ${expCats.length > 0 ? `new Chart(document.getElementById('expCatChart'),{type:'
           )}
 
           {/* ── 5. HISTÓRICO 6 MESES ── */}
-          <div className="section-title" style={{ fontWeight: 700, fontSize: 14, borderBottom: "2px solid #005DE4", paddingBottom: 6, marginBottom: 12, color: "#0f172a" }}>
+          <div className="section-title" style={{ fontWeight: 700, fontSize: 14, borderBottom: "2px solid #0e48fe", paddingBottom: 6, marginBottom: 12, color: "#0f172a" }}>
             📅 5. Histórico — Últimos 6 Meses
           </div>
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, marginBottom: 24 }}>

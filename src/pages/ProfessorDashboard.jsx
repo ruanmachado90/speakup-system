@@ -1,13 +1,12 @@
-import React, { useState, useEffect, useMemo } from 'react';
+﻿import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { 
-  Calendar, 
-  Users, 
-  BookOpen, 
-  Clock, 
-  CheckCircle, 
+import {
+  Calendar,
+  Users,
+  BookOpen,
+  Clock,
+  CheckCircle,
   AlertCircle,
-  TrendingUp,
   Plus,
   FileText,
   Search,
@@ -18,192 +17,39 @@ import {
   Send,
   MessageSquare,
   Printer,
+  Menu,
+  LogOut,
+  LayoutDashboard,
+  ChevronLeft,
+  ChevronRight,
+  TrendingUp,
+  Pencil,
 } from 'lucide-react';
-import { collection, getDocs, query, where, addDoc } from 'firebase/firestore';
-import { signInAnonymously } from 'firebase/auth';
+import { collection, getDocs, addDoc, onSnapshot, query, where, updateDoc, doc } from 'firebase/firestore';
 import { db, auth } from '../firebase';
 import { APP_ID } from '../utils/constants';
 import { useAulas } from '../hooks/useAulas';
-import { Card } from '../components';
+import { Card, KPI } from '../components';
 import ChamadaForm from '../components/forms/ChamadaForm';
+import EditarChamadaModal from '../components/forms/EditarChamadaModal';
+import FrequenciaAlunoModal from '../components/FrequenciaAlunoModal';
 import HistoricoAulas from '../components/HistoricoAulas';
+import { NotasView } from './Notas';
+import { SidebarNav } from '../components/professor/SidebarNav';
+import { RankingTarefas } from '../components/professor/RankingTarefas';
+import { ProfessorRelatorio } from '../components/professor/ProfessorRelatorio';
 
-// ─── Relatório mensal do professor ────────────────────────────────────────
-function ProfessorRelatorio({ professor, turmas, aulas, alunosPorTurma, onClose }) {
-  const printRef = React.useRef(null);
-  const hoje = new Date();
-  const mesNomes = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
-  const mesAtual = mesNomes[hoje.getMonth()];
-  const anoAtual = hoje.getFullYear();
-
-  const aulasMes = aulas.filter(a => {
-    if (!a.data) return false;
-    const [ano, mes] = a.data.split('-').map(Number);
-    return mes - 1 === hoje.getMonth() && ano === anoAtual;
-  });
-
-  const statsPorTurma = turmas.map(turma => {
-    const aulasT = aulas.filter(a => a.turmaId === turma.id);
-    const aulasTMes = aulasMes.filter(a => a.turmaId === turma.id);
-    const alunos = alunosPorTurma[turma.id] || [];
-    const previstas = turma.totalAulas || 40;
-
-    let freqMedia = null;
-    if (aulasT.length > 0) {
-      const total = aulasT.reduce((acc, a) => {
-        const presentes = (a.chamadas || []).filter(c => c.status === 'presente').length;
-        const tot = (a.chamadas || []).length;
-        return tot > 0 ? acc + (presentes / tot) : acc;
-      }, 0);
-      freqMedia = Math.round((total / aulasT.length) * 100);
-    }
-
-    const emRisco = alunos.filter(aluno => {
-      const presencas = aulasT.filter(a =>
-        (a.chamadas || []).find(c => c.alunoId === aluno.id && c.status === 'presente')
-      ).length;
-      return aulasT.length > 0 && Math.round((presencas / aulasT.length) * 100) < 75;
-    });
-
-    return { id: turma.id, nome: turma.nome, nivel: turma.nivel, dias: turma.dias, horario: turma.horario,
-      totalAlunos: alunos.length, aulasDadas: aulasT.length, aulasMes: aulasTMes.length, previstas, freqMedia, emRisco };
-  });
-
-  const handlePrint = () => {
-    const content = printRef.current.innerHTML;
-    const win = window.open('', '_blank');
-    win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"/>
-      <title>Relatório — ${professor} — ${mesAtual}/${anoAtual}</title>
-      <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: Arial, sans-serif; font-size: 12px; color: #0f172a; padding: 20px; }
-        h1 { font-size: 18px; color: #005DE4; margin-bottom: 4px; }
-        .section-title { font-weight: 700; font-size: 13px; border-bottom: 2px solid #005DE4; padding-bottom: 4px; margin: 16px 0 10px; }
-        table { width: 100%; border-collapse: collapse; font-size: 11px; }
-        th { background: #f1f5f9; text-align: left; padding: 6px 8px; font-size: 10px; color: #64748b; }
-        td { padding: 5px 8px; border-bottom: 1px solid #f1f5f9; }
-        .footer { margin-top: 20px; border-top: 1px solid #e2e8f0; padding-top: 10px; font-size: 10px; color: #94a3b8; text-align: center; }
-      </style></head><body>${content}</body></html>`);
-    win.document.close();
-    setTimeout(() => win.print(), 400);
-  };
-
-  const totalAulasMes = statsPorTurma.reduce((s, t) => s + t.aulasMes, 0);
-  const totalAlunosEmRisco = statsPorTurma.reduce((s, t) => s + t.emRisco.length, 0);
-  const freqGeral = statsPorTurma.filter(t => t.freqMedia !== null);
-  const freqMedia = freqGeral.length > 0
-    ? Math.round(freqGeral.reduce((s, t) => s + t.freqMedia, 0) / freqGeral.length) : null;
-
-  return (
-    <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.55)', zIndex:9999, display:'flex', alignItems:'flex-start', justifyContent:'center', padding:20, overflowY:'auto' }}>
-      <div style={{ background:'white', borderRadius:16, width:'100%', maxWidth:860, boxShadow:'0 24px 64px rgba(0,0,0,0.2)', marginTop:20, marginBottom:20 }}>
-        {/* Header */}
-        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'18px 24px', background:'linear-gradient(135deg,#005DE4,#0041a8)', borderRadius:'16px 16px 0 0', color:'white' }}>
-          <div>
-            <div style={{ fontWeight:700, fontSize:17 }}>📊 Relatório — {professor}</div>
-            <div style={{ fontSize:13, opacity:0.85 }}>{mesAtual} de {anoAtual}</div>
-          </div>
-          <div style={{ display:'flex', gap:10 }}>
-            <button onClick={handlePrint} style={{ display:'flex', alignItems:'center', gap:6, background:'rgba(255,255,255,0.2)', border:'1px solid rgba(255,255,255,0.4)', color:'white', borderRadius:8, padding:'8px 14px', cursor:'pointer', fontWeight:600, fontSize:13 }}>
-              <Printer size={15} /> Imprimir / PDF
-            </button>
-            <button onClick={onClose} style={{ background:'rgba(255,255,255,0.1)', border:'none', color:'white', borderRadius:8, padding:'8px 10px', cursor:'pointer' }}>
-              <X size={18} />
-            </button>
-          </div>
-        </div>
-
-        {/* Content */}
-        <div ref={printRef} style={{ padding:24 }}>
-          <h1 style={{ display:'none' }}>Relatório Mensal — {professor} — {mesAtual}/{anoAtual}</h1>
-
-          {/* Resumo */}
-          <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:10, marginBottom:20 }}>
-            {[
-              { label:'Turmas', value: turmas.length, color:'#005DE4' },
-              { label:'Aulas este mês', value: totalAulasMes, color:'#7c3aed' },
-              { label:'Freq. média geral', value: freqMedia !== null ? `${freqMedia}%` : '—', color: freqMedia === null ? '#64748b' : freqMedia >= 75 ? '#16a34a' : '#dc2626' },
-              { label:'Alunos em risco', value: totalAlunosEmRisco, color: totalAlunosEmRisco > 0 ? '#dc2626' : '#16a34a' },
-            ].map(s => (
-              <div key={s.label} style={{ border:'1px solid #e2e8f0', borderRadius:10, padding:'12px 14px' }}>
-                <div style={{ fontSize:11, color:'#64748b', marginBottom:3 }}>{s.label}</div>
-                <div style={{ fontSize:22, fontWeight:700, color:s.color }}>{s.value}</div>
-              </div>
-            ))}
-          </div>
-
-          {/* Tabela por turma */}
-          <div className="section-title" style={{ fontWeight:700, fontSize:14, borderBottom:'2px solid #005DE4', paddingBottom:6, marginBottom:12, color:'#0f172a' }}>📋 Desempenho por Turma</div>
-          <table style={{ width:'100%', borderCollapse:'collapse', fontSize:13, marginBottom:20 }}>
-            <thead>
-              <tr style={{ background:'#f8fafc' }}>
-                {['Turma','Nível','Dias / Horário','Alunos','Aulas Dadas','Previstas','Este Mês','Freq. Média','Em Risco'].map(h => (
-                  <th key={h} style={{ padding:'8px', textAlign:'left', fontWeight:600, color:'#64748b', fontSize:11 }}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {statsPorTurma.map(t => (
-                <tr key={t.id} style={{ borderBottom:'1px solid #f1f5f9' }}>
-                  <td style={{ padding:'8px', fontWeight:600 }}>{t.nome}</td>
-                  <td style={{ padding:'8px' }}><span style={{ background:'#eff6ff', color:'#3b82f6', borderRadius:4, padding:'2px 6px', fontSize:11 }}>{t.nivel}</span></td>
-                  <td style={{ padding:'8px', color:'#64748b', fontSize:11 }}>{t.dias}<br/>{t.horario}</td>
-                  <td style={{ padding:'8px', textAlign:'center' }}>{t.totalAlunos}</td>
-                  <td style={{ padding:'8px', textAlign:'center', fontWeight:600 }}>{t.aulasDadas}</td>
-                  <td style={{ padding:'8px', textAlign:'center', color:'#64748b' }}>{t.previstas}</td>
-                  <td style={{ padding:'8px', textAlign:'center', fontWeight:600, color:'#7c3aed' }}>{t.aulasMes}</td>
-                  <td style={{ padding:'8px', textAlign:'center', fontWeight:600, color: t.freqMedia === null ? '#64748b' : t.freqMedia >= 75 ? '#16a34a' : '#dc2626' }}>
-                    {t.freqMedia !== null ? `${t.freqMedia}%` : '—'}
-                  </td>
-                  <td style={{ padding:'8px', textAlign:'center' }}>
-                    {t.emRisco.length > 0 ? <span style={{ color:'#dc2626', fontWeight:600 }}>{t.emRisco.length} ⚠️</span> : <span style={{ color:'#16a34a' }}>✓</span>}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-
-          {/* Alunos em risco */}
-          {totalAlunosEmRisco > 0 && (
-            <>
-              <div className="section-title" style={{ fontWeight:700, fontSize:14, borderBottom:'2px solid #ef4444', paddingBottom:6, marginBottom:12, color:'#0f172a' }}>⚠️ Alunos com Frequência &lt; 75%</div>
-              <table style={{ width:'100%', borderCollapse:'collapse', fontSize:13, marginBottom:20 }}>
-                <thead>
-                  <tr style={{ background:'#fef2f2' }}>
-                    {['Aluno','Turma','Frequência'].map(h => (
-                      <th key={h} style={{ padding:'8px 10px', textAlign:'left', fontWeight:600, color:'#ef4444', fontSize:11 }}>{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {statsPorTurma.flatMap(t =>
-                    t.emRisco.map(aluno => {
-                      const aulasT = aulas.filter(a => a.turmaId === t.id);
-                      const presencas = aulasT.filter(a => (a.chamadas||[]).find(c => c.alunoId === aluno.id && c.status === 'presente')).length;
-                      const pct = aulasT.length > 0 ? Math.round(presencas / aulasT.length * 100) : 0;
-                      return (
-                        <tr key={`${t.id}-${aluno.id}`} style={{ borderBottom:'1px solid #fee2e2' }}>
-                          <td style={{ padding:'8px 10px', fontWeight:600 }}>{aluno.nome || aluno.name}</td>
-                          <td style={{ padding:'8px 10px', color:'#64748b' }}>{t.nome}</td>
-                          <td style={{ padding:'8px 10px', color:'#dc2626', fontWeight:700 }}>{pct}%</td>
-                        </tr>
-                      );
-                    })
-                  )}
-                </tbody>
-              </table>
-            </>
-          )}
-
-          <div style={{ borderTop:'1px solid #e2e8f0', paddingTop:12, fontSize:11, color:'#94a3b8', textAlign:'center' }}>
-            Gerado em {hoje.toLocaleDateString('pt-BR',{day:'2-digit',month:'long',year:'numeric'})} — SpeakUp English Academy — Prof.: {professor}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
+// Retorna o horário específico de um dia para uma turma (suporta horarios[] e campo legado)
+function getHorarioDia(turma, dia) {
+  if (turma.horarios?.length) {
+    const entry = turma.horarios.find(h => h.dia === dia);
+    if (entry?.horario) return entry.horario;
+  }
+  // Legado: turma.horario pode ser "20:00" ou "Seg 20:00 · Sex 07:00"
+  // Extrai só o HH:MM do primeiro token que parece hh:mm
+  const match = (turma.horario || '').match(/\b(\d{1,2}:\d{2})\b/);
+  return match ? match[1] : (turma.horario || '');
 }
-// ────────────────────────────────────────────────────────────────────────────
 
 export default function ProfessorDashboard() {
   const { professorSlug } = useParams();
@@ -225,16 +71,26 @@ export default function ProfessorDashboard() {
       .join(' ');
   }, [professorSlug]);
 
+  // Estados de navegação sidebar
+  const [sidebarMode, setSidebarMode] = useState('open'); // 'open' | 'mini' | 'closed'
+  const [activeView, setActiveView] = useState('dashboard'); // 'dashboard' | 'turmas' | 'notas' | 'historico' | 'avisos'
+
   // Estados
   const [turmas, setTurmas] = useState([]);
   const [alunosPorTurma, setAlunosPorTurma] = useState({}); // { turmaId: [aluno, ...] }
   const [loading, setLoading] = useState(true);
   const [selectedTurma, setSelectedTurma] = useState(null);
+  const [selectedDate, setSelectedDate] = useState(null);
   const [showRegistroAula, setShowRegistroAula] = useState(false);
+  const [semanaOffset, setSemanaOffset] = useState(0); // 0 = semana atual, -1 = semana passada, etc.
+  const [historicoTurmaFiltro, setHistoricoTurmaFiltro] = useState(null);
+  const [showFAB, setShowFAB] = useState(false);
+  const [showRankingTarefas, setShowRankingTarefas] = useState(false);
+  const [turmaRanking, setTurmaRanking] = useState(null);
   const [showDetalheTurma, setShowDetalheTurma] = useState(false);
   const [saving, setSaving] = useState(false);
   const [successMsg, setSuccessMsg] = useState('');
-  const [showHistorico, setShowHistorico] = useState(false);
+  const [errorMsg, setErrorMsg] = useState('');
   const [turmaFiltro, setTurmaFiltro] = useState({ busca: '', nivel: '', dia: '', ordenar: 'nome' });
 
   // Lembretes manuais persistidos por professor
@@ -242,7 +98,13 @@ export default function ProfessorDashboard() {
     try { return JSON.parse(localStorage.getItem(`lembretes-${professorSlug}`) || '[]'); } catch { return []; }
   });
   const [novoLembrete, setNovoLembrete] = useState('');
-  const [dismissedIds, setDismissedIds] = useState(new Set());
+  const [dismissedIds, setDismissedIds] = useState(() => {
+    try {
+      const saved = localStorage.getItem(`dismissed-avisos-${professorSlug}`);
+      return saved ? new Set(JSON.parse(saved)) : new Set();
+    } catch { return new Set(); }
+  });
+  const [showAvisos, setShowAvisos] = useState(false);
 
   // Recado para coordenação
   const [showRecado, setShowRecado] = useState(false);
@@ -254,20 +116,82 @@ export default function ProfessorDashboard() {
   // Relatório mensal do professor
   const [showRelatorio, setShowRelatorio] = useState(false);
 
+  // Frequência por aluno
+  const [freqAluno, setFreqAluno] = useState(null); // { aluno, turma }
+
+  // Editar chamada existente
+  const [editAula, setEditAula] = useState(null);
+  const [savingEdit, setSavingEdit] = useState(false);
+
+  // Recados recebidos da coordenação
+  const [recadosAdmin, setRecadosAdmin] = useState([]);
+  const [respostasRecados, setRespostasRecados] = useState({});
+  const [sendingResposta, setSendingResposta] = useState({});
+
+  useEffect(() => {
+    if (!professorSlug) return;
+    const q = query(
+      collection(db, 'recados'),
+      where('professorSlug', '==', professorSlug),
+      where('origem', '==', 'admin')
+    );
+    const unsub = onSnapshot(q, snap => {
+      setRecadosAdmin(
+        snap.docs
+          .map(d => ({ id: d.id, ...d.data() }))
+          .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0))
+      );
+    });
+    return unsub;
+  }, [professorSlug]);
+
+  const marcarRecadoLido = async (id) => {
+    await updateDoc(doc(db, 'recados', id), { lido: true, lidoEm: Date.now() });
+  };
+
+  const enviarRespostaRecado = async (id) => {
+    const texto = (respostasRecados[id] || '').trim();
+    if (!texto) return;
+    setSendingResposta(s => ({ ...s, [id]: true }));
+    try {
+      await updateDoc(doc(db, 'recados', id), {
+        resposta: texto,
+        respondidoEm: Date.now(),
+        lido: true,
+        lidoEm: Date.now(),
+      });
+      setRespostasRecados(r => ({ ...r, [id]: '' }));
+    } finally {
+      setSendingResposta(s => ({ ...s, [id]: false }));
+    }
+  };
+
   useEffect(() => {
     localStorage.setItem(`lembretes-${professorSlug}`, JSON.stringify(lembretes));
   }, [lembretes, professorSlug]);
 
+  useEffect(() => {
+    localStorage.setItem(`dismissed-avisos-${professorSlug}`, JSON.stringify([...dismissedIds]));
+  }, [dismissedIds, professorSlug]);
+
   // Hook de aulas - usa o nome completo para salvar corretamente
   const { aulas, registrarAula, atualizarAula, excluirAula, calcularFrequencia } = useAulas(professorNome);
 
-  // Garantir autenticação anônima para satisfazer as regras do Firestore
-  // O professor acessa a página sem login, mas o Firestore exige auth != null
+  // Responsividade da sidebar
   useEffect(() => {
-    signInAnonymously(auth).catch(() => {
-      // Já autenticado ou erro não crítico — ignora silenciosamente
-    });
+    const handleResize = () => {
+      if (window.innerWidth < 1024) {
+        setSidebarMode('closed');
+      } else {
+        setSidebarMode(prev => prev === 'closed' ? 'open' : prev);
+      }
+    };
+    handleResize(); // Executar na montagem
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
   }, []);
+
+  // Professor já autenticado via email+senha pelo RequireProfessorAuth — auth anônimo não é mais necessário
 
   const handleSalvarAula = async (aulaData) => {
     setSaving(true);
@@ -276,8 +200,12 @@ export default function ProfessorDashboard() {
     if (result.success) {
       setShowRegistroAula(false);
       setSelectedTurma(null);
+      setSelectedDate(null);
       setSuccessMsg('Aula registrada com sucesso!');
       setTimeout(() => setSuccessMsg(''), 4000);
+    } else {
+      setErrorMsg('Erro ao salvar aula. Verifique sua conexão e tente novamente.');
+      setTimeout(() => setErrorMsg(''), 5000);
     }
   };
 
@@ -386,26 +314,27 @@ export default function ProfessorDashboard() {
   const agendaSemanal = useMemo(() => {
     const DIAS_ORDEM = ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
     const hoje = new Date();
-    // Início da semana (segunda-feira)
+    // Início da semana (segunda-feira) + offset de semanas
     const diaSemana = hoje.getDay(); // 0=Dom,...6=Sab
     const diffParaSegunda = diaSemana === 0 ? -6 : 1 - diaSemana;
     const segunda = new Date(hoje);
-    segunda.setDate(hoje.getDate() + diffParaSegunda);
+    segunda.setDate(hoje.getDate() + diffParaSegunda + semanaOffset * 7);
     segunda.setHours(0, 0, 0, 0);
 
     return DIAS_ORDEM.map((dia, i) => {
       const dataRef = new Date(segunda);
       dataRef.setDate(segunda.getDate() + i);
-      const dateStr = dataRef.toISOString().split('T')[0];
-      const isHoje = dateStr === hoje.toISOString().split('T')[0];
+      const dateStr = dataRef.toLocaleDateString('en-CA'); // YYYY-MM-DD fuso local
+      const isHoje = dateStr === hoje.toLocaleDateString('en-CA');
+      const isFuturo = dateStr > hoje.toLocaleDateString('en-CA');
 
       const turmasDia = turmas
         .filter(t => (t.dias || '').split(',').map(d => d.trim()).includes(dia))
-        .sort((a, b) => (a.horario || '').localeCompare(b.horario || ''));
+        .sort((a, b) => getHorarioDia(a, dia).localeCompare(getHorarioDia(b, dia)));
 
-      return { dia, dateStr, isHoje, turmasDia };
+      return { dia, dateStr, isHoje, isFuturo, turmasDia };
     });
-  }, [turmas]);
+  }, [turmas, semanaOffset]);
 
   // Próximas aulas (baseado em horário das turmas)
   const proximasAulas = useMemo(() => {
@@ -420,13 +349,12 @@ export default function ProfessorDashboard() {
       'domingo': 'Domingo'
     };
     
-    return turmas.filter(turma => 
-      turma.dias?.includes(diaMap[diaHoje])
-    ).sort((a, b) => {
-      const horaA = a.horario?.split(':')[0] || '00';
-      const horaB = b.horario?.split(':')[0] || '00';
-      return horaA.localeCompare(horaB);
-    });
+    const diaHojeNome = diaMap[diaHoje] || '';
+    return turmas.filter(turma =>
+      turma.dias?.includes(diaHojeNome)
+    ).sort((a, b) =>
+      getHorarioDia(a, diaHojeNome).localeCompare(getHorarioDia(b, diaHojeNome))
+    );
   }, [turmas]);
 
   // Turmas com filtro + ordenação
@@ -538,6 +466,7 @@ export default function ProfessorDashboard() {
       const diasTurmaList = (turma.dias || '').split(',').map(d => d.trim()).filter(Boolean);
       const numDias = diasTurmaList.map(d => diasPT[d]).filter(n => n !== undefined);
       const pendentes = [];
+      const pendentesRaw = [];
       for (let i = 1; i <= 14; i++) {
         const d = new Date(hojeDate);
         d.setDate(d.getDate() - i);
@@ -547,6 +476,7 @@ export default function ProfessorDashboard() {
             const dataFmt = dateStr.split('-').reverse().join('/');
             const diaNome = diasTurmaList[numDias.indexOf(d.getDay())];
             pendentes.push(`${dataFmt} (${diaNome})`);
+            pendentesRaw.push(dateStr);
           }
           if (pendentes.length >= 2) break;
         }
@@ -559,6 +489,7 @@ export default function ProfessorDashboard() {
           titulo: `Aula pendente — ${turma.nome}`,
           texto: `Aula${pendentes.length > 1 ? 's' : ''} não registrada${pendentes.length > 1 ? 's' : ''}: ${pendentes.join(', ')}.`,
           turmaObj: turma,
+          dataPendente: pendentesRaw[0],
         });
       }
     });
@@ -598,145 +529,365 @@ export default function ProfessorDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 p-6">
-      {/* Toast de sucesso */}
+    <div className="flex min-h-screen bg-slate-50">
+      {/* Print Styles */}
+      <style>{`
+        @media print {
+          aside { display: none !important; }
+          .sidebar-toggle { display: none !important; }
+          .no-print { display: none !important; }
+          main { margin-left: 0 !important; padding: 20px !important; }
+          body { background: white !important; }
+        }
+      `}</style>
+
+      {/* SIDEBAR */}
+      <aside className={`bg-white border-r border-slate-200 fixed h-full flex flex-col transition-all duration-300 ease-in-out z-30 shadow-lg ${
+        sidebarMode === 'open' ? 'w-64 translate-x-0' :
+        sidebarMode === 'mini' ? 'w-16 translate-x-0' :
+        'w-64 -translate-x-full'
+      }`}>
+        {/* Logo */}
+        <div className={`h-16 flex items-center border-b border-slate-100 flex-shrink-0 transition-all ${
+          sidebarMode === 'mini' ? 'justify-center px-2' : 'justify-between px-4'
+        }`}>
+          {sidebarMode === 'mini' ? (
+            <img
+              src="https://www.speakupcataguases.com/wp-content/uploads/2026/05/icone-2-azul.png"
+              alt="SpeakUp"
+              className="w-9 h-9 object-contain"
+            />
+          ) : (
+            <img
+              src="https://www.speakupcataguases.com/wp-content/uploads/2026/02/logo-speakup-azul.png"
+              alt="SpeakUp"
+              className="h-8 object-contain"
+            />
+          )}
+          {sidebarMode === 'open' && (
+            <button
+              onClick={() => setSidebarMode('mini')}
+              className="p-1.5 text-slate-400 hover:text-[#005DE4] hover:bg-slate-50 rounded-lg transition-colors"
+              title="Recolher sidebar"
+            >
+              <ChevronLeft size={18} />
+            </button>
+          )}
+        </div>
+
+        {/* Nav items */}
+        <nav className={`flex-1 overflow-y-auto py-4 space-y-1 ${sidebarMode === 'mini' ? 'px-2' : 'px-3'}`}>
+          <SidebarNav
+            collapsed={sidebarMode === 'mini'}
+            icon={<LayoutDashboard size={18} />}
+            label="Início"
+            active={activeView === 'dashboard'}
+            onClick={() => setActiveView('dashboard')}
+          />
+          <SidebarNav
+            collapsed={sidebarMode === 'mini'}
+            icon={<Users size={18} />}
+            label="Minhas Turmas"
+            active={activeView === 'turmas'}
+            onClick={() => setActiveView('turmas')}
+          />
+          <SidebarNav
+            collapsed={sidebarMode === 'mini'}
+            icon={<BookOpen size={18} />}
+            label="Notas"
+            active={activeView === 'notas'}
+            onClick={() => setActiveView('notas')}
+          />
+          <SidebarNav
+            collapsed={sidebarMode === 'mini'}
+            icon={<FileText size={18} />}
+            label="Histórico de Aulas"
+            active={activeView === 'historico'}
+            onClick={() => setActiveView('historico')}
+          />
+          <SidebarNav
+            collapsed={sidebarMode === 'mini'}
+            icon={<Bell size={18} />}
+            label="Avisos"
+            badge={notificacoesAuto.length + lembretes.filter(l => !dismissedIds.has(l.id)).length + recadosAdmin.filter(r => !r.lido).length}
+            active={activeView === 'avisos'}
+            onClick={() => setActiveView('avisos')}
+          />
+          <SidebarNav
+            collapsed={sidebarMode === 'mini'}
+            icon={<MessageSquare size={18} />}
+            label="Enviar Recado"
+            onClick={() => setShowRecado(true)}
+          />
+          <SidebarNav
+            collapsed={sidebarMode === 'mini'}
+            icon={<Printer size={18} />}
+            label="Relatório Mensal"
+            onClick={() => setShowRelatorio(true)}
+          />
+        </nav>
+
+        {/* Perfil do professor */}
+        <div className="flex-shrink-0 border-t border-slate-100 py-3">
+          {sidebarMode === 'mini' ? (
+            <div className="flex flex-col items-center gap-2">
+              <div className="w-9 h-9 rounded-full bg-[#005DE4]/10 flex items-center justify-center text-sm font-bold text-[#005DE4]" title={professorNome}>
+                {professorPrimeiroNome[0]?.toUpperCase()}
+              </div>
+              <button
+                onClick={() => { auth.signOut(); navigate('/professor-login'); }}
+                className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                title="Sair"
+              >
+                <LogOut size={16} />
+              </button>
+            </div>
+          ) : (
+            <div className="px-4">
+              <div className="flex items-center gap-3 mb-2">
+                <div className="w-9 h-9 rounded-full bg-[#005DE4]/10 flex items-center justify-center text-sm font-bold text-[#005DE4] flex-shrink-0">
+                  {professorPrimeiroNome[0]?.toUpperCase()}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-semibold text-slate-700 truncate leading-tight">{professorNome}</p>
+                  <p className="text-[11px] text-slate-400 leading-tight mt-0.5">Professor(a)</p>
+                </div>
+              </div>
+              <button
+                onClick={() => { auth.signOut(); navigate('/professor-login'); }}
+                className="w-full text-[11px] text-slate-400 hover:text-red-500 hover:bg-red-50 px-3 py-1.5 rounded-lg transition-colors text-left flex items-center gap-2"
+              >
+                <LogOut size={14} />
+                Sair da conta
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Toggle para mini mode */}
+        {sidebarMode === 'mini' && (
+          <button
+            onClick={() => setSidebarMode('open')}
+            className="absolute -right-3 top-20 bg-white border border-slate-200 rounded-full p-1 shadow-md hover:bg-slate-50 transition-colors"
+            title="Expandir sidebar"
+          >
+            <ChevronRight size={16} className="text-slate-600" />
+          </button>
+        )}
+      </aside>
+
+      {/* Overlay para mobile */}
+      {sidebarMode === 'open' && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 z-20 lg:hidden transition-opacity duration-300"
+          onClick={() => setSidebarMode('closed')}
+          aria-hidden="true"
+        />
+      )}
+
+      {/* MAIN CONTENT */}
+      <main className={`flex-1 transition-all duration-300 ease-in-out ${
+        sidebarMode === 'open' ? 'ml-64' :
+        sidebarMode === 'mini' ? 'ml-16' :
+        'ml-0'
+      }`}>
+        {/* Mobile menu toggle */}
+        <button
+          className="sidebar-toggle lg:hidden fixed top-4 left-4 z-40 bg-white p-2 rounded-lg shadow-md border border-slate-200 hover:bg-slate-50"
+          onClick={() => setSidebarMode(sidebarMode === 'closed' ? 'open' : 'closed')}
+        >
+          <Menu size={20} className="text-slate-700" />
+        </button>
+
+        <div className="p-6">
+      {/* Painel de Notas inline */}
+      {activeView === 'notas' && (
+        <NotasView
+          professorSlug={professorSlug}
+          professorNome={professorNome}
+          turmas={turmas}
+          alunosPorTurma={alunosPorTurma}
+          onVoltar={() => setActiveView('dashboard')}
+        />
+      )}
+
+      {/* Histórico de Aulas inline */}
+      {activeView === 'historico' && (
+        <div className="bg-white rounded-2xl max-w-full overflow-hidden shadow-sm">
+          <HistoricoAulas
+            aulas={aulas}
+            turmas={turmas}
+            onClose={() => setActiveView('dashboard')}
+            onDeleteAula={excluirAula}
+            onUpdateAula={atualizarAula}
+            initialTurmaFiltro={historicoTurmaFiltro}
+          />
+        </div>
+      )}
+
+      {/* Conteúdo principal (Dashboard, Turmas, Avisos) */}
+      {activeView !== 'notas' && activeView !== 'historico' && (
+      <React.Fragment>
       {successMsg && (
         <div className="fixed top-5 right-5 z-50 bg-emerald-500 text-white px-5 py-3 rounded-xl shadow-lg flex items-center gap-2 animate-pulse">
           <CheckCircle size={20} />
           {successMsg}
         </div>
       )}
+      {errorMsg && (
+        <div className="fixed top-5 right-5 z-50 bg-red-500 text-white px-5 py-3 rounded-xl shadow-lg flex items-center gap-2">
+          <AlertCircle size={20} />
+          {errorMsg}
+        </div>
+      )}
 
       {/* Header */}
-      <div className="mb-8 flex items-start justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-slate-800 mb-2">
-            Olá, {professorNome}! 👋
-          </h1>
-          <p className="text-slate-600">
-            Painel de controle das suas turmas e aulas
-          </p>
-        </div>
-        <div className="flex items-center gap-2 flex-wrap">
-          <button
-            onClick={() => setShowRelatorio(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-300 text-slate-700 rounded-xl hover:bg-slate-50 hover:border-[#005DE4] transition-all shadow-sm text-sm font-medium"
-          >
-            <Printer size={16} className="text-[#005DE4]" />
-            Relatório
-          </button>
-          <button
-            onClick={() => setShowRecado(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-300 text-slate-700 rounded-xl hover:bg-slate-50 hover:border-amber-400 transition-all shadow-sm text-sm font-medium"
-          >
-            <MessageSquare size={16} className="text-amber-500" />
-            Recado
-          </button>
-          <button
-            onClick={() => setShowHistorico(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-300 text-slate-700 rounded-xl hover:bg-slate-50 hover:border-[#005DE4] transition-all shadow-sm text-sm font-medium"
-          >
-            <FileText size={18} className="text-[#005DE4]" />
-            Histórico de Aulas
-          </button>
-          <button
-            onClick={() => navigate(`/professor/${professorSlug}/notas`)}
-            className="flex items-center gap-2 px-4 py-2 bg-[#005DE4] text-white rounded-xl hover:bg-[#0041a8] transition-all shadow-sm text-sm font-medium"
-          >
-            <BookOpen size={16} />
-            Notas
-          </button>
+      <div className="mb-8">
+        <div className="flex items-center gap-4">
+          <div>
+            <h1 className="text-3xl font-bold text-slate-800 mb-1">
+              {activeView === 'dashboard' ? `Olá, ${professorNome}! 👋` :
+               activeView === 'turmas' ? 'Minhas Turmas' :
+               activeView === 'avisos' ? 'Avisos e Notificações' :
+               'Painel do Professor'}
+            </h1>
+            <p className="text-slate-600">
+              {activeView === 'dashboard' ? 'Painel de controle das suas turmas e aulas' :
+               activeView === 'turmas' ? 'Gerencie suas turmas e alunos' :
+               activeView === 'avisos' ? 'Acompanhe notificações e lembretes' :
+               'Sistema de gestão acadêmica'}
+            </p>
+          </div>
         </div>
       </div>
 
-      {/* Banner de urgência — aulas sem registro */}
-      {(() => {
-        const pendencias = notificacoesAuto.filter(a => a.tipo === 'pendente' && !dismissedIds.has(a.id));
-        if (pendencias.length === 0) return null;
-        return (
-          <div className="mb-6 rounded-2xl border-2 border-red-400 bg-red-50 p-4 flex items-start gap-3 shadow-sm animate-pulse-slow">
-            <div className="flex-shrink-0 mt-0.5">
-              <AlertTriangle size={22} className="text-red-500" />
-            </div>
-            <div className="flex-1">
-              <p className="font-bold text-red-700 text-sm mb-1">
-                ⚠️ {pendencias.length === 1 ? '1 turma com aula sem registro!' : `${pendencias.length} turmas com aulas sem registro!`}
-              </p>
-              <div className="flex flex-wrap gap-2 mt-2">
-                {pendencias.map(p => (
-                  <button
-                    key={p.id}
-                    onClick={() => { setSelectedTurma(p.turmaObj); setShowRegistroAula(true); }}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-red-600 text-white rounded-lg text-xs font-semibold hover:bg-red-700 transition-colors shadow"
-                  >
-                    <BookOpen size={12} />
-                    Registrar: {p.turmaObj?.nome}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <button
-              onClick={() => pendencias.forEach(p => setDismissedIds(prev => new Set([...prev, p.id])))}
-              className="flex-shrink-0 text-red-400 hover:text-red-600 p-1"
-              title="Dispensar"
-            >
-              <X size={16} />
-            </button>
-          </div>
-        );
-      })()}
+      {/* Estatísticas Rápidas e Dashboard Principal */}
+      {activeView === 'dashboard' && (
+      <React.Fragment>
 
-      {/* Estatísticas Rápidas */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-        <Card className="bg-gradient-to-br from-blue-500 to-blue-600 text-white">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-blue-100 text-sm mb-1">Turmas Ativas</p>
-              <p className="text-3xl font-bold">{stats.totalTurmas}</p>
-            </div>
-            <Users size={40} className="opacity-50" />
+      {/* Banner de recados da coordenação não lidos */}
+      {recadosAdmin.filter(r => !r.lido).length > 0 && (
+        <div className="mb-6 bg-emerald-50 border border-emerald-300 rounded-xl p-4 flex items-start gap-3">
+          <MessageSquare size={20} className="text-emerald-600 flex-shrink-0 mt-0.5" />
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold text-emerald-800">
+              {recadosAdmin.filter(r => !r.lido).length === 1
+                ? 'Você tem 1 recado novo da coordenação'
+                : `Você tem ${recadosAdmin.filter(r => !r.lido).length} recados novos da coordenação`}
+            </p>
+            <p className="text-xs text-emerald-600 mt-0.5 truncate">
+              {recadosAdmin.filter(r => !r.lido)[0]?.texto}
+            </p>
           </div>
-        </Card>
+          <button
+            onClick={() => setActiveView('avisos')}
+            className="flex-shrink-0 text-xs font-medium text-emerald-700 border border-emerald-300 bg-white px-3 py-1.5 rounded-lg hover:bg-emerald-100 transition-colors"
+          >
+            Ver
+          </button>
+        </div>
+      )}
 
-        <Card className="bg-gradient-to-br from-emerald-500 to-emerald-600 text-white">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-emerald-100 text-sm mb-1">Total de Alunos</p>
-              <p className="text-3xl font-bold">{stats.totalAlunos}</p>
-            </div>
-            <TrendingUp size={40} className="opacity-50" />
-          </div>
-        </Card>
-
-        <Card className="bg-gradient-to-br from-purple-500 to-purple-600 text-white">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-purple-100 text-sm mb-1">Aulas Este Mês</p>
-              <p className="text-3xl font-bold">{stats.aulasMesAtual}</p>
-            </div>
-            <Calendar size={40} className="opacity-50" />
-          </div>
-        </Card>
-
-        <Card className="bg-gradient-to-br from-amber-500 to-amber-600 text-white">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-amber-100 text-sm mb-1">Aulas Hoje</p>
-              <p className="text-3xl font-bold">{proximasAulas.length}</p>
-            </div>
-            <Clock size={40} className="opacity-50" />
-          </div>
-        </Card>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+        <KPI label="Turmas Ativas" value={stats.totalTurmas} format="number" accent="blue" />
+        <KPI label="Total de Alunos" value={stats.totalAlunos} format="number" accent="green" />
+        <KPI label="Aulas Este Mês" value={stats.aulasMesAtual} format="number" accent="yellow" />
+        <KPI label="Aulas Hoje" value={proximasAulas.length} format="number" accent={proximasAulas.length > 0 ? 'green' : 'blue'} />
       </div>
+
+      {/* Próximas Aulas de Hoje */}
+      {proximasAulas.length > 0 && (
+        <Card className="mb-8">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
+              <Clock size={24} className="text-[#005DE4]" />
+              Aulas de Hoje
+            </h2>
+          </div>
+
+          <div className="space-y-3">
+            {proximasAulas.map(turma => {
+              const aulaJaRegistrada = aulasHoje.some(a => a.turmaId === turma.id);
+              
+              return (
+                <div
+                  key={turma.id}
+                  className="flex items-center justify-between p-4 bg-slate-50 rounded-lg border border-slate-200 hover:border-[#005DE4] transition-all"
+                >
+                  <div className="flex items-center gap-4">
+                    <div className="bg-[#005DE4] text-white rounded-lg p-3">
+                      <BookOpen size={24} />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold text-slate-800">{turma.nome}</h3>
+                      <p className="text-sm text-slate-600">
+                        {turma.horario} • {turma.nivel} • {turma.alunosIds?.length || turma.alunosCount || 0} alunos
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-3">
+                    {aulaJaRegistrada ? (
+                      <span className="flex items-center gap-2 text-emerald-600 font-medium">
+                        <CheckCircle size={20} />
+                        Registrada
+                      </span>
+                    ) : (
+                      <button
+                        onClick={() => {
+                          setSelectedTurma(turma);
+                          setSelectedDate(null); // hoje
+                          setShowRegistroAula(true);
+                        }}
+                        className="flex items-center gap-2 px-4 py-2 bg-[#005DE4] text-white rounded-lg hover:bg-[#0041a8] transition-all"
+                      >
+                        <Plus size={18} />
+                        Registrar Aula
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </Card>
+      )}
 
       {/* Agenda Semanal */}
       <div className="mb-8">
-        <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2 mb-4">
-          <Calendar size={22} className="text-[#005DE4]" />
-          Agenda da Semana
-        </h2>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
+            <Calendar size={22} className="text-[#005DE4]" />
+            {semanaOffset === 0 ? 'Agenda da Semana' : semanaOffset === -1 ? 'Semana Passada' : `${Math.abs(semanaOffset)} semanas atrás`}
+          </h2>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setSemanaOffset(o => o - 1)}
+              className="p-2 rounded-lg border border-slate-200 hover:border-[#005DE4] hover:text-[#005DE4] text-slate-500 transition-all"
+              title="Semana anterior"
+            >
+              ←
+            </button>
+            {semanaOffset !== 0 && (
+              <button
+                onClick={() => setSemanaOffset(0)}
+                className="px-3 py-1.5 text-xs rounded-lg border border-slate-200 hover:border-[#005DE4] hover:text-[#005DE4] text-slate-500 transition-all"
+              >
+                Hoje
+              </button>
+            )}
+            <button
+              onClick={() => setSemanaOffset(o => o + 1)}
+              disabled={semanaOffset >= 0}
+              className="p-2 rounded-lg border border-slate-200 hover:border-[#005DE4] hover:text-[#005DE4] text-slate-500 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+              title="Próxima semana"
+            >
+              →
+            </button>
+          </div>
+        </div>
         <div className="grid grid-cols-3 md:grid-cols-6 gap-3">
-          {agendaSemanal.map(({ dia, dateStr, isHoje, turmasDia }) => {
+          {agendaSemanal.map(({ dia, dateStr, isHoje, isFuturo, turmasDia }) => {
             const [ano, mes, d] = dateStr.split('-');
             const label = `${d}/${mes}`;
             return (
@@ -745,6 +896,8 @@ export default function ProfessorDashboard() {
                 className={`rounded-2xl border p-3 flex flex-col gap-2 min-h-[100px] ${
                   isHoje
                     ? 'border-[#005DE4] bg-blue-50 shadow-md'
+                    : !isFuturo && turmasDia.length > 0 && turmasDia.some(t => !aulas.some(a => a.turmaId === t.id && a.data === dateStr))
+                    ? 'border-orange-300 bg-orange-50'
                     : 'border-slate-200 bg-white'
                 }`}
               >
@@ -760,10 +913,19 @@ export default function ProfessorDashboard() {
                     return (
                       <button
                         key={turma.id}
-                        onClick={() => { setSelectedTurma(turma); setShowRegistroAula(true); }}
+                        onClick={() => {
+                          if (registrada) {
+                            setHistoricoTurmaFiltro(turma.id);
+                            setActiveView('historico');
+                          } else {
+                            setSelectedTurma(turma);
+                            setSelectedDate(dateStr);
+                            setShowRegistroAula(true);
+                          }
+                        }}
                         className={`w-full text-left rounded-xl px-2 py-1.5 text-xs transition-all border ${
                           registrada
-                            ? 'bg-emerald-50 border-emerald-200 text-emerald-700'
+                            ? 'bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100'
                             : 'bg-white border-slate-200 text-slate-700 hover:border-[#005DE4] hover:bg-blue-50'
                         }`}
                       >
@@ -771,7 +933,7 @@ export default function ProfessorDashboard() {
                           <span className="font-semibold truncate">{turma.nome}</span>
                           {registrada && <CheckCircle size={11} className="text-emerald-500 flex-shrink-0" />}
                         </div>
-                        <div className="text-xs opacity-70 mt-0.5">{turma.horario}</div>
+                        <div className="text-xs opacity-70 mt-0.5">{getHorarioDia(turma, dia)}</div>
                       </button>
                     );
                   })
@@ -799,8 +961,11 @@ export default function ProfessorDashboard() {
         };
         return (
           <div className="mb-8 bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-            {/* Header */}
-            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
+            {/* Header clicavel — toggle sanfona */}
+            <button
+              onClick={() => setShowAvisos(v => !v)}
+              className="w-full flex items-center justify-between px-5 py-4 hover:bg-slate-50 transition-colors"
+            >
               <div className="flex items-center gap-2">
                 <Bell size={20} className="text-[#005DE4]" />
                 <h2 className="text-base font-bold text-slate-800">Avisos &amp; Lembretes</h2>
@@ -810,9 +975,15 @@ export default function ProfessorDashboard() {
                   </span>
                 )}
               </div>
-            </div>
+              <svg
+                className={`w-4 h-4 text-slate-400 transition-transform duration-200 ${showAvisos ? 'rotate-180' : ''}`}
+                fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
 
-            <div className="p-4 space-y-2">
+            {showAvisos && <div className="p-4 space-y-2 border-t border-slate-100">
               {/* Auto-alertas */}
               {avisosVisiveis.map(aviso => {
                 const c = corMap[aviso.cor] || corMap.blue;
@@ -825,7 +996,7 @@ export default function ProfessorDashboard() {
                       <p className="text-xs text-slate-500 mt-0.5">{aviso.texto}</p>
                       {aviso.turmaObj && (
                         <button
-                          onClick={() => { setSelectedTurma(aviso.turmaObj); setShowRegistroAula(true); }}
+                          onClick={() => { setSelectedTurma(aviso.turmaObj); setSelectedDate(aviso.dataPendente || null); setShowRegistroAula(true); }}
                           className="mt-1.5 text-xs text-[#005DE4] font-medium hover:underline"
                         >
                           Registrar agora →
@@ -888,70 +1059,179 @@ export default function ProfessorDashboard() {
                 >
                   <Send size={14} /> Adicionar
                 </button>
+                {lembretes.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setLembretes([])}
+                    className="flex items-center gap-1.5 px-3 py-2 bg-slate-100 text-slate-500 border border-slate-200 rounded-lg text-sm font-medium hover:bg-red-50 hover:text-red-500 hover:border-red-200 transition-colors"
+                    title="Limpar todos os lembretes"
+                  >
+                    <Trash2 size={14} /> Limpar
+                  </button>
+                )}
               </form>
-            </div>
+            </div>}
           </div>
         );
       })()}
+      </React.Fragment>
+      )}
 
-      {/* Próximas Aulas de Hoje */}
-      {proximasAulas.length > 0 && (
-        <Card className="mb-8">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
-              <Clock size={24} className="text-[#005DE4]" />
-              Aulas de Hoje
-            </h2>
-          </div>
+      {/* Avisos e Notificações */}
+      {activeView === 'avisos' && (
+        <div className="space-y-4">
 
-          <div className="space-y-3">
-            {proximasAulas.map(turma => {
-              const aulaJaRegistrada = aulasHoje.some(a => a.turmaId === turma.id);
-              
-              return (
-                <div
-                  key={turma.id}
-                  className="flex items-center justify-between p-4 bg-slate-50 rounded-lg border border-slate-200 hover:border-[#005DE4] transition-all"
-                >
-                  <div className="flex items-center gap-4">
-                    <div className="bg-[#005DE4] text-white rounded-lg p-3">
-                      <BookOpen size={24} />
+          {/* Recados da coordenação */}
+          {recadosAdmin.length > 0 && (
+            <div>
+              <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wide mb-2 flex items-center gap-2">
+                <MessageSquare size={14} /> Recados da Coordenação
+              </h2>
+              <div className="space-y-3">
+                {recadosAdmin.map(r => {
+                  const tipoColor =
+                    r.tipo === 'urgente'  ? 'border-l-red-500 bg-red-50' :
+                    r.tipo === 'material' ? 'border-l-blue-500 bg-blue-50' :
+                    r.tipo === 'falta'    ? 'border-l-amber-500 bg-amber-50' :
+                                           'border-l-slate-400 bg-white';
+                  return (
+                    <div key={r.id} className={`border border-slate-200 border-l-4 rounded-xl p-4 shadow-sm ${tipoColor} ${!r.lido ? 'shadow-md' : 'opacity-80'}`}>
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1 flex-wrap">
+                            {!r.lido && (
+                              <span className="text-xs font-bold bg-emerald-500 text-white px-2 py-0.5 rounded-full">Novo</span>
+                            )}
+                            {r.tipo && r.tipo !== 'geral' && (
+                              <span className="text-xs font-medium text-slate-500 capitalize">{r.tipo}</span>
+                            )}
+                            <span className="text-xs text-slate-400 ml-auto">
+                              {r.createdAt ? new Date(r.createdAt).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : ''}
+                            </span>
+                          </div>
+                          <p className="text-sm text-slate-800 leading-relaxed">{r.texto}</p>
+                          {r.resposta && (
+                            <div className="mt-2 bg-white border border-slate-200 rounded-lg px-3 py-2">
+                              <p className="text-xs text-slate-400 font-semibold mb-0.5">Sua resposta:</p>
+                              <p className="text-xs text-slate-600">{r.resposta}</p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Ações */}
+                      <div className="mt-3 flex flex-col gap-2">
+                        {!r.resposta && (
+                          <div className="flex gap-2">
+                            <input
+                              type="text"
+                              placeholder="Responder à coordenação..."
+                              value={respostasRecados[r.id] || ''}
+                              onChange={e => setRespostasRecados(prev => ({ ...prev, [r.id]: e.target.value }))}
+                              onKeyDown={e => e.key === 'Enter' && enviarRespostaRecado(r.id)}
+                              className="flex-1 text-sm border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#005DE4] bg-white"
+                            />
+                            <button
+                              onClick={() => enviarRespostaRecado(r.id)}
+                              disabled={sendingResposta[r.id] || !respostasRecados[r.id]?.trim()}
+                              className="flex items-center gap-1 px-3 py-2 bg-[#005DE4] text-white rounded-lg hover:bg-[#0041a8] disabled:opacity-40 transition-colors text-sm"
+                            >
+                              <Send size={14} />
+                            </button>
+                          </div>
+                        )}
+                        {!r.lido && (
+                          <button
+                            onClick={() => marcarRecadoLido(r.id)}
+                            className="self-start flex items-center gap-1 text-xs text-emerald-700 font-medium hover:underline"
+                          >
+                            <CheckCircle size={12} /> Marcar como lido
+                          </button>
+                        )}
+                      </div>
                     </div>
-                    <div>
-                      <h3 className="font-semibold text-slate-800">{turma.nome}</h3>
-                      <p className="text-sm text-slate-600">
-                        {turma.horario} • {turma.nivel} • {turma.alunosIds?.length || turma.alunosCount || 0} alunos
-                      </p>
-                    </div>
-                  </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
-                  <div className="flex items-center gap-3">
-                    {aulaJaRegistrada ? (
-                      <span className="flex items-center gap-2 text-emerald-600 font-medium">
-                        <CheckCircle size={20} />
-                        Registrada
-                      </span>
-                    ) : (
-                      <button
-                        onClick={() => {
-                          setSelectedTurma(turma);
-                          setShowRegistroAula(true);
-                        }}
-                        className="flex items-center gap-2 px-4 py-2 bg-[#005DE4] text-white rounded-lg hover:bg-[#0041a8] transition-all"
-                      >
-                        <Plus size={18} />
-                        Registrar Aula
-                      </button>
-                    )}
-                  </div>
+          {/* Separador + botão limpar alertas */}
+          {notificacoesAuto.filter(a => !dismissedIds.has(a.id)).length > 0 && (
+            <div className="flex items-center justify-between">
+              <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wide flex items-center gap-2">
+                <Bell size={14} /> Alertas Automáticos
+              </h2>
+              <button
+                onClick={() => setDismissedIds(new Set(notificacoesAuto.map(a => a.id)))}
+                className="text-xs text-slate-400 hover:text-red-500 transition-colors"
+              >
+                Dispensar todos
+              </button>
+            </div>
+          )}
+
+          {notificacoesAuto.filter(a => !dismissedIds.has(a.id)).map(aviso => (
+            <div key={aviso.id} className="bg-white border-l-4 rounded-lg p-4 shadow-sm"
+              style={{ borderLeftColor: aviso.cor === 'blue' ? '#005DE4' : aviso.cor === 'orange' ? '#f97316' : aviso.cor === 'red' ? '#dc2626' : '#10b981' }}
+            >
+              <div className="flex items-start justify-between">
+                <div className="flex-1">
+                  <h3 className="font-semibold text-slate-800 mb-1">{aviso.titulo}</h3>
+                  <p className="text-sm text-slate-600">{aviso.texto}</p>
                 </div>
-              );
-            })}
-          </div>
-        </Card>
+                <button
+                  onClick={() => setDismissedIds(prev => new Set([...prev, aviso.id]))}
+                  className="text-slate-400 hover:text-slate-600 ml-2"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+              {aviso.turmaObj && aviso.dataPendente && (
+                <button
+                  onClick={() => {
+                    setSelectedTurma(aviso.turmaObj);
+                    setSelectedDate(aviso.dataPendente);
+                    setShowRegistroAula(true);
+                  }}
+                  className="mt-3 text-sm text-[#005DE4] hover:underline font-medium"
+                >
+                  Registrar agora
+                </button>
+              )}
+            </div>
+          ))}
+
+          {lembretes.filter(l => !dismissedIds.has(l.id)).map(lembrete => (
+            <div key={lembrete.id} className="bg-amber-50 border border-amber-200 rounded-lg p-4 shadow-sm">
+              <div className="flex items-start justify-between">
+                <div className="flex-1">
+                  <p className="text-sm text-slate-700">{lembrete.texto}</p>
+                  <p className="text-xs text-slate-400 mt-1">{lembrete.data}</p>
+                </div>
+                <button
+                  onClick={() => {
+                    setLembretes(prev => prev.filter(l => l.id !== lembrete.id));
+                    setDismissedIds(prev => new Set([...prev, lembrete.id]));
+                  }}
+                  className="text-slate-400 hover:text-slate-600 ml-2"
+                >
+                  <Trash2 size={16} />
+                </button>
+              </div>
+            </div>
+          ))}
+
+          {notificacoesAuto.filter(a => !dismissedIds.has(a.id)).length === 0 && lembretes.filter(l => !dismissedIds.has(l.id)).length === 0 && (
+            <div className="text-center py-12 text-slate-400">
+              <Bell size={48} className="mx-auto mb-3 opacity-30" />
+              <p>Nenhum aviso no momento</p>
+            </div>
+          )}\n        </div>
       )}
 
       {/* Lista de Turmas */}
+      {(activeView === 'turmas' || activeView === 'dashboard') && (
       <Card>
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
           <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
@@ -1029,6 +1309,7 @@ export default function ProfessorDashboard() {
                 <th className="pb-3 pr-4 font-semibold">Horário</th>
                 <th className="pb-3 pr-4 font-semibold text-center">Alunos</th>
                 <th className="pb-3 pr-4 font-semibold text-center">Aulas</th>
+                <th className="pb-3 pr-4 font-semibold text-center">Freq.</th>
                 <th className="pb-3 font-semibold text-center">Status</th>
                 <th className="pb-3 font-semibold text-right">Ações</th>
               </tr>
@@ -1036,7 +1317,7 @@ export default function ProfessorDashboard() {
             <tbody className="divide-y divide-slate-100">
               {turmasFiltradas.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="py-10 text-center text-slate-400 text-sm">
+                  <td colSpan={9} className="py-10 text-center text-slate-400 text-sm">
                     Nenhuma turma encontrada para os filtros selecionados.
                   </td>
                 </tr>
@@ -1062,6 +1343,15 @@ export default function ProfessorDashboard() {
                   return false;
                 })();
                 const qtdAlunos = turma.alunosIds?.length || turma.alunosCount || 0;
+                const aulasAllT = aulas.filter(a => a.turmaId === turma.id);
+                const freqMedia = aulasAllT.length >= 2 ? (() => {
+                  const total = aulasAllT.reduce((acc, a) => {
+                    const presentes = (a.chamadas || []).filter(c => c.status === 'presente').length;
+                    const tot = (a.chamadas || []).length;
+                    return tot > 0 ? acc + (presentes / tot) : acc;
+                  }, 0);
+                  return Math.round((total / aulasAllT.length) * 100);
+                })() : null;
 
                 return (
                   <tr key={turma.id} className="hover:bg-slate-50 transition-colors group">
@@ -1090,6 +1380,23 @@ export default function ProfessorDashboard() {
                       </div>
                     </td>
                     <td className="py-3 pr-4 text-center">
+                      {freqMedia !== null ? (
+                        <div className="flex flex-col items-center gap-1">
+                          <span className={`text-sm font-semibold ${freqMedia < 75 ? 'text-red-600' : 'text-emerald-600'}`}>
+                            {freqMedia}%
+                          </span>
+                          <div className="w-14 bg-slate-200 rounded-full h-1">
+                            <div
+                              className={`h-1 rounded-full ${freqMedia < 75 ? 'bg-red-500' : 'bg-emerald-500'}`}
+                              style={{ width: `${freqMedia}%` }}
+                            />
+                          </div>
+                        </div>
+                      ) : (
+                        <span className="text-xs text-slate-300">—</span>
+                      )}
+                    </td>
+                    <td className="py-3 pr-4 text-center">
                       {aulaHojeRegistrada ? (
                         <span className="inline-flex items-center gap-1 text-xs text-emerald-600 font-medium bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full whitespace-nowrap">
                           <CheckCircle size={11} />
@@ -1113,6 +1420,13 @@ export default function ProfessorDashboard() {
                           Ver
                         </button>
                         <button
+                          onClick={() => { setTurmaRanking(turma); setShowRankingTarefas(true); }}
+                          className="text-xs px-3 py-1.5 border border-purple-300 text-purple-600 rounded-lg hover:bg-purple-50 transition-all"
+                          title="Ranking de Tarefas"
+                        >
+                          📚 Tarefas
+                        </button>
+                        <button
                           onClick={() => { setSelectedTurma(turma); setShowRegistroAula(true); }}
                           className="text-xs px-3 py-1.5 bg-[#005DE4] text-white rounded-lg hover:bg-[#0041a8] transition-all flex items-center gap-1"
                         >
@@ -1128,6 +1442,21 @@ export default function ProfessorDashboard() {
           </table>
         </div>
       </Card>
+      )}
+
+      {/* Modal de Ranking de Tarefas */}
+      {showRankingTarefas && turmaRanking && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl max-w-lg w-full shadow-2xl overflow-hidden">
+            <RankingTarefas
+              turma={turmaRanking}
+              aulas={aulas}
+              alunos={alunosPorTurma[turmaRanking.id] || []}
+              onClose={() => { setShowRankingTarefas(false); setTurmaRanking(null); }}
+            />
+          </div>
+        </div>
+      )}
 
       {/* Modal de Detalhe da Turma */}
       {showDetalheTurma && selectedTurma && (
@@ -1225,11 +1554,20 @@ export default function ProfessorDashboard() {
                             )}
                           </div>
                         </div>
-                        {pct !== null && (
-                          <span className={`text-sm font-semibold ${pctColor}`}>
-                            {pct}% presença
-                          </span>
-                        )}
+                        <div className="flex items-center gap-2">
+                          {pct !== null && (
+                            <span className={`text-sm font-semibold ${pctColor}`}>
+                              {pct}%
+                            </span>
+                          )}
+                          <button
+                            onClick={() => setFreqAluno({ aluno, turma: selectedTurma })}
+                            className="flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium border border-[#005DE4]/20 bg-[#005DE4]/5 text-[#005DE4] hover:bg-[#005DE4]/10 transition-all"
+                            title="Ver relatório de frequência"
+                          >
+                            <TrendingUp size={11} /> Ver
+                          </button>
+                        </div>
                       </div>
                     );
                   })}
@@ -1260,6 +1598,13 @@ export default function ProfessorDashboard() {
                                 <span className="text-emerald-600">✓ {presentes}</span>
                                 <span className="text-red-500">✗ {faltas}</span>
                                 {total > 0 && <span className="text-slate-400 bg-slate-200 px-1.5 py-0.5 rounded">{Math.round(presentes / total * 100)}%</span>}
+                                <button
+                                  onClick={() => setEditAula(aula)}
+                                  className="flex items-center gap-1 px-2 py-0.5 rounded border border-slate-300 text-slate-500 hover:bg-white hover:border-[#005DE4] hover:text-[#005DE4] transition-all"
+                                  title="Editar chamada"
+                                >
+                                  <Pencil size={10} /> Editar
+                                </button>
                               </div>
                             </div>
                             {aula.conteudo && <p className="text-xs text-slate-600">{aula.conteudo}</p>}
@@ -1285,7 +1630,7 @@ export default function ProfessorDashboard() {
                 Registrar aula desta turma
               </button>
               <button
-                onClick={() => { setShowDetalheTurma(false); setShowHistorico(true); }}
+                onClick={() => { setShowDetalheTurma(false); setActiveView('historico'); }}
                 className="py-3 px-5 border border-slate-300 text-slate-700 rounded-xl hover:border-[#005DE4] hover:text-[#005DE4] transition-all"
               >
                 Ver histórico
@@ -1304,26 +1649,14 @@ export default function ProfessorDashboard() {
               alunosIniciais={alunosPorTurma[selectedTurma.id] || []}
               professorNome={professorNome}
               saving={saving}
+              initialDate={selectedDate}
+              aulasRecentes={aulas.filter(a => a.turmaId === selectedTurma.id).sort((a, b) => (b.data || '').localeCompare(a.data || '')).slice(0, 5)}
               onSave={handleSalvarAula}
               onCancel={() => {
                 setShowRegistroAula(false);
                 setSelectedTurma(null);
+                setSelectedDate(null);
               }}
-            />
-          </div>
-        </div>
-      )}
-
-      {/* Modal de Histórico de Aulas */}
-      {showHistorico && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden shadow-2xl">
-            <HistoricoAulas
-              aulas={aulas}
-              turmas={turmas}
-              onClose={() => setShowHistorico(false)}
-              onDeleteAula={excluirAula}
-              onUpdateAula={atualizarAula}
             />
           </div>
         </div>
@@ -1404,6 +1737,62 @@ export default function ProfessorDashboard() {
           onClose={() => setShowRelatorio(false)}
         />
       )}
+
+      {/* Modal: Relatório de Frequência do Aluno */}
+      {freqAluno && (
+        <FrequenciaAlunoModal
+          aluno={freqAluno.aluno}
+          aulas={aulas}
+          turma={freqAluno.turma}
+          onClose={() => setFreqAluno(null)}
+        />
+      )}
+
+      {/* Modal: Editar Chamada */}
+      {editAula && (
+        <EditarChamadaModal
+          aula={editAula}
+          saving={savingEdit}
+          onClose={() => setEditAula(null)}
+          onSave={async (dados) => {
+            setSavingEdit(true);
+            await atualizarAula(editAula.id, dados);
+            setSavingEdit(false);
+            setEditAula(null);
+          }}
+        />
+      )}
+
+      {/* FAB — Nova Aula */}
+      <div className="fixed bottom-6 right-6 z-40">
+        {showFAB && (
+          <div className="absolute bottom-16 right-0 bg-white rounded-2xl shadow-2xl border border-slate-200 p-3 w-64 max-h-72 overflow-y-auto">
+            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2 px-1">Selecionar turma</p>
+            {turmas.map(turma => (
+              <button
+                key={turma.id}
+                onClick={() => { setSelectedTurma(turma); setSelectedDate(null); setShowRegistroAula(true); setShowFAB(false); }}
+                className="w-full text-left px-3 py-2.5 rounded-xl hover:bg-blue-50 hover:text-[#005DE4] text-sm text-slate-700 transition-colors"
+              >
+                <div className="font-medium">{turma.nome}</div>
+                <div className="text-xs text-slate-400 mt-0.5">{turma.dias} • {turma.horario}</div>
+              </button>
+            ))}
+          </div>
+        )}
+        <button
+          onClick={() => setShowFAB(v => !v)}
+          className="w-14 h-14 bg-[#005DE4] text-white rounded-full shadow-lg hover:bg-[#0041a8] transition-all flex items-center justify-center text-2xl font-light"
+          title="Nova Aula"
+        >
+          {showFAB ? '×' : '+'}
+        </button>
+      </div>
+
+      </React.Fragment>
+      )}
+        </div>
+      </main>
     </div>
   );
 }

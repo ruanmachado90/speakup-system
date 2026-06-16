@@ -4,7 +4,7 @@ import { useMemo } from 'react';
  * Hook otimizado de estatísticas com loops consolidados
  * Reduz múltiplos filter().reduce() para um único loop
  */
-export const useStats = (students, payments, expenses, dashboardRange) => {
+export const useStats = (students = [], payments = [], expenses = [], dashboardRange) => {
   return useMemo(() => {
     const now = new Date();
     const currentMonth = now.getMonth(); // 0-11

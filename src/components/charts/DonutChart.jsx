@@ -6,8 +6,8 @@ export const DonutChart = ({data}) => {
   const innerRadius = 60;
   
   const colors = [
-    '#005DE4', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', 
-    '#ec4899', '#06b6d4', '#84cc16', '#f97316', '#6366f1'
+    '#0e48fe', '#fc6e1f', '#ffae1e', '#f30961', '#d1d5db',
+    '#9ca3af', '#0e48fe', '#fc6e1f', '#ffae1e', '#f30961'
   ];
 
   // Agrupar despesas por categoria
@@ -110,18 +110,20 @@ export const DonutChart = ({data}) => {
             x={centerX}
             y={centerY - 10}
             textAnchor="middle"
-            fontSize="24"
-            fontWeight="bold"
-            fill="#334155"
+            fontSize="20"
+            fontWeight="700"
+            fontFamily="Montserrat, sans-serif"
+            fill="#111827"
           >
             R$ {total.toLocaleString('pt-BR', {minimumFractionDigits: 0})}
           </text>
           <text
             x={centerX}
-            y={centerY + 15}
+            y={centerY + 12}
             textAnchor="middle"
-            fontSize="12"
-            fill="#94a3b8"
+            fontSize="10"
+            fontFamily="Montserrat, sans-serif"
+            fill="#9ca3af"
           >
             Total
           </text>
@@ -133,8 +135,8 @@ export const DonutChart = ({data}) => {
         {slices.map((slice, i) => (
           <div key={i} className="flex items-center gap-2">
             <span
-              className="w-4 h-4 rounded flex-shrink-0"
-              style={{backgroundColor: slice.color}}
+              className="flex-shrink-0 inline-block"
+              style={{backgroundColor: slice.color, width: 12, height: 4, borderRadius: 2}}
             ></span>
             <div className="flex-1 min-w-0">
               <div className="text-sm font-semibold text-slate-700 truncate">{slice.category}</div>

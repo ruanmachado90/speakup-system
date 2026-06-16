@@ -1,5 +1,5 @@
 import { useMemo, useState, useEffect } from 'react';
-import { PlusCircle, AlertCircle, Trash2, TrendingDown, Edit2, Download, FileSpreadsheet, Printer, Filter } from 'lucide-react';
+import { PlusCircle, AlertCircle, Trash2, TrendingDown, Edit2, Download, FileSpreadsheet, Printer, Filter, Eye, EyeOff, Clock } from 'lucide-react';
 import { Card, Table, DonutChart, ExpenseEvolutionChart, PaymentMethodChart } from '../components';
 import { ConfirmDialog, Toast } from '../components/ui/Toast';
 import { formatCurrency, formatDate, exportToExcel, exportToCSV, printExpenses } from '../utils';
@@ -31,6 +31,7 @@ const Expenses = ({
   setExpenseMonth, 
   expenseYear, 
   setExpenseYear, 
+  expenses = [],
   filteredExpensesData, 
   expenseEvolutionData, 
   setModal, 
@@ -38,14 +39,25 @@ const Expenses = ({
 }) => {
   const [confirmDialog, setConfirmDialog] = useState({ isVisible: false, expenseId: null, expenseName: '' });
   const [categoryFilter, setCategoryFilter] = useState('Todas');
+  const [statusFilter, setStatusFilter] = useState('todos'); // 'todos' | 'vencidos'
   const [showExportMenu, setShowExportMenu] = useState(false);
   const [highExpenseAlert, setHighExpenseAlert] = useState(null);
+  const [hideValues, setHideValues] = useState(false);
+
+  // Base data: when statusFilter is 'vencidos', use all expenses with date < today
+  const baseData = useMemo(() => {
+    if (statusFilter === 'vencidos') {
+      const hoje = new Date(); hoje.setHours(0, 0, 0, 0);
+      return expenses.filter(exp => exp.date && new Date(exp.date) < hoje);
+    }
+    return filteredExpensesData;
+  }, [statusFilter, expenses, filteredExpensesData]);
 
   // Filter by category
   const filteredByCategory = useMemo(() => {
-    if (categoryFilter === 'Todas') return filteredExpensesData;
-    return filteredExpensesData.filter(exp => exp.category === categoryFilter);
-  }, [filteredExpensesData, categoryFilter]);
+    if (categoryFilter === 'Todas') return baseData;
+    return baseData.filter(exp => exp.category === categoryFilter);
+  }, [baseData, categoryFilter]);
 
   // Memoize sorted data to avoid re-sorting on every render
   const sortedExpenses = useMemo(() => {
@@ -57,6 +69,8 @@ const Expenses = ({
   const totalExpenses = useMemo(() => {
     return filteredByCategory.reduce((sum, x) => sum + Number(x.value || 0), 0);
   }, [filteredByCategory]);
+
+  const maskValue = (val) => hideValues ? '••••' : val;
 
   // Check for high expenses and show alert
   useEffect(() => {
@@ -135,7 +149,7 @@ const Expenses = ({
         className="bg-[#005DE4] text-white px-6 py-3 rounded-full font-bold flex items-center gap-2 hover:bg-[#004CC0] transition-colors active:scale-95"
         aria-label="Adicionar nova despesa"
       >
-        <PlusCircle size={20}/> Adicionar Despesa
+        <PlusCircle size={20}/> Adicionar despesa
       </button>
     </div>
   );
@@ -224,49 +238,52 @@ const Expenses = ({
         </div>
       </div>
 
-      {/* Chart Card */}
-      <Card>
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h3 className="font-bold text-lg">Despesas por Categoria</h3>
-            <p className="text-xs text-slate-400">
-              {expenseView === 'month' 
-                ? `${MONTHS[expenseMonth]} ${expenseYear}`
-                : `Ano ${expenseYear}`}
-            </p>
+      {/* Charts Row */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Chart Card */}
+        <Card>
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h3 className="font-bold text-lg">Despesas por categoria</h3>
+              <p className="text-xs text-slate-400">
+                {expenseView === 'month' 
+                  ? `${MONTHS[expenseMonth]} ${expenseYear}`
+                  : `Ano ${expenseYear}`}
+              </p>
+            </div>
           </div>
-        </div>
-        {filteredExpensesData.length > 0 ? (
-          <DonutChart data={filteredExpensesData} />
-        ) : (
-          <div className="py-12 text-center text-slate-400 text-sm">
-            <AlertCircle size={32} className="mx-auto mb-2 opacity-50" />
-            Sem dados para exibir
-          </div>
-        )}
-      </Card>
+          {filteredExpensesData.length > 0 ? (
+            <DonutChart data={filteredExpensesData} />
+          ) : (
+            <div className="py-12 text-center text-slate-400 text-sm">
+              <AlertCircle size={32} className="mx-auto mb-2 opacity-50" />
+              Sem dados para exibir
+            </div>
+          )}
+        </Card>
 
-      {/* Payment Methods Chart Card */}
-      <Card>
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h3 className="font-bold text-lg">Despesas por Método de Pagamento</h3>
-            <p className="text-xs text-slate-400">
-              {expenseView === 'month' 
-                ? `${MONTHS[expenseMonth]} ${expenseYear}`
-                : `Ano ${expenseYear}`}
-            </p>
+        {/* Payment Methods Chart Card */}
+        <Card>
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h3 className="font-bold text-lg">Despesas por método de pagamento</h3>
+              <p className="text-xs text-slate-400">
+                {expenseView === 'month' 
+                  ? `${MONTHS[expenseMonth]} ${expenseYear}`
+                  : `Ano ${expenseYear}`}
+              </p>
+            </div>
           </div>
-        </div>
-        {filteredExpensesData.length > 0 ? (
-          <PaymentMethodChart data={filteredExpensesData} />
-        ) : (
-          <div className="py-12 text-center text-slate-400 text-sm">
-            <AlertCircle size={32} className="mx-auto mb-2 opacity-50" />
-            Sem dados para exibir
-          </div>
-        )}
-      </Card>
+          {filteredExpensesData.length > 0 ? (
+            <PaymentMethodChart data={filteredExpensesData} />
+          ) : (
+            <div className="py-12 text-center text-slate-400 text-sm">
+              <AlertCircle size={32} className="mx-auto mb-2 opacity-50" />
+              Sem dados para exibir
+            </div>
+          )}
+        </Card>
+      </div>
 
       {/* Expenses List Card */}
       <Card>
@@ -274,10 +291,19 @@ const Expenses = ({
           {/* Header */}
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div>
-              <h3 className="font-bold text-lg">Lista de Despesas</h3>
+              <h3 className="font-bold text-lg flex items-center gap-2">
+                Lista de despesas
+                <button
+                  onClick={() => setHideValues(v => !v)}
+                  className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
+                  title={hideValues ? 'Mostrar valores' : 'Ocultar valores'}
+                >
+                  {hideValues ? <EyeOff size={15} /> : <Eye size={15} />}
+                </button>
+              </h3>
               <p className="text-xs text-slate-400">
                 {categoryFilter !== 'Todas' && `${categoryFilter} - `}
-                Total: {formatCurrency(totalExpenses)}
+                Total: {maskValue(formatCurrency(totalExpenses))}
                 {categoryFilter !== 'Todas' && ` (${filteredByCategory.length} despesa${filteredByCategory.length !== 1 ? 's' : ''})`}
               </p>
             </div>
@@ -286,7 +312,7 @@ const Expenses = ({
               <div className="relative">
                 <button 
                   onClick={() => setShowExportMenu(!showExportMenu)}
-                  className="bg-slate-100 text-slate-700 px-4 py-2 rounded-full font-bold flex items-center gap-2 hover:bg-slate-200 transition-all"
+                  className="border border-slate-300 text-slate-600 px-4 py-2 rounded-lg font-medium flex items-center gap-2 hover:bg-slate-100 transition-all"
                   aria-label="Exportar despesas"
                   disabled={sortedExpenses.length === 0}
                 >
@@ -327,10 +353,39 @@ const Expenses = ({
                 aria-label="Adicionar nova despesa"
               >
                 <PlusCircle size={18}/> 
-                <span className="hidden sm:inline">Nova Despesa</span>
+                <span className="hidden sm:inline">Nova despesa</span>
                 <span className="sm:hidden">Adicionar</span>
               </button>
             </div>
+          </div>
+
+          {/* Status Filter */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <Clock size={16} className="text-slate-600" />
+            <span className="text-sm font-semibold text-slate-600">Status:</span>
+            <button
+              onClick={() => setStatusFilter('todos')}
+              className={`px-3 py-1 rounded-full text-sm font-semibold transition-all ${
+                statusFilter === 'todos'
+                  ? 'bg-[#005DE4] text-white shadow-sm'
+                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+              }`}
+            >
+              Todos os períodos
+            </button>
+            <button
+              onClick={() => setStatusFilter('vencidos')}
+              className={`px-3 py-1 rounded-full text-sm font-semibold transition-all ${
+                statusFilter === 'vencidos'
+                  ? 'bg-red-500 text-white shadow-sm'
+                  : 'bg-red-50 text-red-600 hover:bg-red-100'
+              }`}
+            >
+              Vencidos
+              {statusFilter === 'vencidos' && (
+                <span className="ml-1 text-xs">({baseData.length})</span>
+              )}
+            </button>
           </div>
 
           {/* Category Filter */}
@@ -378,7 +433,7 @@ const Expenses = ({
                   <td key="date" className="px-6 py-3 text-slate-600">{formatDate(x.date)}</td>
                   <td key="value" className="px-6 py-3">
                     <span className={`font-semibold ${Number(x.value) >= HIGH_EXPENSE_THRESHOLD ? 'text-yellow-600' : 'text-slate-800'}`}>
-                      {formatCurrency(x.value)}
+                      {maskValue(formatCurrency(x.value))}
                     </span>
                   </td>
                   <td key="paymentMethod" className="px-6 py-3 text-sm text-slate-600">
@@ -388,19 +443,19 @@ const Expenses = ({
                     <div className="flex gap-2">
                       <button 
                         onClick={() => handleEditClick(x)} 
-                        className="px-3 py-1.5 rounded-lg bg-blue-500 text-white hover:bg-blue-600 transition-colors flex items-center gap-1.5 text-sm font-medium active:scale-95"
+                        className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition-colors"
                         aria-label={`Editar despesa ${x.description}`}
                         title="Editar"
                       >
-                        <Edit2 size={14} />
+                        <Edit2 size={15} />
                       </button>
                       <button 
                         onClick={() => handleDeleteClick(x)} 
-                        className="px-3 py-1.5 rounded-lg bg-rose-500 text-white hover:bg-rose-600 transition-colors flex items-center gap-1.5 text-sm font-medium active:scale-95"
+                        className="p-1.5 rounded-lg hover:bg-red-50 text-red-400 hover:text-red-600 transition-colors"
                         aria-label={`Remover despesa ${x.description}`}
                         title="Remover"
                       >
-                        <Trash2 size={14} />
+                        <Trash2 size={15} />
                       </button>
                     </div>
                   </td>
@@ -428,7 +483,7 @@ const Expenses = ({
 
       {/* Evolution Chart Card */}
       <Card>
-        <h3 className="font-bold text-lg mb-4">Evolução das Despesas ({expenseYear})</h3>
+        <h3 className="font-bold text-lg mb-4">Evolução das despesas ({expenseYear})</h3>
         {expenseEvolutionData?.labels?.length > 0 ? (
           <ExpenseEvolutionChart 
             labels={expenseEvolutionData.labels} 

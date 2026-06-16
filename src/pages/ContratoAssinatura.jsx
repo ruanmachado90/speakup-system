@@ -1,16 +1,39 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { enviarContratoPorEmail } from '../utils/email';
 import { useParams } from 'react-router-dom';
-import { useData } from '../context/DataContext';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { db } from '../firebase';
+import { APP_ID } from '../utils/constants';
+
+function escapeHtml(str) {
+  if (str == null) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+function formatarCpf(valor) {
+  const numeros = valor.replace(/\D/g, '').slice(0, 11);
+  return numeros
+    .replace(/(\d{3})(\d)/, '$1.$2')
+    .replace(/(\d{3})(\d)/, '$1.$2')
+    .replace(/(\d{3})(\d{1,2})$/, '$1-$2');
+}
 
 // Contrato integral com formatação e cláusulas completas
 const contratoHtml = (aluno, aceitou, assinatura) => {
-  const contratanteName = aluno?.responsibleName || aluno?.name || '_________________';
-  const contratanteCpf = aluno?.responsibleCpf || aluno?.cpf || '_________________';
-  const contratanteContact = aluno?.responsibleContact || aluno?.contact || '-';
+  const contratanteName = escapeHtml(aluno?.responsibleName || aluno?.name || '_________________');
+  const contratanteCpf = escapeHtml(aluno?.responsibleCpf || aluno?.cpf || '_________________');
+  const contratanteContact = escapeHtml(aluno?.responsibleContact || aluno?.contact || '-');
+  const alunoName = escapeHtml(aluno?.name || '');
+  const alunoCourse = escapeHtml(aluno?.course || '-');
+  const alunoTeacher = escapeHtml(aluno?.teacher || '-');
   const vencimento = aluno?.dueDate ? new Date(aluno.dueDate).getDate() : '-';
   const carimbo = assinatura && assinatura.timestamp
-    ? `<div style=\"margin-top:8px;font-size:11px;color:#64748b;\">Assinado digitalmente por: <b>${assinatura.nome}</b> (CPF: ${assinatura.cpf})<br>Data e hora: ${assinatura.timestamp}${assinatura.ip ? `<br>IP: ${assinatura.ip}` : ''}</div>`
+    ? `<div style=\"margin-top:8px;font-size:11px;color:#64748b;\">Assinado digitalmente por: <b>${escapeHtml(assinatura.nome)}</b> (CPF: ${escapeHtml(assinatura.cpf)})<br>Data e hora: ${escapeHtml(assinatura.timestamp)}${assinatura.ip ? `<br>IP: ${escapeHtml(assinatura.ip)}` : ''}</div>`
     : '';
   return `
   <div style="font-family: Arial, Helvetica, sans-serif; color: #0f172a; font-size: 12px; line-height: 1.3; padding: 20px 32px; background: #fff;">
@@ -24,8 +47,8 @@ const contratoHtml = (aluno, aceitou, assinatura) => {
     <div style="border: 1px solid #e5e7eb; padding: 8px; border-radius: 4px; margin-bottom: 10px; background: #f8fafc;">
       <h2 style="font-size: 13px; margin-bottom: 4px;">Quadro Resumo</h2>
       <p><strong>CONTRATANTE:</strong> ${contratanteName} • CPF: ${contratanteCpf} • Contato: ${contratanteContact}</p>
-      <p><strong>ALUNO:</strong> ${aluno?.name}</p>
-      <p><strong>CURSO / PROFESSOR:</strong> ${aluno?.course || '-'} / ${aluno?.teacher || '-'}</p>
+      <p><strong>ALUNO:</strong> ${alunoName}</p>
+      <p><strong>CURSO / PROFESSOR:</strong> ${alunoCourse} / ${alunoTeacher}</p>
       <p><strong>Mensalidade:</strong> R$ ${Number(aluno?.fee||0).toLocaleString('pt-BR',{minimumFractionDigits:2})} • <strong>Parcelas:</strong> ${aluno?.installments || 12} • <strong>Vencimento:</strong> dia ${vencimento}</p>
       <p><strong>CONTRATADA:</strong> SpeakUp English Language Academy, pessoa jurídica de direito privado, inscrita no CNPJ sob o n.º 28.649.636/0001-88, sediada na Praça Governador Valadares, 119, Centro - Cataguases, MG.</p>
     </div>
@@ -88,19 +111,39 @@ const contratoHtml = (aluno, aceitou, assinatura) => {
 };
 
 
-import { useEffect } from 'react';
-
 export default function ContratoAssinatura() {
   const { id } = useParams();
-  const { students } = useData();
-  const aluno = students.find(s => s.id === id);
+  const [aluno, setAluno] = useState(null);
+  const [loadingAluno, setLoadingAluno] = useState(true);
   const [form, setForm] = useState({ nome: '', cpf: '', aceite: false });
   const [assinado, setAssinado] = useState(false);
+  const [jaAssinado, setJaAssinado] = useState(false);
   const [erro, setErro] = useState('');
+  const [loading, setLoading] = useState(false);
   const [assinatura, setAssinatura] = useState(null); // { nome, cpf, timestamp, ip }
   const [ip, setIp] = useState('');
 
-  // Buscar IP público do usuário
+  // Carrega aluno e verifica se contrato já foi assinado (página pública, sem auth)
+  useEffect(() => {
+    if (!id) return;
+    Promise.all([
+      getDoc(doc(db, 'artifacts', APP_ID, 'public', 'data', 'students', id)),
+      getDoc(doc(db, 'artifacts', APP_ID, 'public', 'data', 'contratos', id)),
+    ])
+      .then(([snapAluno, snapContrato]) => {
+        if (snapAluno.exists()) setAluno({ id: snapAluno.id, ...snapAluno.data() });
+        if (snapContrato.exists()) {
+          setJaAssinado(true);
+          setAssinatura(snapContrato.data());
+          setAssinado(true);
+        }
+      })
+      .catch((err) => {
+        console.error('[Contrato] Erro ao carregar dados do aluno:', err);
+        setErro('Não foi possível carregar os dados do contrato. Tente novamente.');
+      })
+      .finally(() => setLoadingAluno(false));
+  }, [id]);
   useEffect(() => {
     fetch('https://api.ipify.org?format=json')
       .then(res => res.json())
@@ -126,7 +169,11 @@ export default function ContratoAssinatura() {
 
   const handleInput = e => {
     const { name, value, type, checked } = e.target;
-    setForm(f => ({ ...f, [name]: type === 'checkbox' ? checked : value }));
+    if (name === 'cpf') {
+      setForm(f => ({ ...f, cpf: formatarCpf(value) }));
+    } else {
+      setForm(f => ({ ...f, [name]: type === 'checkbox' ? checked : value }));
+    }
   };
 
   const handleAssinar = async e => {
@@ -144,40 +191,60 @@ export default function ContratoAssinatura() {
       setErro('Você deve aceitar os termos do contrato.');
       return;
     }
+    setLoading(true);
     const now = new Date();
+    const timestamp = now.toLocaleString('pt-BR', { hour12: false, timeZone: 'America/Sao_Paulo' }) + ' (BRT)';
     const assinaturaObj = {
       nome: form.nome.trim(),
       cpf: form.cpf.replace(/\D/g, ''),
-      timestamp: now.toLocaleString('pt-BR', { hour12: false }),
-      ip: ip
+      timestamp,
+      ip,
+      alunoId: id,
+      alunoNome: aluno?.name || '',
     };
-    setAssinatura(assinaturaObj);
-    setAssinado(true);
-    // Enviar contrato por email
     try {
-      await enviarContratoPorEmail({
-        aluno_nome: aluno?.name,
-        responsavel_nome: aluno?.responsibleName || aluno?.name,
-        contrato_html: contratoHtml(aluno, true, assinaturaObj),
-        destinatario: aluno?.responsibleEmail || aluno?.email || 'seu-email@dominio.com'
-      });
+      // Salva assinatura no Firestore (coleção contratos)
+      await setDoc(doc(db, 'artifacts', APP_ID, 'public', 'data', 'contratos', id), assinaturaObj);
+      setAssinatura(assinaturaObj);
+      setAssinado(true);
+      // Enviar contrato por email (apenas se houver email válido)
+      const emailDestinatario = aluno?.responsibleEmail || aluno?.email;
+      if (emailDestinatario && emailDestinatario.includes('@')) {
+        try {
+          await enviarContratoPorEmail({
+            aluno_nome: aluno?.name,
+            responsavel_nome: aluno?.responsibleName || aluno?.name,
+            contrato_html: contratoHtml(aluno, true, assinaturaObj),
+            destinatario: emailDestinatario,
+          });
+        } catch (err) {
+          console.error('Erro ao enviar contrato por email:', err);
+        }
+      }
     } catch (err) {
-      // Apenas loga, não bloqueia o fluxo
-      console.error('Erro ao enviar contrato por email:', err);
+      console.error('Erro ao salvar assinatura:', err);
+      setErro('Erro ao registrar assinatura. Tente novamente.');
+    } finally {
+      setLoading(false);
     }
-    setTimeout(() => handleDownload(form.nome.trim(), form.cpf.replace(/\D/g, ''), now, ip), 500);
   };
 
-  const handleDownload = (nome, cpf, data, ipAddr) => {
-    const html = contratoHtml(aluno, true, { nome, cpf, timestamp: data ? data.toLocaleString('pt-BR', { hour12: false }) : (new Date()).toLocaleString('pt-BR', { hour12: false }), ip: ipAddr });
+  // Dispara download do contrato quando assinatura for registrada (sem setTimeout)
+  useEffect(() => {
+    if (!assinatura || jaAssinado) return;
+    const html = contratoHtml(aluno, true, assinatura);
     const blob = new Blob([html], { type: 'text/html' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `contrato-assinado-${aluno?.name?.replace(/\s+/g, '_')||'aluno'}.html`;
+    a.download = `contrato-assinado-${aluno?.name?.replace(/\s+/g, '_') || 'aluno'}.html`;
     a.click();
     URL.revokeObjectURL(url);
-  };
+  }, [assinatura]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  if (loadingAluno) {
+    return <div style={{ maxWidth: 600, margin: '40px auto', textAlign: 'center', color: '#64748b' }}>Carregando contrato...</div>;
+  }
 
   if (!aluno) {
     return <div style={{ maxWidth: 600, margin: '40px auto', color: 'red', fontWeight: 'bold' }}>Aluno não encontrado.</div>;
@@ -194,17 +261,25 @@ export default function ContratoAssinatura() {
           </div>
           <div style={{ marginBottom: 12 }}>
             <label style={{ display: 'block', fontWeight: 500, marginBottom: 4 }}>CPF <span style={{ color: 'red' }}>*</span></label>
-            <input name="cpf" value={form.cpf} onChange={handleInput} required style={{ width: '100%', border: '1px solid #cbd5e1', borderRadius: 4, padding: 8 }} placeholder="Digite seu CPF" maxLength={14} inputMode="numeric" />
+            <input name="cpf" value={form.cpf} onChange={handleInput} required style={{ width: '100%', border: '1px solid #cbd5e1', borderRadius: 4, padding: 8 }} placeholder="000.000.000-00" maxLength={14} inputMode="numeric" />
           </div>
           <label style={{ display: 'block', marginBottom: 10 }}>
             <input type="checkbox" name="aceite" checked={form.aceite} onChange={handleInput} style={{ marginRight: 6 }} />
             Li e concordo com os termos do contrato
           </label>
           {erro && <div style={{ color: 'red', fontSize: 14, marginBottom: 8 }}>{erro}</div>}
-          <button type="submit" style={{ background: '#005DE4', color: '#fff', border: 'none', borderRadius: 4, padding: '10px 24px', fontSize: 15, cursor: 'pointer', marginTop: 8 }}>Assinar digitalmente</button>
+          <button type="submit" disabled={loading} style={{ background: loading ? '#7a9bff' : '#0e48fe', color: '#fff', border: 'none', borderRadius: 4, padding: '10px 24px', fontSize: 15, cursor: loading ? 'not-allowed' : 'pointer', marginTop: 8, display: 'flex', alignItems: 'center', gap: 8 }}>
+            {loading ? 'Registrando assinatura...' : 'Assinar digitalmente'}
+          </button>
         </form>
       )}
-      {assinado && (
+      {assinado && jaAssinado && (
+        <div style={{ color: '#2563eb', fontSize: 15, marginTop: 24, textAlign: 'center', background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 6, padding: 16 }}>
+          Este contrato já foi assinado anteriormente.<br/>
+          <span style={{ color: '#64748b', fontSize: 13 }}>Assinado em: {assinatura?.timestamp} por {assinatura?.nome}</span>
+        </div>
+      )}
+      {assinado && !jaAssinado && (
         <div style={{ color: '#059669', fontSize: 15, marginTop: 24, textAlign: 'center' }}>
           Assinatura registrada com sucesso! O download do contrato foi iniciado.<br/>
           <span style={{ color: '#64748b', fontSize: 13 }}>Você pode fechar esta página.</span>

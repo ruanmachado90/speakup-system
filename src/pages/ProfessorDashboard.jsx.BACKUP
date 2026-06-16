@@ -1,0 +1,572 @@
+import React, { useState, useEffect, useMemo } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+// ...existing code...
+
+// ─── Relatório mensal do professor ────────────────────────────────────────
+function ProfessorRelatorio({ professor, turmas, aulas, alunosPorTurma, onClose }) {
+  const printRef = React.useRef(null);
+  const hoje = new Date();
+  const mesNomes = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
+  const mesAtual = mesNomes[hoje.getMonth()];
+  const anoAtual = hoje.getFullYear();
+
+  const aulasMes = aulas.filter(a => {
+    if (!a.data) return false;
+    const [ano, mes] = a.data.split('-').map(Number);
+    return mes - 1 === hoje.getMonth() && ano === anoAtual;
+  });
+
+  const statsPorTurma = turmas.map(turma => {
+    const aulasT = aulas.filter(a => a.turmaId === turma.id);
+    const aulasTMes = aulasMes.filter(a => a.turmaId === turma.id);
+    const alunos = alunosPorTurma[turma.id] || [];
+    const previstas = turma.totalAulas || 40;
+
+    let freqMedia = null;
+    if (aulasT.length > 0) {
+      const total = aulasT.reduce((acc, a) => {
+        const presentes = (a.chamadas || []).filter(c => c.status === 'presente').length;
+        const tot = (a.chamadas || []).length;
+        return tot > 0 ? acc + (presentes / tot) : acc;
+      }, 0);
+      // ...restante do statsPorTurma...
+    }
+    // ...restante do statsPorTurma...
+  });
+  // ...restante do ProfessorRelatorio...
+}
+
+// ─── DASHBOARD PRINCIPAL ────────────────────────────────────────────────
+function ProfessorDashboard(props) {
+  // ...hooks e variáveis do dashboard...
+  // ...código omitido para clareza...
+
+  return (
+    <div className="flex min-h-screen">
+      <aside className={`sidebar ${sidebarMode === 'open' ? 'w-60' : 'w-16'} bg-white border-r border-slate-200 flex flex-col transition-all duration-300`}>
+        <Logo collapsed={sidebarMode === 'mini'} />
+        <>
+          <nav className={`sidebar-nav flex-1 overflow-y-auto py-3 space-y-0.5 ${sidebarMode === 'mini' ? 'px-1' : 'px-3'}`}>
+            <Nav collapsed={sidebarMode === 'mini'} icon={<LayoutDashboard size={16} />} label="Dashboard" active={true} onClick={()=>{}} />
+            <Nav collapsed={sidebarMode === 'mini'} icon={<Users size={16} />} label="Minhas Turmas" active={false} onClick={()=>{}} />
+            <Nav collapsed={sidebarMode === 'mini'} icon={<ClipboardCheck size={16} />} label="Agenda" active={false} onClick={()=>{}} />
+            <Nav collapsed={sidebarMode === 'mini'} icon={<BarChart3 size={16} />} label="Ranking de Tarefas" active={false} onClick={()=>setShowRankingTarefas(true)} />
+            <Nav collapsed={sidebarMode === 'mini'} icon={<Printer size={16} />} label="Relatório" active={false} onClick={()=>setShowRelatorio(true)} />
+            <Nav collapsed={sidebarMode === 'mini'} icon={<MessageSquare size={16} />} label="Recado" active={false} onClick={()=>setShowRecado(true)} />
+            <Nav collapsed={sidebarMode === 'mini'} icon={<FileText size={16} />} label="Histórico de Aulas" active={false} onClick={()=>setShowHistorico(true)} />
+            <Nav collapsed={sidebarMode === 'mini'} icon={<BookOpen size={16} />} label="Notas" active={false} onClick={()=>setShowNotas(true)} />
+          </nav>
+          <div className="flex-shrink-0 border-t border-slate-100 py-3">
+            <button onClick={() => setSidebarMode(sidebarMode === 'open' ? 'mini' : 'open')} className="w-full text-xs text-slate-400 hover:text-[#005DE4] py-1">{sidebarMode === 'mini' ? 'Expandir' : 'Reduzir'}</button>
+          </div>
+        </>
+      </aside>
+      {/* CONTEÚDO PRINCIPAL */}
+      <main className={`${sidebarMode === 'open' ? 'ml-60' : sidebarMode === 'mini' ? 'ml-16' : ''} flex-1 p-6`}>
+        {showNotas ? (
+          <NotasView
+            professorSlug={professorSlug}
+            professorNome={professorNome}
+            turmas={turmas}
+            alunosPorTurma={alunosPorTurma}
+            onVoltar={() => setShowNotas(false)}
+          />
+        ) : (
+          <>
+            {successMsg && (
+              <div className="fixed top-5 right-5 z-50 bg-emerald-500 text-white px-5 py-3 rounded-xl shadow-lg flex items-center gap-2 animate-pulse">
+                <CheckCircle size={20} />
+                {successMsg}
+              </div>
+            )}
+            {/* TODO: Aqui entra todo o conteúdo principal já existente, incluindo header, cards, avisos, turmas, FAB, etc. */}
+            {/* O conteúdo já existente vai aqui normalmente, sem fragmentos soltos */}
+          </>
+        )}
+                >
+                  <div className="flex items-center gap-4">
+                    <div className="bg-[#005DE4] text-white rounded-lg p-3">
+                      <BookOpen size={24} />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold text-slate-800">{turma.nome}</h3>
+                      <p className="text-sm text-slate-600">
+                        {turma.horario} • {turma.nivel} • {turma.alunosIds?.length || turma.alunosCount || 0} alunos
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-3">
+                    {aulaJaRegistrada ? (
+                      <span className="flex items-center gap-2 text-emerald-600 font-medium">
+                        <CheckCircle size={20} />
+                        Registrada
+                      </span>
+                    ) : (
+                      <button
+                        onClick={() => {
+                          setSelectedTurma(turma);
+                          setSelectedDate(null); // hoje
+                          setShowRegistroAula(true);
+                        }}
+                        className="flex items-center gap-2 px-4 py-2 bg-[#005DE4] text-white rounded-lg hover:bg-[#0041a8] transition-all"
+                      >
+                        <Plus size={18} />
+                        Registrar Aula
+                      </button>
+                    )}
+                  </div>
+                // ...hooks e variáveis do dashboard...
+                // ...código omitido para clareza...
+
+                return (
+                  <div className="flex min-h-screen">
+                    <aside className={`sidebar ${sidebarMode === 'open' ? 'w-60' : 'w-16'} bg-white border-r border-slate-200 flex flex-col transition-all duration-300`}>
+                      <Logo collapsed={sidebarMode === 'mini'} />
+                      <>
+                        <nav className={`sidebar-nav flex-1 overflow-y-auto py-3 space-y-0.5 ${sidebarMode === 'mini' ? 'px-1' : 'px-3'}`}>
+                          {/* ...Navs... */}
+                        </nav>
+                        <div className="flex-shrink-0 border-t border-slate-100 py-3">
+                          <button onClick={() => setSidebarMode(sidebarMode === 'open' ? 'mini' : 'open')} className="w-full text-xs text-slate-400 hover:text-[#005DE4] py-1">{sidebarMode === 'mini' ? 'Expandir' : 'Reduzir'}</button>
+                        </div>
+                      </>
+                    </aside>
+                    <main className={`${sidebarMode === 'open' ? 'ml-60' : sidebarMode === 'mini' ? 'ml-16' : ''} flex-1 p-6`}>
+                      {/* TODO: Coloque aqui todo o conteúdo principal do dashboard, cards, avisos, turmas, FAB, etc. Certifique-se de que tudo está dentro deste <main> e não há JSX solto fora de funções! */}
+                    </main>
+                    {/* FAB — Nova Aula */}
+                    <div className="fixed bottom-6 right-6 z-40">
+                      {/* ...FAB e ações... */}
+                    </div>
+                  </div>
+                );
+              }
+
+              export default ProfessorDashboard;
+                  }
+                  return false;
+                })();
+                const qtdAlunos = turma.alunosIds?.length || turma.alunosCount || 0;
+                const aulasAllT = aulas.filter(a => a.turmaId === turma.id);
+                const freqMedia = aulasAllT.length >= 2 ? (() => {
+                  const total = aulasAllT.reduce((acc, a) => {
+                    const presentes = (a.chamadas || []).filter(c => c.status === 'presente').length;
+                    const tot = (a.chamadas || []).length;
+                    return tot > 0 ? acc + (presentes / tot) : acc;
+                  }, 0);
+                  return Math.round((total / aulasAllT.length) * 100);
+                })() : null;
+
+                return (
+                  <tr key={turma.id} className="hover:bg-slate-50 transition-colors group">
+                    <td className="py-3 pr-4">
+                      <span className="font-semibold text-slate-800">{turma.nome}</span>
+                    </td>
+                    <td className="py-3 pr-4">
+                      <span className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded text-xs font-medium">
+                        {turma.nivel}
+                      </span>
+                    </td>
+                    <td className="py-3 pr-4 text-slate-600">{turma.dias}</td>
+                    <td className="py-3 pr-4 text-slate-600 whitespace-nowrap">{turma.horario}</td>
+                    <td className="py-3 pr-4 text-center text-slate-700 font-medium">{qtdAlunos}</td>
+                    <td className="py-3 pr-4 text-center">
+                      <div className="flex flex-col items-center gap-1">
+                        <span className="text-sm font-semibold text-slate-800">
+                          {aulasCount}<span className="text-slate-400 font-normal">/{aulasPrevistas}</span>
+                        </span>
+                        <div className="w-16 bg-slate-200 rounded-full h-1">
+                          <div
+                            className={`h-1 rounded-full ${aulasProgress >= 100 ? 'bg-emerald-500' : 'bg-[#005DE4]'}`}
+                            style={{ width: `${aulasProgress}%` }}
+                          />
+                        </div>
+                      </div>
+                    </td>
+                    <td className="py-3 pr-4 text-center">
+                      {freqMedia !== null ? (
+                        <div className="flex flex-col items-center gap-1">
+                          <span className={`text-sm font-semibold ${freqMedia < 75 ? 'text-red-600' : 'text-emerald-600'}`}>
+                            {freqMedia}%
+                          </span>
+                          <div className="w-14 bg-slate-200 rounded-full h-1">
+                            <div
+                              className={`h-1 rounded-full ${freqMedia < 75 ? 'bg-red-500' : 'bg-emerald-500'}`}
+                              style={{ width: `${freqMedia}%` }}
+                            />
+                          </div>
+                        </div>
+                      ) : (
+                        <span className="text-xs text-slate-300">—</span>
+                      )}
+                    </td>
+                    <td className="py-3 pr-4 text-center">
+                      {aulaHojeRegistrada ? (
+                        <span className="inline-flex items-center gap-1 text-xs text-emerald-600 font-medium bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full whitespace-nowrap">
+                          <CheckCircle size={11} />
+                          Hoje ✓
+                        </span>
+                      ) : aulaPendente ? (
+                        <span className="inline-flex items-center gap-1 text-xs text-orange-600 font-medium bg-orange-50 border border-orange-200 px-2 py-0.5 rounded-full whitespace-nowrap">
+                          <AlertTriangle size={11} />
+                          Pendente
+                        </span>
+                      ) : (
+                        <span className="text-xs text-slate-400">—</span>
+                      )}
+                    </td>
+                    <td className="py-3 text-right">
+                      <div className="flex items-center justify-end gap-2 opacity-80 group-hover:opacity-100 transition-opacity">
+                        <button
+                          onClick={() => { setSelectedTurma(turma); setShowDetalheTurma(true); }}
+                          className="text-xs px-3 py-1.5 border border-slate-300 text-slate-700 rounded-lg hover:border-[#005DE4] hover:text-[#005DE4] transition-all"
+                        >
+                          Ver
+                        </button>
+                        <button
+                          onClick={() => { setTurmaRanking(turma); setShowRankingTarefas(true); }}
+                          className="text-xs px-3 py-1.5 border border-purple-300 text-purple-600 rounded-lg hover:bg-purple-50 transition-all"
+                          title="Ranking de Tarefas"
+                        >
+                          📚 Tarefas
+                        </button>
+                        <button
+                          onClick={() => { setSelectedTurma(turma); setShowRegistroAula(true); }}
+                          className="text-xs px-3 py-1.5 bg-[#005DE4] text-white rounded-lg hover:bg-[#0041a8] transition-all flex items-center gap-1"
+                        >
+                          <Plus size={12} />
+                          Registrar
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </Card>
+
+      {/* Modal de Ranking de Tarefas */}
+      {showRankingTarefas && turmaRanking && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl max-w-lg w-full shadow-2xl overflow-hidden">
+            <RankingTarefas
+              turma={turmaRanking}
+              aulas={aulas}
+              alunos={alunosPorTurma[turmaRanking.id] || []}
+              onClose={() => { setShowRankingTarefas(false); setTurmaRanking(null); }}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Detalhe da Turma */}
+      {showDetalheTurma && selectedTurma && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[85vh] overflow-hidden shadow-2xl flex flex-col">
+            {/* Header */}
+            <div className="p-6 border-b border-slate-100 flex items-start justify-between">
+              <div>
+                <h2 className="text-xl font-bold text-slate-800">{selectedTurma.nome}</h2>
+                <p className="text-slate-500 text-sm mt-1">
+                  {selectedTurma.nivel} • {selectedTurma.dias} • {selectedTurma.horario}
+                </p>
+              </div>
+              <button
+                onClick={() => { setShowDetalheTurma(false); setSelectedTurma(null); }}
+                className="text-slate-400 hover:text-slate-600 text-2xl leading-none"
+              >
+                ×
+              </button>
+            </div>
+
+            {/* Stats rápidas */}
+            <div className="grid grid-cols-3 gap-4 p-6 border-b border-slate-100">
+              <div className="text-center">
+                <p className="text-2xl font-bold text-[#005DE4]">
+                  {selectedTurma.alunosIds?.length || selectedTurma.alunosCount || 0}
+                </p>
+                <p className="text-xs text-slate-500">Alunos</p>
+              </div>
+              <div className="text-center">
+                <p className="text-2xl font-bold text-purple-600">
+                  {aulas.filter(a => a.turmaId === selectedTurma.id).length}
+                  <span className="text-sm text-slate-400 font-normal">/{selectedTurma.totalAulas || 40}</span>
+                </p>
+                <p className="text-xs text-slate-500">Aulas dadas / previstas</p>
+                <div className="w-full bg-slate-200 rounded-full h-1 mt-1">
+                  <div
+                    className={`h-1 rounded-full ${
+                      Math.min(Math.round((aulas.filter(a => a.turmaId === selectedTurma.id).length / (selectedTurma.totalAulas || 40)) * 100), 100) >= 100
+                        ? 'bg-emerald-500' : 'bg-purple-500'
+                    }`}
+                    style={{ width: `${Math.min(Math.round((aulas.filter(a => a.turmaId === selectedTurma.id).length / (selectedTurma.totalAulas || 40)) * 100), 100)}%` }}
+                  />
+                </div>
+              </div>
+              <div className="text-center">
+                <p className="text-2xl font-bold text-emerald-600">
+                  {(() => {
+                    const aulasT = aulas.filter(a => a.turmaId === selectedTurma.id);
+                    if (!aulasT.length) return '—';
+                    const totalPresencas = aulasT.reduce((acc, aula) => {
+                      const presentes = (aula.chamadas || []).filter(c => c.status === 'presente').length;
+                      const total = (aula.chamadas || []).length;
+                      return total > 0 ? acc + (presentes / total) : acc;
+                    }, 0);
+                    return Math.round((totalPresencas / aulasT.length) * 100) + '%';
+                  })()}
+                </p>
+                <p className="text-xs text-slate-500">Frequência média</p>
+              </div>
+            </div>
+
+            {/* Lista de alunos */}
+            <div className="flex-1 overflow-y-auto p-6">
+              <h3 className="font-semibold text-slate-700 mb-3 flex items-center gap-2">
+                <Users size={16} className="text-[#005DE4]" />
+                Alunos da turma
+              </h3>
+              {(alunosPorTurma[selectedTurma.id] || []).length === 0 ? (
+                <p className="text-slate-400 text-sm text-center py-6">Nenhum aluno cadastrado nesta turma.</p>
+              ) : (
+                <div className="space-y-2">
+                  {(alunosPorTurma[selectedTurma.id] || []).map((aluno, i) => {
+                    // Calcular frequência do aluno nesta turma
+                    const aulasT = aulas.filter(a => a.turmaId === selectedTurma.id);
+                    const presencas = aulasT.filter(a =>
+                      (a.chamadas || []).find(c => c.alunoId === aluno.id && c.status === 'presente')
+                    ).length;
+                    const pct = aulasT.length > 0 ? Math.round((presencas / aulasT.length) * 100) : null;
+                    const lowFreq = pct !== null && pct < 75;
+                    const pctColor = pct === null ? 'text-slate-400' : pct >= 75 ? 'text-emerald-600' : pct >= 50 ? 'text-amber-600' : 'text-red-600';
+
+                    return (
+                      <div key={aluno.id} className={`flex items-center justify-between p-3 rounded-lg border ${lowFreq ? 'bg-red-50 border-red-200' : 'bg-slate-50 border-transparent'}`}>
+                        <div className="flex items-center gap-3">
+                          <div className={`w-8 h-8 text-white rounded-full flex items-center justify-center text-sm font-bold ${lowFreq ? 'bg-red-500' : 'bg-[#005DE4]'}`}>
+                            {(aluno.nome || aluno.name || '?')[0].toUpperCase()}
+                          </div>
+                          <div>
+                            <span className="font-medium text-slate-800">{aluno.nome || aluno.name}</span>
+                            {lowFreq && (
+                              <p className="text-xs text-red-600 flex items-center gap-1 mt-0.5">
+                                <AlertCircle size={11} /> Frequência abaixo de 75%
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                        {pct !== null && (
+                          <span className={`text-sm font-semibold ${pctColor}`}>
+                            {pct}% presença
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Aulas Registradas */}
+              {aulas.filter(a => a.turmaId === selectedTurma.id).length > 0 && (
+                <div className="mt-6">
+                  <h3 className="font-semibold text-slate-700 mb-3 flex items-center gap-2">
+                    <BookOpen size={16} className="text-[#005DE4]" />
+                    Aulas Registradas ({aulas.filter(a => a.turmaId === selectedTurma.id).length})
+                  </h3>
+                  <div className="space-y-2">
+                    {aulas
+                      .filter(a => a.turmaId === selectedTurma.id)
+                      .sort((a, b) => (b.data || '').localeCompare(a.data || ''))
+                      .map((aula, i) => {
+                        const presentes = (aula.chamadas || []).filter(c => c.status === 'presente').length;
+                        const faltas = (aula.chamadas || []).filter(c => c.status === 'falta').length;
+                        const total = (aula.chamadas || []).length;
+                        const dataFmt = aula.data ? aula.data.split('-').reverse().join('/') : '—';
+                        return (
+                          <div key={i} className="bg-slate-50 border border-slate-200 rounded-lg p-3">
+                            <div className="flex items-center justify-between mb-1">
+                              <span className="font-semibold text-slate-800 text-sm">{dataFmt}</span>
+                              <div className="flex items-center gap-2 text-xs">
+                                <span className="text-emerald-600">✓ {presentes}</span>
+                                <span className="text-red-500">✗ {faltas}</span>
+                                {total > 0 && <span className="text-slate-400 bg-slate-200 px-1.5 py-0.5 rounded">{Math.round(presentes / total * 100)}%</span>}
+                              </div>
+                            </div>
+                            {aula.conteudo && <p className="text-xs text-slate-600">{aula.conteudo}</p>}
+                            {aula.homework && <p className="text-xs text-purple-600 mt-0.5">Homework: {aula.homework}</p>}
+                          </div>
+                        );
+                      })}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Footer actions */}
+            <div className="p-6 border-t border-slate-100 flex gap-3">
+              <button
+                onClick={() => {
+                  setShowDetalheTurma(false);
+                  setShowRegistroAula(true);
+                }}
+                className="flex-1 py-3 bg-[#005DE4] text-white rounded-xl hover:bg-[#0041a8] transition-all font-medium flex items-center justify-center gap-2"
+              >
+                <Plus size={18} />
+                Registrar aula desta turma
+              </button>
+              <button
+                onClick={() => { setShowDetalheTurma(false); setShowHistorico(true); }}
+                className="py-3 px-5 border border-slate-300 text-slate-700 rounded-xl hover:border-[#005DE4] hover:text-[#005DE4] transition-all"
+              >
+                Ver histórico
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Registro de Aula */}
+      {showRegistroAula && selectedTurma && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl max-w-3xl w-full max-h-[90vh] overflow-hidden shadow-2xl">
+            <ChamadaForm
+              turma={selectedTurma}
+              alunosIniciais={alunosPorTurma[selectedTurma.id] || []}
+              professorNome={professorNome}
+              saving={saving}
+              initialDate={selectedDate}
+              aulasRecentes={aulas.filter(a => a.turmaId === selectedTurma.id).slice(0, 3)}
+              onSave={handleSalvarAula}
+              onCancel={() => {
+                setShowRegistroAula(false);
+                setSelectedTurma(null);
+                setSelectedDate(null);
+              }}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Histórico de Aulas */}
+      {showHistorico && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden shadow-2xl">
+            <HistoricoAulas
+              aulas={aulas}
+              turmas={turmas}
+              onClose={() => { setShowHistorico(false); setHistoricoTurmaFiltro(null); }}
+              onDeleteAula={excluirAula}
+              onUpdateAula={atualizarAula}
+              initialTurmaFiltro={historicoTurmaFiltro}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Recado para Coordenação */}
+      {showRecado && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full shadow-2xl">
+            <div className="flex items-center justify-between p-5 border-b border-slate-100">
+              <div className="flex items-center gap-2">
+                <MessageSquare size={20} className="text-amber-500" />
+                <h2 className="text-lg font-bold text-slate-800">Recado para a Coordenação</h2>
+              </div>
+              <button onClick={() => { setShowRecado(false); setRecadoSent(false); setRecadoTexto(''); }}
+                className="text-slate-400 hover:text-slate-600">
+                <X size={20} />
+              </button>
+            </div>
+            {recadoSent ? (
+              <div className="p-8 text-center">
+                <CheckCircle size={48} className="text-emerald-500 mx-auto mb-3" />
+                <p className="font-semibold text-slate-800">Recado enviado com sucesso!</p>
+                <p className="text-sm text-slate-500 mt-1">A coordenação será notificada.</p>
+              </div>
+            ) : (
+              <form onSubmit={handleEnviarRecado} className="p-5 space-y-4">
+                <div>
+                  <label className="text-sm font-medium text-slate-700 mb-1 block">Tipo</label>
+                  <select
+                    value={recadoTipo}
+                    onChange={e => setRecadoTipo(e.target.value)}
+                    className="w-full border border-slate-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 bg-white"
+                  >
+                    <option value="geral">📋 Geral</option>
+                    <option value="aluno">🎓 Sobre um aluno</option>
+                    <option value="material">📦 Material / Recurso</option>
+                    <option value="falta">📅 Falta / Ausência</option>
+                    <option value="urgente">🚨 Urgente</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-slate-700 mb-1 block">Mensagem</label>
+                  <textarea
+                    value={recadoTexto}
+                    onChange={e => setRecadoTexto(e.target.value)}
+                    placeholder="Descreva o recado..."
+                    rows={4}
+                    className="w-full border border-slate-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 resize-none"
+                    required
+                  />
+                </div>
+                <div className="text-xs text-slate-400">De: <strong>{professorNome}</strong></div>
+                <div className="flex gap-3">
+                  <button type="button" onClick={() => setShowRecado(false)}
+                    className="flex-1 py-2.5 border border-slate-300 rounded-xl text-slate-600 text-sm font-medium hover:bg-slate-50">
+                    Cancelar
+                  </button>
+                  <button type="submit" disabled={savingRecado || !recadoTexto.trim()}
+                    className="flex-1 py-2.5 bg-amber-500 text-white rounded-xl text-sm font-semibold hover:bg-amber-600 disabled:opacity-50 flex items-center justify-center gap-2">
+                    <Send size={14} />
+                    {savingRecado ? 'Enviando...' : 'Enviar Recado'}
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Relatório Mensal do Professor */}
+      {showRelatorio && (
+        <ProfessorRelatorio
+          professor={professorNome}
+          turmas={turmas}
+          aulas={aulas}
+          alunosPorTurma={alunosPorTurma}
+          onClose={() => setShowRelatorio(false)}
+        />
+      )}
+
+      {/* FAB — Nova Aula */}
+      <div className="fixed bottom-6 right-6 z-40">
+        {showFAB && (
+          <div className="absolute bottom-16 right-0 bg-white rounded-2xl shadow-2xl border border-slate-200 p-3 w-64 max-h-72 overflow-y-auto">
+            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2 px-1">Selecionar turma</p>
+            {turmas.map(turma => (
+              <button
+                key={turma.id}
+                onClick={() => { setSelectedTurma(turma); setSelectedDate(null); setShowRegistroAula(true); setShowFAB(false); }}
+                className="w-full text-left px-3 py-2.5 rounded-xl hover:bg-blue-50 hover:text-[#005DE4] text-sm text-slate-700 transition-colors"
+              >
+                <div className="font-medium">{turma.nome}</div>
+                <div className="text-xs text-slate-400 mt-0.5">{turma.dias} • {turma.horario}</div>
+              </button>
+            ))}
+          </div>
+        )}
+        <button
+          onClick={() => setShowFAB(v => !v)}
+          className="w-14 h-14 bg-[#005DE4] text-white rounded-full shadow-lg hover:bg-[#0041a8] transition-all flex items-center justify-center text-2xl font-light"
+          title="Nova Aula"
+        >
+          {showFAB ? '×' : '+'}
+        </button>
+      </div>
+    </div>
+  );
+}

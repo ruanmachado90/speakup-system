@@ -6,6 +6,7 @@ import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { Copy, Check, AlertCircle } from 'lucide-react';
 import { APP_ID } from '../utils/constants';
+import { formatDate } from '../utils/formatters';
 
 const PaymentLink = () => {
   const { paymentId } = useParams();
@@ -116,7 +117,7 @@ const PaymentLink = () => {
             <span className="text-xs font-semibold text-[#0e48fe] uppercase tracking-wider mt-2">Valor a pagar</span>
             <span className="text-3xl font-black text-[#0e48fe]">R$ {Number(payment?.valuePlanned || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
             {payment?.dueDate && (
-              <span className={`text-xs font-medium ${new Date(payment.dueDate) < new Date(new Date().setHours(0,0,0,0)) ? 'text-red-600' : 'text-gray-700'}`}>Vencimento: {new Date(payment.dueDate).toLocaleDateString('pt-BR')}{new Date(payment.dueDate) < new Date(new Date().setHours(0,0,0,0)) && ' (Vencido)'}</span>
+              <span className={`text-xs font-medium ${new Date(payment.dueDate) < new Date(new Date().setHours(0,0,0,0)) ? 'text-red-600' : 'text-gray-700'}`}>Vencimento: {formatDate(payment.dueDate)}{new Date(payment.dueDate) < new Date(new Date().setHours(0,0,0,0)) && ' (Vencido)'}</span>
             )}
           </div>
 

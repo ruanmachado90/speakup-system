@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { collection, addDoc, getDocs, updateDoc, deleteDoc, doc, Timestamp, query, where } from 'firebase/firestore';
+import { collection, addDoc, onSnapshot, updateDoc, deleteDoc, doc, Timestamp, query, where } from 'firebase/firestore';
 import { db } from '../firebase';
 
 export function useAulas(professorNome) {
@@ -7,32 +7,29 @@ export function useAulas(professorNome) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // Buscar aulas do professor
-  const fetchAulas = useCallback(async () => {
-    if (!professorNome) return;
-
-    try {
-      setLoading(true);
-      // Filtra diretamente no Firestore pelo nome exato do professor
-      const q = query(collection(db, 'aulas'), where('professor', '==', professorNome));
-      const snapshot = await getDocs(q);
-      const aulasData = snapshot.docs
-        .map(doc => ({ id: doc.id, ...doc.data() }))
-        .sort((a, b) => (b.data || '').localeCompare(a.data || ''));
-
-      setAulas(aulasData);
-      setError(null);
-    } catch (err) {
-      console.error('Erro ao buscar aulas:', err);
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  }, [professorNome]);
-
+  // Escuta aulas do professor em tempo real via onSnapshot
   useEffect(() => {
-    fetchAulas();
-  }, [fetchAulas]);
+    if (!professorNome) return;
+    setLoading(true);
+    const q = query(collection(db, 'aulas'), where('professor', '==', professorNome));
+    const unsubscribe = onSnapshot(
+      q,
+      (snapshot) => {
+        const aulasData = snapshot.docs
+          .map(docSnap => ({ id: docSnap.id, ...docSnap.data() }))
+          .sort((a, b) => (b.data || '').localeCompare(a.data || ''));
+        setAulas(aulasData);
+        setError(null);
+        setLoading(false);
+      },
+      (err) => {
+        console.error('Erro ao escutar aulas:', err);
+        setError(err.message);
+        setLoading(false);
+      }
+    );
+    return unsubscribe;
+  }, [professorNome]);
 
   /**
    * Registrar nova aula com chamada
@@ -47,10 +44,7 @@ export function useAulas(professorNome) {
       };
 
       const docRef = await addDoc(collection(db, 'aulas'), novaAula);
-
-      // Atualiza lista local
-      setAulas(prev => [{ id: docRef.id, ...novaAula }, ...prev]);
-
+      // onSnapshot atualiza a lista automaticamente
       return { success: true, id: docRef.id };
     } catch (err) {
       console.error('Erro ao registrar aula:', err);
@@ -143,6 +137,5 @@ export function useAulas(professorNome) {
     calcularFrequencia,
     getAulasPorTurma,
     getAulasPorData,
-    refetch: fetchAulas
   };
 }

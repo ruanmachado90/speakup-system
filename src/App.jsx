@@ -1,26 +1,38 @@
 import React, { useState, useEffect, lazy, Suspense } from "react";
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams, useLocation } from 'react-router-dom';
+import { signOut } from 'firebase/auth';
+import { auth, db } from './firebase';
+import { collection, query, where, onSnapshot, doc, getDoc, updateDoc } from 'firebase/firestore';
+import { APP_ID } from './utils/constants';
+import { formatDate } from './utils/formatters';
+import { AuthProvider, useAuthContext } from './context/AuthContext';
 import {
   Users,
   LayoutDashboard,
   FileText,
   PieChart,
   PlusCircle,
-  Printer,
   ClipboardList,
   Calendar,
   ClipboardCheck,
   UserPlus,
   Menu,
-  X,
-  Sparkles
+  Sparkles,
+  MessageSquare,
+  KeyRound,
+  Trash2,
+  Eye,
+  EyeOff,
+  GraduationCap,
+  BookOpen
 } from "lucide-react";
 
-import { 
+import {
   Modal,
   Logo,
   Nav
 } from './components';
+import ErrorBoundary from './components/ui/ErrorBoundary';
 import { StudentForm, PaymentForm, ExpenseForm, LeadForm } from './components/forms';
 import { AppProvider } from './context';
 import { 
@@ -58,7 +70,7 @@ const Leads = lazy(() => import('./pages/Leads').then(m => ({ default: m.Leads }
 const AIManager = lazy(() => import('./pages/AIManager'));
 const CalendarPage = lazy(() => import('./pages/Calendar'));
 const ContratoAssinatura = lazy(() => import('./pages/ContratoAssinatura'));
-const Vendas = lazy(() => import('./pages').then(m => ({ default: m.Vendas })));
+const Vendas = lazy(() => import('./pages/Vendas'));
 const VendasSimple = lazy(() => import('./pages/VendasSimple'));
 const Recibo = lazy(() => import('./pages/Recibo'));
 const PaymentLink = lazy(() => import('./pages/PaymentLink'));
@@ -66,6 +78,11 @@ const AgendaGoogle = lazy(() => import('./pages/Agenda'));
 const Turmas = lazy(() => import('./pages/Turmas'));
 const ProfessorDashboard = lazy(() => import('./pages/ProfessorDashboard'));
 const Notas = lazy(() => import('./pages/Notas'));
+const LoginPage = lazy(() => import('./pages/LoginPage'));
+const ProfessorLoginPage = lazy(() => import('./pages/ProfessorLoginPage'));
+const Recados = lazy(() => import('./pages/Recados').then(m => ({ default: m.Recados })));
+const AulasAdmin = lazy(() => import('./pages/AulasAdmin'));
+const Registro = lazy(() => import('./pages/Registro'));
 
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 
@@ -99,28 +116,37 @@ const PageLoader = () => (
   </div>
 );
 
+// ── Guard: admin ou secretaria ───────────────────────────────────────────
+function RequireAdminAuth({ children }) {
+  const { user, role, loading } = useAuthContext();
+  const location = useLocation();
+  if (loading) return <PageLoader />;
+  if (!user || !['admin', 'secretaria'].includes(role)) {
+    return <Navigate to="/login" state={{ from: location }} replace />;
+  }
+  return children;
+}
+
+// ── Guard: professor (ou admin/secretaria para suporte) ───────────────────
+function RequireProfessorAuth({ children }) {
+  const { user, role, loading } = useAuthContext();
+  const { professorSlug } = useParams();
+
+  if (loading) return <PageLoader />;
+  if (!user || !['professor', 'admin', 'secretaria'].includes(role)) {
+    if (professorSlug) localStorage.setItem('pendingProfessorSlug', professorSlug);
+    return <Navigate to="/professor-login" replace />;
+  }
+  return children;
+}
+
 function AppContent() {
   const navigate = useNavigate();
-  const [sidebarOpen, setSidebarOpen] = useState(true);
-  
-  // Ajustar sidebar baseado no tamanho da tela
-  useEffect(() => {
-    const handleResize = () => {
-      if (window.innerWidth < 1024) {
-        setSidebarOpen(false);
-      } else {
-        setSidebarOpen(true);
-      }
-    };
-    
-    // Executar na montagem
-    handleResize();
-    
-    // Escutar mudanças de tamanho
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
-  
+  const { user: authUser, role } = useAuthContext();
+  const [sidebarMode, setSidebarMode] = useState('open'); // 'open' | 'mini' | 'closed'
+  const [recadosNaoLidos, setRecadosNaoLidos] = useState(0);
+  const [modalContratoStatus, setModalContratoStatus] = useState(null); // null | 'loading' | { assinado, ... }
+
   /* ================= CONTEXT (usando hooks seletores para performance) ================= */
   const { page, setPage } = usePage();
   const { modal, setModal } = useModal();
@@ -139,6 +165,49 @@ function AppContent() {
     setExpenseCategorySelect,
     expenseCategoryOther
   } = useExpenseFilters();
+
+  // Busca status do contrato quando modal de aluno abre
+  useEffect(() => {
+    if (modal?.type === 'view' && modal?.data?.id) {
+      setModalContratoStatus('loading');
+      getDoc(doc(db, 'artifacts', APP_ID, 'public', 'data', 'contratos', modal.data.id))
+        .then(snap => {
+          if (snap.exists()) {
+            setModalContratoStatus({ assinado: true, ...snap.data() });
+          } else {
+            setModalContratoStatus({ assinado: false, enviadoEm: modal.data.contratoEnviadoEm || null });
+          }
+        })
+        .catch(() => setModalContratoStatus({ assinado: false, enviadoEm: null }));
+    } else {
+      setModalContratoStatus(null);
+    }
+  }, [modal?.type, modal?.data?.id]);
+  
+  // Listener em tempo real para recados não lidos
+  useEffect(() => {
+    const q = query(collection(db, 'recados'), where('lido', '==', false));
+    const unsub = onSnapshot(q, snap => setRecadosNaoLidos(snap.size));
+    return unsub;
+  }, []);
+
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth < 1024) {
+        setSidebarMode('closed');
+      } else {
+        setSidebarMode(prev => prev === 'closed' ? 'open' : prev);
+      }
+    };
+    
+    // Executar na montagem
+    handleResize();
+    
+    // Escutar mudanças de tamanho
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+  
   const { saving, setSaving } = useSaving();
   const { paymentSaving } = usePaymentSaving();
   const { expenseSaving } = useExpenseSaving();
@@ -152,7 +221,7 @@ function AppContent() {
   const { filteredExpensesData, expenseEvolutionData } = useExpenseData();
 
   /* ================= ACTIONS ================= */
-  const { saveStudent, handleCancelEnrollment, handleDeleteStudent, handleExcelUpload } = useStudentActions(user, modal, toastMsg, setModal, setSaving);
+  const { saveStudent, handleCancelEnrollment, handleReactivateEnrollment, handleDeleteStudent, handleExcelUpload } = useStudentActions(user, modal, toastMsg, setModal, setSaving);
   const { savePayment, handleUndoPayment } = usePaymentActions(modal, toastMsg, setModal, setSaving);
   const { saveExpense, handleDeleteExpense } = useExpenseActions(user, modal, toastMsg, setModal, setSaving);
   const { saveLead } = useLeadActions(user, modal, toastMsg, setModal, setSaving);
@@ -174,76 +243,161 @@ function AppContent() {
       `}</style>
 
       {/* SIDEBAR */}
-      <aside className={`w-64 bg-[#005DE4] text-white fixed h-full p-6 transition-transform duration-300 ease-in-out z-20 ${
-        sidebarOpen ? 'translate-x-0' : '-translate-x-full'
-      } shadow-2xl`}>
-        <Logo />
-        <Nav icon={<LayoutDashboard />} label="Dashboard" active={page==="dashboard"} onClick={()=>setPage("dashboard")} />
-        <Nav icon={<Users />} label="Alunos" active={page==="students"} onClick={()=>setPage("students")} />
-        <Nav icon={<UserPlus />} label="Leads" active={page==="leads"} onClick={()=>setPage("leads")} />
-        <Nav icon={<FileText />} label="Financeiro" active={page==="finance"} onClick={()=>setPage("finance")} />
-        <Nav icon={<PieChart />} label="Despesas" active={page==="expenses"} onClick={()=>setPage("expenses")} />
-        <Nav icon={<Sparkles />} label="IA Gerencial" active={page==="ia"} onClick={()=>setPage("ia")} />
-        <Nav icon={<Calendar />} label="Calendário" active={page==="calendar"} onClick={()=>setPage("calendar")} />
-        <Nav icon={<ClipboardCheck />} label="Agenda" active={page==="agenda"} onClick={()=>setPage("agenda")} />
-        <Nav icon={<Users />} label="Turmas" active={page==="turmas"} onClick={()=>setPage("turmas")} />
-        <Nav icon={<FileText />} label="Vendas" active={page==="vendas"} onClick={()=>setPage("vendas")} />
-        {/* <Nav icon={<PieChart />} label="Pedagógico" active={page==="pedagogico"} onClick={()=>setPage("pedagogico")} /> */}
+      <aside className={`bg-white border-r border-slate-200 fixed h-full flex flex-col transition-all duration-300 ease-in-out z-20 shadow-lg ${
+        sidebarMode === 'open' ? 'w-60 translate-x-0' :
+        sidebarMode === 'mini' ? 'w-16 translate-x-0' :
+        'w-60 -translate-x-full'
+      }`}>
+        <Logo collapsed={sidebarMode === 'mini'} />
+
+        {/* Nav items — scrollável */}
+        <nav className={`sidebar-nav flex-1 overflow-y-auto py-3 space-y-0.5 ${sidebarMode === 'mini' ? 'px-1' : 'px-3'}`}>
+          {/* Dashboard */}
+          <Nav collapsed={sidebarMode === 'mini'} icon={<LayoutDashboard size={16} />} label="Dashboard" active={page==="dashboard"} onClick={()=>setPage("dashboard")} />
+
+          {/* PEDAGÓGICO */}
+          <Nav collapsed={sidebarMode === 'mini'} icon={<Users size={16} />} label="Alunos" active={page==="students"} onClick={()=>setPage("students")} />
+          <Nav collapsed={sidebarMode === 'mini'} icon={<Users size={16} />} label="Turmas" active={page==="turmas"} onClick={()=>setPage("turmas")} />
+          {role === 'admin' && (
+            <Nav collapsed={sidebarMode === 'mini'} icon={<BookOpen size={16} />} label="Aulas" active={page==="aulas"} onClick={()=>setPage("aulas")} />
+          )}
+          {(role === 'admin' || role === 'secretaria') && (
+            <Nav collapsed={sidebarMode === 'mini'} icon={<ClipboardCheck size={16} />} label="Agenda" active={page==="agenda"} onClick={()=>setPage("agenda")} />
+          )}
+          {role === 'admin' && (
+            <Nav collapsed={sidebarMode === 'mini'} icon={<Calendar size={16} />} label="Calendário" active={page==="calendar"} onClick={()=>setPage("calendar")} />
+          )}
+
+          {/* COMERCIAL */}
+          <Nav collapsed={sidebarMode === 'mini'} icon={<UserPlus size={16} />} label="Leads" active={page==="leads"} onClick={()=>setPage("leads")} />
+          <Nav collapsed={sidebarMode === 'mini'} icon={<FileText size={16} />} label="Vendas" active={page==="vendas"} onClick={()=>setPage("vendas")} />
+
+          {/* FINANCEIRO */}
+          <Nav collapsed={sidebarMode === 'mini'} icon={<FileText size={16} />} label="Financeiro" active={page==="finance"} onClick={()=>setPage("finance")} />
+          <Nav collapsed={sidebarMode === 'mini'} icon={<PieChart size={16} />} label="Despesas" active={page==="expenses"} onClick={()=>setPage("expenses")} />
+
+          {/* GESTÃO (Admin only) */}
+          {role === 'admin' && (
+            <>
+              <Nav collapsed={sidebarMode === 'mini'} icon={<Users size={16} />} label="Professores" active={page==="professores"} onClick={()=>setPage("professores")} />
+              <Nav
+                collapsed={sidebarMode === 'mini'}
+                icon={
+                  <span className="relative">
+                    <MessageSquare size={16} />
+                    {recadosNaoLidos > 0 && (
+                      <span className="absolute -top-1.5 -right-1.5 bg-red-500 text-white text-[9px] font-bold w-4 h-4 flex items-center justify-center rounded-full leading-none">
+                        {recadosNaoLidos > 9 ? '9+' : recadosNaoLidos}
+                      </span>
+                    )}
+                  </span>
+                }
+                label="Recados"
+                active={page==="recados"}
+                onClick={()=>setPage("recados")}
+              />
+              <Nav collapsed={sidebarMode === 'mini'} icon={<Sparkles size={16} />} label="IA Gerencial" active={page==="ia"} onClick={()=>setPage("ia")} />
+            </>
+          )}
+        </nav>
+
+        {/* Usuário logado na parte inferior da sidebar */}
+        <div className="flex-shrink-0 border-t border-slate-100 py-3">
+          {sidebarMode === 'mini' ? (
+            <div className="flex justify-center">
+              {authUser?.photoURL ? (
+                <img src={authUser.photoURL} alt="" title={authUser?.displayName || authUser?.email} className="w-8 h-8 rounded-full border-2 border-slate-200 cursor-pointer" />
+              ) : (
+                <div className="w-8 h-8 rounded-full bg-[#005DE4]/10 flex items-center justify-center text-sm font-bold text-[#005DE4] cursor-pointer" title={authUser?.displayName || authUser?.email}>
+                  {(authUser?.displayName || authUser?.email || '?')[0].toUpperCase()}
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="px-4">
+              <div className="flex items-center gap-2.5 mb-2">
+                {authUser?.photoURL ? (
+                  <img src={authUser.photoURL} alt="" className="w-8 h-8 rounded-full border-2 border-slate-200 flex-shrink-0" />
+                ) : (
+                  <div className="w-8 h-8 rounded-full bg-[#005DE4]/10 flex items-center justify-center text-sm font-bold text-[#005DE4] flex-shrink-0">
+                    {(authUser?.displayName || authUser?.email || '?')[0].toUpperCase()}
+                  </div>
+                )}
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-semibold text-slate-700 truncate leading-tight">{authUser?.displayName || authUser?.email}</p>
+                  <p className="text-[11px] text-slate-400 leading-tight mt-0.5 capitalize">
+                    {role === 'admin' ? 'Administrador' : role === 'secretaria' ? 'Secretaria' : role}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => signOut(auth).then(() => navigate('/login'))}
+                className="w-full text-[11px] text-slate-400 hover:text-red-500 hover:bg-red-50 px-3 py-1.5 rounded-lg transition-colors text-left"
+              >
+                Sair da conta
+              </button>
+            </div>
+          )}
+        </div>
       </aside>
 
       {/* Overlay para mobile */}
-      {sidebarOpen && (
+      {sidebarMode === 'open' && (
         <div 
           className="fixed inset-0 bg-black bg-opacity-50 z-10 lg:hidden transition-opacity duration-300"
-          onClick={() => setSidebarOpen(false)}
+          onClick={() => setSidebarMode('closed')}
           aria-hidden="true"
         />
       )}
 
       {/* MAIN */}
       <main className={`flex-1 transition-all duration-300 ease-in-out ${
-        sidebarOpen ? 'ml-64' : 'ml-0'
+        sidebarMode === 'open' ? 'ml-60' :
+        sidebarMode === 'mini' ? 'ml-16' :
+        'ml-0'
       }`}>
 
         {/* HEADER */}
-        <header className="bg-white border-b px-8 py-4 flex justify-between items-center sticky top-0 z-10">
-          <div className="flex items-center gap-4">
+        <header className="bg-white border-b px-6 py-3.5 flex justify-between items-center sticky top-0 z-10">
+          <div className="flex items-center gap-3">
             <button
-              onClick={() => setSidebarOpen(!sidebarOpen)}
-              className="p-2 hover:bg-slate-100 rounded-lg transition-colors text-slate-700"
+              onClick={() => {
+                if (window.innerWidth < 1024) {
+                  setSidebarMode(prev => prev === 'open' ? 'closed' : 'open');
+                } else {
+                  setSidebarMode(prev => prev === 'open' ? 'mini' : 'open');
+                }
+              }}
+              className="p-2 hover:bg-slate-100 rounded-lg transition-colors text-slate-500"
               aria-label="Toggle menu"
-              title={sidebarOpen ? "Fechar menu" : "Abrir menu"}
             >
-              {sidebarOpen ? <X size={24} /> : <Menu size={24} />}
+              <Menu size={20} />
             </button>
-          <h1 className="font-black text-xl uppercase">
-            {page === "dashboard" && "Painel de Controle"}
-            {page === "students" && "Gestão de Alunos"}
-            {page === "leads" && "Leads"}
-            {page === "finance" && "Financeiro"}
-            {page === "expenses" && "Despesas"}
-            {page === "ia" && "IA Gerencial"}
-            {page === "calendar" && "Calendário"}
-            {page === "turmas" && "Turmas"}
-            {/* {page === "pedagogico" && "PEDAGÓGICO"} */}
-          </h1>
-        </div>
+            <h1 className="font-semibold text-slate-800 text-base">
+              {page === "dashboard" && "Painel de controle"}
+              {page === "students" && "Gestão de alunos"}
+              {page === "leads" && "Leads"}
+              {page === "finance" && "Financeiro"}
+              {page === "expenses" && "Despesas"}
+              {page === "ia" && "IA Gerencial"}
+              {page === "calendar" && "Calendário"}
+              {page === "turmas" && "Turmas"}
+              {page === "agenda" && "Agenda"}
+              {page === "vendas" && "Vendas"}
+              {page === "recados" && "Recados"}
+              {page === "professores" && "Professores"}
+              {page === "aulas" && "Registro de Aulas"}
+            </h1>
+          </div>
 
-          <div className="flex gap-3">
+          <div className="flex gap-2 items-center">
             {page !== "dashboard" && (
               <button
                 onClick={() => setModal({ open: true, type: page === 'expenses' ? 'expense' : 'student' })}
-                className="bg-[#005DE4] text-white px-4 py-2 rounded-full font-bold flex gap-2"
+                className="bg-[#005DE4] text-white px-4 py-2 rounded-full font-semibold text-sm flex gap-2 items-center hover:bg-[#0041a8] transition-colors"
               >
-                <PlusCircle size={16}/> Novo
+                <PlusCircle size={15}/> Novo
               </button>
-            )}
-            {page === "reports" && (
-              <div className="flex gap-2 items-center">
-                <button onClick={()=>window.print()} className="px-4 py-2 rounded-full bg-slate-100 flex gap-2">
-                  <Printer size={16}/> Imprimir
-                </button>
-              </div>
             )}
           </div>
         </header>
@@ -261,15 +415,17 @@ function AppContent() {
               filteredExpenses={filteredExpenses}
               students={students}
               payments={payments}
+              role={role}
             />}
 
-            {page === "students" && <Students 
+            {page === "students" && <Students
               students={students}
               payments={payments}
               searchTerm={searchTerm}
               setSearchTerm={setSearchTerm}
               setModal={setModal}
               handleCancelEnrollment={handleCancelEnrollment}
+              handleReactivateEnrollment={handleReactivateEnrollment}
               handleDeleteStudent={handleDeleteStudent}
               handleExcelUpload={handleExcelUpload}
               dashboardRange={dashboardRange}
@@ -290,14 +446,21 @@ function AppContent() {
               handleUndoPayment={handleUndoPayment}
             />}
 
-            {page === "ia" && <AIManager
-              students={students}
-              payments={payments}
-              expenses={expenses}
-              leads={leads}
-              filterMonth={filterMonth}
-              filterYear={filterYear}
-            />}
+            {page === "ia" && (
+              role === 'admin'
+                ? <AIManager
+                    students={students}
+                    payments={payments}
+                    expenses={expenses}
+                    leads={leads}
+                    filterMonth={filterMonth}
+                    filterYear={filterYear}
+                  />
+                : <div className="flex flex-col items-center justify-center py-20 text-slate-400">
+                    <Sparkles size={40} className="mb-3 opacity-30" />
+                    <p className="font-medium">Acesso restrito ao administrador</p>
+                  </div>
+            )}
 
             {page === "expenses" && <Expenses 
               expenseView={expenseView}
@@ -306,6 +469,7 @@ function AppContent() {
               setExpenseMonth={setExpenseMonth}
               expenseYear={expenseYear}
               setExpenseYear={setExpenseYear}
+              expenses={expenses}
               filteredExpensesData={filteredExpensesData}
               expenseEvolutionData={expenseEvolutionData}
               setModal={setModal}
@@ -321,6 +485,9 @@ function AppContent() {
             {page === "turmas" && <Turmas students={students} />}
 
             {page === "vendas" && <Vendas />}
+            {page === "recados" && <Recados />}
+            {page === "professores" && role === 'admin' && <ProfessoresAdmin />}
+            {page === "aulas" && role === 'admin' && <AulasAdmin />}
             {/* {page === "pedagogico" && <Pedagogico />} */}
           </Suspense>
         </div>
@@ -430,6 +597,31 @@ function AppContent() {
                       <p className="text-xs text-slate-500 mb-1">Status</p>
                       <div className="border rounded-lg p-3">{modal.data?.status}</div>
                     </div>
+
+                    <div className="col-span-3">
+                      <p className="text-xs text-slate-500 mb-1">Turma</p>
+                      {modal.data?.turmaInfo ? (
+                        <div className="border rounded-lg p-3 flex items-center justify-between bg-[#f0f2f7]">
+                          <div>
+                            <span className="font-semibold text-[#0e48fe]">{modal.data.turmaInfo.nome || modal.data.turmaInfo.name || '—'}</span>
+                            {modal.data.turmaInfo.professor && (
+                              <span className="text-xs text-slate-400 ml-2">• Prof. {modal.data.turmaInfo.professor}</span>
+                            )}
+                            {modal.data.turmaInfo.horario && (
+                              <span className="text-xs text-slate-400 ml-2">• {modal.data.turmaInfo.horario}</span>
+                            )}
+                          </div>
+                          <button
+                            onClick={() => { setModal({open:false,type:null,data:null}); setPage('turmas'); }}
+                            className="text-xs text-[#0e48fe] hover:underline font-semibold ml-4 flex-shrink-0"
+                          >
+                            Ver turma →
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="border rounded-lg p-3 text-slate-400 text-xs">Nenhuma turma atribuída</div>
+                      )}
+                    </div>
                   </div>
                 </div>
 
@@ -464,7 +656,7 @@ function AppContent() {
                       .map(p => (
                         <tr key={p.id} className="border-t">
                           <td className="px-4 py-2">{p.installmentNum}</td>
-                          <td className="px-4 py-2">{p.dueDate ? new Date(p.dueDate).toLocaleDateString('pt-BR') : '-'}</td>
+                          <td className="px-4 py-2">{p.dueDate ? formatDate(p.dueDate) : '-'}</td>
                           <td className="px-4 py-2">R$ {Number(p.valuePlanned||0).toLocaleString('pt-BR',{minimumFractionDigits:2})}</td>
                           <td className="px-4 py-2">
                             <span className={`px-2 py-1 rounded-full text-xs ${p.status === 'Pago' ? 'bg-emerald-100 text-emerald-700' : (new Date(p.dueDate) < new Date() ? 'bg-rose-100 text-rose-700' : 'bg-amber-100 text-amber-700')}`}>
@@ -478,8 +670,48 @@ function AppContent() {
                 </table>
               </div>
 
-              <div className="flex justify-end gap-2">
+              <div className="flex justify-end gap-2 items-center flex-wrap">
+                {/* Badge status do contrato */}
+                {modalContratoStatus === 'loading' && (
+                  <span className="text-xs text-slate-400 mr-auto">Verificando contrato...</span>
+                )}
+                {modalContratoStatus && modalContratoStatus !== 'loading' && (
+                  <span className={`mr-auto text-xs font-semibold px-3 py-1.5 rounded-full flex items-center gap-1.5 ${
+                    modalContratoStatus.assinado
+                      ? 'bg-emerald-100 text-emerald-700'
+                      : modalContratoStatus.enviadoEm
+                        ? 'bg-amber-100 text-amber-700'
+                        : 'bg-slate-100 text-slate-500'
+                  }`}>
+                    {modalContratoStatus.assinado ? (
+                      <>✓ Contrato assinado em {modalContratoStatus.timestamp} por {modalContratoStatus.nome}</>
+                    ) : modalContratoStatus.enviadoEm ? (
+                      <>⏳ Link enviado em {new Date(modalContratoStatus.enviadoEm).toLocaleDateString('pt-BR')} — aguardando assinatura</>
+                    ) : (
+                      <>— Contrato não enviado</>
+                    )}
+                  </span>
+                )}
                 <button onClick={printFicha} className="px-4 py-2 rounded bg-[#005DE4] text-white">Imprimir ficha</button>
+                <button
+                  onClick={async () => {
+                    if (modal.data?.id) {
+                      const link = `${window.location.origin}/contrato/${modal.data.id}`;
+                      navigator.clipboard.writeText(link).then(() => toastMsg('Link do contrato copiado!'));
+                      const enviadoEm = new Date().toISOString();
+                      try {
+                        await updateDoc(doc(db, 'artifacts', APP_ID, 'public', 'data', 'students', modal.data.id), { contratoEnviadoEm: enviadoEm });
+                        setModalContratoStatus(prev => prev?.assinado ? prev : { assinado: false, enviadoEm });
+                      } catch (e) {
+                        console.error('[App] Erro ao registrar envio do contrato:', e);
+                        toastMsg('Erro ao salvar data de envio do contrato.');
+                      }
+                    }
+                  }}
+                  className="px-4 py-2 rounded bg-slate-200 text-slate-700 hover:bg-slate-300"
+                >
+                  Copiar link contrato
+                </button>
                 <button
                   onClick={() => {
                     if (modal.data?.id) {
@@ -512,20 +744,303 @@ function AppContent() {
 
 
 
+
+// ── Gerenciamento de Professores (admin) ──────────────────────────────────────
+import { getFunctions, httpsCallable } from 'firebase/functions';
+
+function ProfessoresAdmin() {
+  const [professores, setProfessores] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [form, setForm] = useState({ nome: '', email: '', slug: '', senha: '' });
+  const [showSenha, setShowSenha] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+  const [resetUid, setResetUid] = useState(null);
+  const [novaSenha, setNovaSenha] = useState('');
+  const [showNovaSenha, setShowNovaSenha] = useState(false);
+  const [resetSaving, setResetSaving] = useState(false);
+  const [createdCredentials, setCreatedCredentials] = useState(null); // { nome, email, senha }
+
+  const fns = getFunctions();
+
+  // Carrega professores do Firestore
+  useEffect(() => {
+    const qry = query(collection(db, 'users'), where('role', '==', 'professor'));
+    const unsub = onSnapshot(qry, snap => {
+      setProfessores(snap.docs.map(d => ({ uid: d.id, ...d.data() })));
+      setLoading(false);
+    });
+    return unsub;
+  }, []);
+
+  const handleCreate = async (e) => {
+    e.preventDefault();
+    setError(''); setSuccess('');
+    if (!form.nome || !form.email || !form.slug || !form.senha) {
+      setError('Preencha todos os campos.'); return;
+    }
+    if (form.senha.length < 6) { setError('Senha mínima: 6 caracteres.'); return; }
+    setSaving(true);
+    try {
+      const fn = httpsCallable(fns, 'createProfessor');
+      await fn({ nome: form.nome, email: form.email, slug: form.slug, password: form.senha });
+      setCreatedCredentials({ nome: form.nome, email: form.email, senha: form.senha });
+      setSuccess('');
+      setForm({ nome: '', email: '', slug: '', senha: '' });
+    } catch (err) {
+      setError(err.message || 'Erro ao criar professor.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleResetSenha = async (uid) => {
+    if (!novaSenha || novaSenha.length < 6) { setError('Nova senha mínima: 6 caracteres.'); return; }
+    setResetSaving(true); setError('');
+    try {
+      const fn = httpsCallable(fns, 'updateProfessorPassword');
+      await fn({ uid, password: novaSenha });
+      setSuccess('Senha atualizada!');
+      setResetUid(null); setNovaSenha('');
+    } catch (err) {
+      setError(err.message || 'Erro ao atualizar senha.');
+    } finally {
+      setResetSaving(false);
+    }
+  };
+
+  const handleDelete = async (uid, nome) => {
+    if (!window.confirm(`Remover professor ${nome}? Esta ação não pode ser desfeita.`)) return;
+    setError('');
+    try {
+      const fn = httpsCallable(fns, 'deleteProfessor');
+      await fn({ uid });
+      setSuccess(`${nome} removido.`);
+    } catch (err) {
+      setError(err.message || 'Erro ao remover professor.');
+    }
+  };
+
+  // Auto-gerar slug a partir do nome
+  const handleNomeChange = (e) => {
+    const nome = e.target.value;
+    const slug = nome.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+    setForm(f => ({ ...f, nome, slug }));
+  };
+
+  return (
+    <div className="space-y-6 p-1">
+      <div className="flex items-center gap-3 mb-2">
+        <GraduationCap size={22} className="text-[#005DE4]" />
+        <h2 className="text-xl font-bold text-slate-800">Gerenciar Professores</h2>
+      </div>
+
+      {error && <div className="bg-red-50 border border-red-200 text-red-700 rounded-xl px-4 py-3 text-sm">{error}</div>}
+      {success && <div className="bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-xl px-4 py-3 text-sm">{success}</div>}
+
+      {/* Credenciais do professor recém-criado/atualizado */}
+      {createdCredentials && (
+        <div className="bg-blue-50 border border-[#005DE4]/30 rounded-2xl p-5">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <p className="text-sm font-semibold text-[#005DE4] mb-2">✅ Conta de <span className="font-bold">{createdCredentials.nome}</span> pronta!</p>
+              <p className="text-xs text-slate-600 mb-1">Passe estas credenciais para o professor:</p>
+              <div className="mt-2 space-y-1 font-mono text-sm bg-white border border-slate-200 rounded-xl px-4 py-3">
+                <p><span className="text-slate-400 text-xs">E-mail:</span> <span className="text-slate-800 font-medium">{createdCredentials.email}</span></p>
+                <p><span className="text-slate-400 text-xs">Senha:</span> <span className="text-slate-800 font-medium">{createdCredentials.senha}</span></p>
+                <p><span className="text-slate-400 text-xs">Link:</span> <span className="text-slate-800 font-medium">{window.location.origin}/professor-login</span></p>
+              </div>
+            </div>
+            <button
+              onClick={() => {
+                const txt = `Professor: ${createdCredentials.nome}\nE-mail: ${createdCredentials.email}\nSenha: ${createdCredentials.senha}\nAcesso: ${window.location.origin}/professor-login`;
+                navigator.clipboard.writeText(txt);
+              }}
+              className="flex-shrink-0 px-3 py-1.5 text-xs border border-[#005DE4]/40 text-[#005DE4] rounded-lg hover:bg-[#005DE4]/10 transition-colors"
+            >Copiar</button>
+          </div>
+          <button onClick={() => setCreatedCredentials(null)} className="mt-3 text-xs text-slate-400 hover:text-slate-600">Fechar</button>
+        </div>
+      )}
+
+      {/* Formulário de criação */}
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
+        <h3 className="font-semibold text-slate-700 mb-4 flex items-center gap-2">
+          <UserPlus size={16} className="text-[#005DE4]" /> Novo Professor
+        </h3>
+        <form onSubmit={handleCreate} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className="text-xs font-medium text-slate-600 block mb-1">Nome completo</label>
+            <input
+              value={form.nome}
+              onChange={handleNomeChange}
+              placeholder="Ex: Cecília Lima"
+              className="w-full border border-slate-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#005DE4]"
+            />
+          </div>
+          <div>
+            <label className="text-xs font-medium text-slate-600 block mb-1">Slug (URL do painel)</label>
+            <input
+              value={form.slug}
+              onChange={e => setForm(f => ({ ...f, slug: e.target.value }))}
+              placeholder="Ex: cecilia-lima"
+              className="w-full border border-slate-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#005DE4] font-mono"
+            />
+            {form.slug && <p className="text-xs text-slate-400 mt-1">/professor/{form.slug}</p>}
+          </div>
+          <div>
+            <label className="text-xs font-medium text-slate-600 block mb-1">E-mail</label>
+            <input
+              type="email"
+              value={form.email}
+              onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
+              placeholder="professor@email.com"
+              className="w-full border border-slate-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#005DE4]"
+            />
+          </div>
+          <div>
+            <label className="text-xs font-medium text-slate-600 block mb-1">Senha inicial</label>
+            <div className="relative">
+              <input
+                type={showSenha ? 'text' : 'password'}
+                value={form.senha}
+                onChange={e => setForm(f => ({ ...f, senha: e.target.value }))}
+                placeholder="Mínimo 6 caracteres"
+                className="w-full border border-slate-300 rounded-xl px-4 py-2.5 pr-10 text-sm focus:outline-none focus:ring-2 focus:ring-[#005DE4]"
+              />
+              <button type="button" onClick={() => setShowSenha(v => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600" tabIndex={-1}>
+                {showSenha ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
+            </div>
+          </div>
+          <div className="md:col-span-2 flex justify-end">
+            <button
+              type="submit"
+              disabled={saving}
+              className="px-6 py-2.5 bg-[#005DE4] text-white rounded-xl text-sm font-semibold hover:bg-[#0041a8] disabled:opacity-50 transition-colors"
+            >
+              {saving ? 'Criando...' : 'Criar conta'}
+            </button>
+          </div>
+        </form>
+      </div>
+
+      {/* Lista de professores */}
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+        <div className="px-6 py-4 border-b border-slate-100">
+          <h3 className="font-semibold text-slate-700">Professores cadastrados</h3>
+        </div>
+        {loading ? (
+          <div className="py-10 text-center text-slate-400 text-sm">Carregando...</div>
+        ) : professores.length === 0 ? (
+          <div className="py-10 text-center text-slate-400 text-sm">Nenhum professor cadastrado ainda.</div>
+        ) : (
+          <div className="divide-y divide-slate-100">
+            {professores.map(p => (
+              <div key={p.uid} className="px-6 py-4">
+                <div className="flex items-center gap-4">
+                  <div className="w-9 h-9 rounded-full bg-[#005DE4]/10 flex items-center justify-center flex-shrink-0">
+                    <GraduationCap size={16} className="text-[#005DE4]" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-slate-800 text-sm">{p.nome}</p>
+                    <p className="text-xs text-slate-400">{p.email} · <span className="font-mono">/professor/{p.slug}</span></p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => { setResetUid(resetUid === p.uid ? null : p.uid); setNovaSenha(''); setError(''); setSuccess(''); }}
+                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-slate-300 rounded-lg text-slate-600 hover:border-[#005DE4] hover:text-[#005DE4] transition-colors"
+                      title="Redefinir senha"
+                    >
+                      <KeyRound size={13} /> Senha
+                    </button>
+                    <button
+                      onClick={() => handleDelete(p.uid, p.nome)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-red-200 rounded-lg text-red-500 hover:bg-red-50 transition-colors"
+                      title="Remover professor"
+                    >
+                      <Trash2 size={13} />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Formulário de reset de senha inline */}
+                {resetUid === p.uid && (
+                  <div className="mt-3 flex items-center gap-3 pl-13">
+                    <div className="relative flex-1 max-w-xs">
+                      <input
+                        type={showNovaSenha ? 'text' : 'password'}
+                        value={novaSenha}
+                        onChange={e => setNovaSenha(e.target.value)}
+                        placeholder="Nova senha (mín. 6 caracteres)"
+                        className="w-full border border-slate-300 rounded-lg px-3 py-2 pr-9 text-sm focus:outline-none focus:ring-2 focus:ring-[#005DE4]"
+                      />
+                      <button type="button" onClick={() => setShowNovaSenha(v => !v)} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400" tabIndex={-1}>
+                        {showNovaSenha ? <EyeOff size={14} /> : <Eye size={14} />}
+                      </button>
+                    </div>
+                    <button
+                      onClick={() => handleResetSenha(p.uid)}
+                      disabled={resetSaving}
+                      className="px-4 py-2 bg-[#005DE4] text-white text-xs rounded-lg hover:bg-[#0041a8] disabled:opacity-50"
+                    >
+                      {resetSaving ? 'Salvando...' : 'Salvar'}
+                    </button>
+                    <button onClick={() => setResetUid(null)} className="text-xs text-slate-400 hover:text-slate-600">Cancelar</button>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function App() {
   return (
-    <AppProvider>
-      <Router>
-        <Routes>
-          <Route path="/contrato/:id" element={<ContratoAssinatura />} />
-          <Route path="/recibo/:id" element={<Recibo />} />
-          <Route path="/pagamento/:paymentId" element={<PaymentLink />} />
-          <Route path="/professor/dashboard" element={<Navigate to="/" replace />} />
-          <Route path="/professor/:professorSlug" element={<ProfessorDashboard />} />
-          <Route path="/professor/:professorSlug/notas" element={<Notas />} />
-          <Route path="*" element={<AppContent />} />
-        </Routes>
-      </Router>
-    </AppProvider>
+    <ErrorBoundary>
+    <Router>
+      <AuthProvider>
+        <Suspense fallback={<PageLoader />}>
+          <Routes>
+            {/* Páginas públicas */}
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/professor-login" element={<ProfessorLoginPage />} />
+            <Route path="/registro" element={<Registro />} />
+            <Route path="/contrato/:id" element={<ContratoAssinatura />} />
+            <Route path="/recibo/:id" element={<Recibo />} />
+            <Route path="/pagamento/:paymentId" element={<PaymentLink />} />
+            <Route path="/notas/view/:turmaId/:semestre" element={<Notas readOnly={true} />} />
+
+            {/* Rotas do professor (magic link) */}
+            <Route path="/professor/dashboard" element={<Navigate to="/" replace />} />
+            <Route
+              path="/professor/:professorSlug"
+              element={
+                <RequireProfessorAuth>
+                  <ProfessorDashboard />
+                </RequireProfessorAuth>
+              }
+            />
+
+            {/* Painel admin (Google Sign-In) */}
+            <Route
+              path="*"
+              element={
+                <RequireAdminAuth>
+                  <AppProvider>
+                    <AppContent />
+                  </AppProvider>
+                </RequireAdminAuth>
+              }
+            />
+          </Routes>
+        </Suspense>
+      </AuthProvider>
+    </Router>
+    </ErrorBoundary>
   );
 }

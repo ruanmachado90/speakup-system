@@ -1,5 +1,6 @@
 import { Printer } from 'lucide-react';
 import { Card, Table, KPI } from '../components';
+import { formatDate } from '../utils/formatters';
 
 const Reports = ({ 
   reportType, 
@@ -143,7 +144,7 @@ const Reports = ({
                 return (
                   <>
                     <td key="student" className="px-6 py-3 text-xs font-semibold">{p.studentName || student?.name || '-'}</td>
-                    <td key="dueDate" className="px-6 py-3 text-xs">{p.dueDate ? new Date(p.dueDate).toLocaleDateString('pt-BR') : '-'}</td>
+                    <td key="dueDate" className="px-6 py-3 text-xs">{p.dueDate ? formatDate(p.dueDate) : '-'}</td>
                     <td key="value" className="px-6 py-3 text-xs">R$ {Number(p.valuePlanned || 0).toLocaleString('pt-BR', {minimumFractionDigits: 2})}</td>
                     <td key="status" className="px-6 py-3">
                       <span className={`px-2 py-1 rounded-full text-[10px] ${p.status === 'Pago' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>

@@ -1,3 +1,31 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+:root {
+  --brand-blue:        #0e48fe;
+  --brand-orange:      #fc6e1f;
+  --brand-yellow:      #ffae1e;
+  --brand-red:         #f30961;
+  --brand-blue-light:  rgba(14,72,254,0.06);
+  --color-neutral:     #d1d5db;
+  --color-muted:       #9ca3af;
+  --surface:           #ffffff;
+  --surface-dim:       #f0f2f7;
+  --border-light:      rgba(0,0,0,0.06);
+}
+
+/* Scrollbar da sidebar */
+.sidebar-nav::-webkit-scrollbar {
+  width: 4px;
+}
+.sidebar-nav::-webkit-scrollbar-track {
+  background: transparent;
+}
+.sidebar-nav::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.25);
+  border-radius: 99px;
+}
+.sidebar-nav::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.4);
+}

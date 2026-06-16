@@ -15,6 +15,12 @@ export default defineConfig({
       },
     },
     rollupOptions: {
+      onwarn(warning, warn) {
+        if (warning.code === 'CIRCULAR_DEPENDENCY') {
+          console.error('CIRCULAR:', warning.ids?.join(' -> ') || warning.message);
+        }
+        warn(warning);
+      },
       output: {
         manualChunks(id) {
           // React e React-DOM em chunk separado
@@ -33,14 +39,24 @@ export default defineConfig({
           if (id.includes('lucide-react')) {
             return 'vendor-icons';
           }
+          // XLSX em chunk separado (é grande ~400KB)
+          if (id.includes('node_modules/xlsx')) {
+            return 'vendor-xlsx';
+          }
           // Outros node_modules
           if (id.includes('node_modules')) {
             return 'vendor-other';
+          }
+          // Context e hooks em chunk separado (evita conflito de nome "index")
+          if (id.includes('/src/context/') || id.includes('/src/hooks/')) {
+            return 'app-context';
           }
         },
         chunkFileNames: 'assets/js/[name]-[hash].js',
         entryFileNames: 'assets/js/[name]-[hash].js',
         assetFileNames: 'assets/[ext]/[name]-[hash].[ext]',
+        // força regeneração de hashes em cada build
+        hashCharacters: 'base36',
       },
     },
     chunkSizeWarningLimit: 500,

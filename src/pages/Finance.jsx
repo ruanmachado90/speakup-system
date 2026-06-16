@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback, useEffect } from 'react';
+import { useUI } from '../context/UIContext';
 import { Search, Edit, X, Printer, Trash2, ChevronUp, ChevronDown, Link, Check, Settings, CheckCircle, DollarSign, AlertCircle, User, Clock, XCircle, Mail, FileText, Info, Download, FileDown, MessageCircle } from 'lucide-react';
 import { Card, KPI, PaymentMethodChart } from '../components';
 import { printReceipt } from '../utils/print';
@@ -52,10 +53,6 @@ const getStudentInfo = (payment, students) => {
   };
 };
 
-const showToast = (message) => {
-  window.toastMsg ? window.toastMsg(message) : alert(message);
-};
-
 // Color classes for KPI cards (memoized outside component)
 const KPI_COLOR_CLASSES = {
   green: {
@@ -92,21 +89,22 @@ const KPI_COLOR_CLASSES = {
   }
 };
 
-const Finance = ({ 
-  students, 
+const Finance = ({
+  students,
   payments,
-  filterMonth, 
-  setFilterMonth, 
-  filterYear, 
-  setFilterYear, 
-  filterStatus, 
-  setFilterStatus, 
-  financeStats, 
-  filteredPayments, 
+  filterMonth,
+  setFilterMonth,
+  filterYear,
+  setFilterYear,
+  filterStatus,
+  setFilterStatus,
+  financeStats,
+  filteredPayments,
   setModal,
-  handleUndoPayment 
+  handleUndoPayment
 }) => {
-  const { handleDeletePayment } = usePaymentActions({}, showToast);
+  const { toastMsg } = useUI();
+  const { handleDeletePayment } = usePaymentActions({}, toastMsg);
   
   // State management
   const [searchTerm, setSearchTerm] = useState('');
@@ -127,7 +125,7 @@ const Finance = ({
   // Event handlers with useCallback for performance optimization
   const handleSavePixInfo = useCallback(async (pixData) => {
     if (!selectedPayment) {
-      showToast('Erro: Nenhum pagamento selecionado.');
+      toastMsg('Erro: Nenhum pagamento selecionado.');
       return;
     }
     
@@ -145,15 +143,11 @@ const Finance = ({
         new Date(p.dueDate) >= currentDueDate
       );
       
-      console.log(`Atualizando ${futurePayments.length} pagamento(s) futuros do aluno ${studentName}`);
-      console.log('Dados PIX a salvar:', pixData);
-      
       // Usar batch para atualizar todos os pagamentos de uma vez
       const batch = writeBatch(db);
       
       futurePayments.forEach(payment => {
         const paymentRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'payments', payment.id);
-        console.log('Salvando PIX no pagamento:', payment.id);
         batch.set(paymentRef, {
           pixQRCode: pixData.pixQRCode,
           pixCode: pixData.pixCode,
@@ -163,7 +157,6 @@ const Finance = ({
       });
       
       await batch.commit();
-      console.log('PIX salvo com sucesso em', futurePayments.length, 'pagamento(s)!');
       
       // Auto-copy payment link after saving
       const paymentLink = `${window.location.origin}/pagamento/${selectedPayment.id}`;
@@ -173,10 +166,9 @@ const Finance = ({
       
       setPixModalOpen(false);
       setSelectedPayment(null);
-      showToast(`Link de pagamento salvo em ${futurePayments.length} cobrança(s) e copiado!`);
+      toastMsg(`Link de pagamento salvo em ${futurePayments.length} cobrança(s) e copiado!`);
     } catch (error) {
-      console.error('Erro ao salvar PIX:', error);
-      showToast('Erro ao salvar informações PIX: ' + (error.message || 'Erro desconhecido'));
+      toastMsg('Erro ao salvar informações PIX: ' + (error.message || 'Erro desconhecido'));
     } finally {
       setSavingPix(false);
     }
@@ -188,10 +180,9 @@ const Finance = ({
       await navigator.clipboard.writeText(paymentLink);
       setCopiedLinkId(payment.id);
       setTimeout(() => setCopiedLinkId(null), 2000);
-      showToast('Link de pagamento copiado!');
+      toastMsg('Link de pagamento copiado!');
     } catch (error) {
-      console.error('Erro ao copiar link:', error);
-      showToast('Erro ao copiar link. Tente novamente.');
+      toastMsg('Erro ao copiar link. Tente novamente.');
     }
   }, []);
 
@@ -536,6 +527,23 @@ const Finance = ({
             {formatCurrency(Number(payment.valuePlanned || 0))}
           </div>
         </td>
+
+        {/* Paid Value */}
+        <td className="px-4 py-4">
+          {isPaid ? (
+            <div className={`text-sm font-bold ${
+              Number(payment.valuePaid || payment.valuePlanned) > Number(payment.valuePlanned)
+                ? 'text-amber-600'
+                : Number(payment.valuePaid) < Number(payment.valuePlanned)
+                ? 'text-red-500'
+                : 'text-emerald-600'
+            }`}>
+              {formatCurrency(Number(payment.valuePaid || payment.valuePlanned || 0))}
+            </div>
+          ) : (
+            <div className="text-sm text-gray-400">-</div>
+          )}
+        </td>
         
         {/* Payment Method */}
         <td className="px-4 py-4">
@@ -573,20 +581,6 @@ const Finance = ({
         <td className="px-4 py-4">
           <div className="flex items-center gap-2">
 
-            {/* Copy Payment Link (Link ícone) */}
-            <button
-              onClick={() => handleCopyPaymentLink(payment)}
-              aria-label="Copiar link de pagamento"
-              className={`p-2 rounded-lg transition-all ${
-                copiedLinkId === payment.id 
-                  ? 'text-green-600 bg-green-50' 
-                  : 'text-amber-600 hover:bg-amber-100'
-              }`}
-              title={payment.pixCode && payment.pixQRCode ? 'Copiar link de pagamento' : 'Link não configurado'}
-            >
-              {copiedLinkId === payment.id ? <Check size={18} /> : <Link size={18} />}
-            </button>
-            
             {/* Send WhatsApp (sempre ativo) */}
             <button
               onClick={() => {
@@ -617,23 +611,70 @@ const Finance = ({
               {payment.status === 'Pago' ? <Edit size={18} /> : <CheckCircle size={18} />}
             </button>
             
-            {/* Print Receipt (only if paid) */}
+            {/* Baixar Recibo .doc (only if paid) */}
             {payment.status === 'Pago' && (
               <button
-                onClick={() => printReceipt(payment, student || { id: payment.studentId, name: payment.studentName })}
-                className="p-2 text-purple-600 hover:bg-purple-50 rounded-lg transition-all"
-                title="Imprimir Recibo"
-                aria-label="Imprimir recibo"
+                onClick={() => {
+                  const aluno = student?.name || payment.studentName || '-';
+                  const valor = parseFloat(payment.amount || 0);
+                  const hojeStr = new Date().toLocaleDateString('pt-BR');
+                  const html = `
+                    <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
+                    <head><meta charset='utf-8'><title>Recibo ${aluno}</title>
+                    <style>
+                      body { font-family: Arial, sans-serif; color: #1e293b; margin: 40px; }
+                      h1 { color: #005DE4; text-align: center; }
+                      h2 { text-align: center; color: #334155; }
+                      .label { font-weight: bold; color: #475569; }
+                      .valor { font-size: 20pt; font-weight: bold; color: #005DE4; text-align: center; padding: 12px; background: #f0f6ff; border-radius: 6px; }
+                      table { width: 100%; border-collapse: collapse; margin-top: 16px; }
+                      td { padding: 7px 4px; border-bottom: 1px solid #e2e8f0; font-size: 11pt; }
+                      .rodape { margin-top: 40px; text-align: center; font-size: 9pt; color: #94a3b8; }
+                      hr { border: none; border-top: 2px solid #005DE4; margin: 16px 0; }
+                      .empresa { text-align: center; font-size: 9pt; color: #64748b; }
+                    </style>
+                    </head>
+                    <body>
+                      <h1>SpeakUp English Language Academy</h1>
+                      <h2>Recibo de Pagamento de Mensalidade</h2>
+                      <p class="empresa">
+                        CNPJ: 28.649.636/0001-88<br/>
+                        Praça Governador Valadares, 119 - Centro - Cataguases/MG
+                      </p>
+                      <hr/>
+                      <p class="valor">R$ ${valor.toLocaleString('pt-BR', {minimumFractionDigits:2})}</p>
+                      <hr/>
+                      <table>
+                        <tr><td class="label">Aluno(a):</td><td>${aluno}</td></tr>
+                        <tr><td class="label">Mês de Referência:</td><td>${payment.month || '-'}/${payment.year || '-'}</td></tr>
+                        <tr><td class="label">Vencimento:</td><td>${payment.dueDate ? formatDate(payment.dueDate) : '-'}</td></tr>
+                        <tr><td class="label">Data do Pagamento:</td><td>${payment.paidAt ? new Date(payment.paidAt).toLocaleDateString('pt-BR') : hojeStr}</td></tr>
+                        <tr><td class="label">Forma de Pagamento:</td><td>${payment.paymentMethod || '-'}</td></tr>
+                        <tr><td class="label">Status:</td><td>PAGO</td></tr>
+                      </table>
+                      <div class="rodape">Recibo gerado em ${hojeStr} — SpeakUp English Language Academy</div>
+                    </body></html>`;
+                  const blob = new Blob(['\ufeff', html], { type: 'application/msword' });
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement('a');
+                  a.href = url;
+                  a.download = `Recibo-${aluno}.doc`;
+                  a.click();
+                  URL.revokeObjectURL(url);
+                }}
+                className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-all"
+                title="Baixar Recibo (.doc)"
+                aria-label="Baixar recibo"
               >
-                <Printer size={18} />
+                <FileDown size={18} />
               </button>
             )}
             
             {/* Send Email (placeholder for future feature) */}
             <button
-              onClick={() => showToast('Funcionalidade em desenvolvimento')}
+              onClick={() => toastMsg('Funcionalidade em desenvolvimento')}
               aria-label="Enviar e-mail"
-              className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all"
+              className="p-2 text-slate-500 hover:bg-slate-100 rounded-lg transition-all"
               title="Enviar e-mail"
             >
               <Mail size={18} />
@@ -730,28 +771,28 @@ const Finance = ({
         <div className="flex flex-wrap gap-2 mb-6">
           <button
             onClick={handleExportCSV}
-            className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-all shadow-sm hover:shadow-md"
+            className="flex items-center gap-2 px-4 py-2 border border-slate-300 text-slate-600 rounded-lg hover:bg-slate-100 transition-colors"
             title="Exportar para CSV"
           >
-            <FileDown size={18} />
+            <FileDown size={16} />
             <span className="text-sm font-medium">Exportar CSV</span>
           </button>
           
           <button
             onClick={handleExportExcel}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all shadow-sm hover:shadow-md"
+            className="flex items-center gap-2 px-4 py-2 border border-slate-300 text-slate-600 rounded-lg hover:bg-slate-100 transition-colors"
             title="Exportar para Excel"
           >
-            <Download size={18} />
+            <Download size={16} />
             <span className="text-sm font-medium">Exportar Excel</span>
           </button>
           
           <button
             onClick={handlePrintReport}
-            className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-all shadow-sm hover:shadow-md"
+            className="flex items-center gap-2 px-4 py-2 border border-slate-300 text-slate-600 rounded-lg hover:bg-slate-100 transition-colors"
             title="Imprimir relatório"
           >
-            <Printer size={18} />
+            <Printer size={16} />
             <span className="text-sm font-medium">Imprimir</span>
           </button>
         </div>
@@ -801,7 +842,7 @@ const Finance = ({
         <Card className="mb-6">
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h3 className="font-bold text-lg">Pagamentos por Método</h3>
+              <h3 className="font-bold text-lg">Pagamentos por método</h3>
               <p className="text-xs text-slate-400">
                 {MONTHS[filterMonth].label} {filterYear}
               </p>
@@ -847,7 +888,10 @@ const Finance = ({
             <thead className="bg-gradient-to-r from-gray-50 to-gray-100 border-b border-gray-200">
               <tr>
                 <SortableHeader field="name" label="Nome" />
-                <SortableHeader field="value" label="Valor" />
+                <SortableHeader field="value" label="Previsto" />
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                  Pago
+                </th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                   Forma de Pagamento
                 </th>

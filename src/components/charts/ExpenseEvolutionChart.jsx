@@ -15,8 +15,8 @@ export const ExpenseEvolutionChart = ({labels, values, year}) => {
       <svg viewBox={`0 0 ${w} ${h}`} className="w-full">
         <defs>
           <linearGradient id="expenseGradient" x1="0%" y1="0%" x2="0%" y2="100%">
-            <stop offset="0%" stopColor="#f59e0b" stopOpacity="0.3"/>
-            <stop offset="100%" stopColor="#f59e0b" stopOpacity="0.05"/>
+            <stop offset="0%" stopColor="#0e48fe" stopOpacity="0.10"/>
+            <stop offset="100%" stopColor="#0e48fe" stopOpacity="0.01"/>
           </linearGradient>
           <style>{`
             .expense-point { transition: r 0.2s; cursor: pointer; }
@@ -38,7 +38,7 @@ export const ExpenseEvolutionChart = ({labels, values, year}) => {
                   x2={w - pad} 
                   y1={yPos} 
                   y2={yPos} 
-                  stroke="#e2e8f0" 
+                  stroke="rgba(0,0,0,0.04)" 
                   strokeWidth={1}
                 />
                 <text 
@@ -46,7 +46,8 @@ export const ExpenseEvolutionChart = ({labels, values, year}) => {
                   y={yPos + 3} 
                   fontSize={9} 
                   textAnchor="end" 
-                  fill="#94a3b8"
+                  fontFamily="Montserrat,sans-serif"
+                  fill="#9ca3af"
                 >
                   {value >= 1000 ? `${(value/1000).toFixed(1)}k` : value.toFixed(0)}
                 </text>
@@ -70,8 +71,8 @@ export const ExpenseEvolutionChart = ({labels, values, year}) => {
         <path
           d={values.map((v, i) => `${i===0? 'M':'L'} ${pad + i*stepX} ${y(v)}`).join(' ')}
           fill="none"
-          stroke="#f59e0b"
-          strokeWidth="3"
+          stroke="#0e48fe"
+          strokeWidth="2.5"
           strokeLinejoin="round"
           strokeLinecap="round"
         />
@@ -87,8 +88,8 @@ export const ExpenseEvolutionChart = ({labels, values, year}) => {
               <circle 
                 cx={xPos} 
                 cy={yPos} 
-                r={4} 
-                fill="#f59e0b"
+                r={3} 
+                fill="#0e48fe"
                 className="expense-point"
               >
                 <title>{lbl}: R$ {Number(val).toLocaleString('pt-BR', {minimumFractionDigits: 2})}</title>
@@ -97,7 +98,7 @@ export const ExpenseEvolutionChart = ({labels, values, year}) => {
                 x={xPos} 
                 y={yPos - 10} 
                 textAnchor="middle" 
-                fill="#92400e"
+                fill="#0e48fe"
                 className="expense-label"
               >
                 R$ {Number(val).toLocaleString('pt-BR', {minimumFractionDigits: 2})}
@@ -105,10 +106,11 @@ export const ExpenseEvolutionChart = ({labels, values, year}) => {
               <text 
                 x={xPos} 
                 y={h - 10} 
-                fontSize={11} 
+                fontSize={10} 
                 fontWeight="500" 
+                fontFamily="Montserrat,sans-serif"
                 textAnchor="middle" 
-                fill="#374151"
+                fill="#9ca3af"
               >
                 {lbl}
               </text>

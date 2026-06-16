@@ -1,28 +1,56 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { CheckCircle, RotateCcw, FileDown, Eye, Edit2, XCircle, Trash2, BarChart3, Package, ShoppingBag } from 'lucide-react';
 import { db } from '../firebase';
 import { collection, addDoc, getDocs, updateDoc, deleteDoc, doc, getDoc } from 'firebase/firestore';
 import { livros, categoriasLivros, gerarNumerosLivros, livroImages } from '../constants/vendas';
+import { useUI } from '../context/UIContext';
+import { useConfirm } from '../hooks/useConfirm';
+import ConfirmDialog from '../components/ui/ConfirmDialog';
+import NovaVendaModal from '../components/vendas/NovaVendaModal';
+import EditarVendaModal from '../components/vendas/EditarVendaModal';
+import EstoqueModal from '../components/vendas/EstoqueModal';
+import PagamentoModal from '../components/vendas/PagamentoModal';
+import VendaDetalhesModal from '../components/vendas/VendaDetalhesModal';
 
 function Vendas() {
   const [vendas, setVendas] = useState([]);
   const [estoque, setEstoque] = useState([]);
-  
-  // Simplified functions
-  const showToast = (message, type) => {
-    alert(message);
+
+  const { toastMsg } = useUI();
+  const { confirmState, requestConfirm, handleConfirm, handleCancel } = useConfirm();
+
+  const showToast = (message) => toastMsg(message);
+
+  const showConfirm = (options) => requestConfirm({
+    title: options.title,
+    message: options.message,
+    variant: options.type === 'danger' ? 'danger' : options.type === 'warning' ? 'warning' : 'info',
+    confirmLabel: options.confirmText ?? 'Confirmar',
+    cancelLabel: options.cancelText ?? 'Cancelar',
+  });
+
+  const validateVendaForm = (form) => {
+    const errors = [];
+    if (!form.aluno?.trim()) errors.push('Nome do aluno é obrigatório');
+    if (!form.tipo) errors.push('Tipo de compra é obrigatório');
+    if (!form.valor || isNaN(parseFloat(form.valor)) || parseFloat(form.valor) <= 0) errors.push('Valor inválido');
+    if (!form.pagamento) errors.push('Forma de pagamento é obrigatória');
+    if (!form.vencimento) errors.push('Vencimento é obrigatório');
+    return { isValid: errors.length === 0, errors };
   };
-  
-  const showConfirm = (options) => {
-    return Promise.resolve(confirm(options.message));
+
+  const validateEstoqueForm = (form) => {
+    const errors = [];
+    if (!form.livro?.trim()) errors.push('Livro é obrigatório');
+    if (!form.quantidade || isNaN(parseInt(form.quantidade)) || parseInt(form.quantidade) < 0) errors.push('Quantidade inválida');
+    if (!form.precoCusto || isNaN(parseFloat(form.precoCusto)) || parseFloat(form.precoCusto) < 0) errors.push('Preço de custo inválido');
+    if (!form.precoVenda || isNaN(parseFloat(form.precoVenda)) || parseFloat(form.precoVenda) < 0) errors.push('Preço de venda inválido');
+    return { isValid: errors.length === 0, errors };
   };
-  
-  const validateVendaForm = (form) => ({ isValid: true, errors: [] });
-  const validateEstoqueForm = (form) => ({ isValid: true, errors: [] });
-  const sanitizeInput = (input) => input;
-  
+
   const handleError = (err, context) => {
     console.error(`Erro em ${context}:`, err);
-    alert(`Erro ao ${context}: ${err.message || 'Erro desconhecido'}`);
+    toastMsg(`Erro ao ${context}: ${err.message || 'Erro desconhecido'}`);
   };
 
   // Função auxiliar para verificar se documento existe antes de atualizar
@@ -35,13 +63,6 @@ function Vendas() {
       return false;
     }
   };
-  const [form, setForm] = useState({ 
-    aluno: '', tipo: '', categoria: '', numeroLivro: '', livro: '', valor: '', pagamento: '', parcelas: '1/1', vencimento: ''
-  });
-  const [estoqueForm, setEstoqueForm] = useState({
-    categoria: '', numeroLivro: '', livro: '', quantidade: '', estoqueMinimo: '5', precoCusto: '', precoVenda: ''
-  });
-  const [formView, setFormView] = useState({});
   const [loading, setLoading] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [showViewModal, setShowViewModal] = useState(false);
@@ -50,14 +71,13 @@ function Vendas() {
   const [editingEstoque, setEditingEstoque] = useState(null);
   const [filterAluno, setFilterAluno] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
-  const [filterMes, setFilterMes] = useState('02'); // Mês atual (Fevereiro)
+  const [filterMes, setFilterMes] = useState(() => String(new Date().getMonth() + 1).padStart(2, '0'));
   const [filterAno, setFilterAno] = useState('2026'); // Ano atual
   
   // Filtros para estoque
   const [filterCategoriaEstoque, setFilterCategoriaEstoque] = useState('');
   const [ordenacaoEstoque, setOrdenacaoEstoque] = useState('categoria'); // categoria, nome, quantidade
 
-  const [valorPago, setValorPago] = useState('');
   const [showPagamentoModal, setShowPagamentoModal] = useState(false);
   const [vendaSelecionada, setVendaSelecionada] = useState(null);
   const [showDetalhesModal, setShowDetalhesModal] = useState(false);
@@ -72,11 +92,10 @@ function Vendas() {
   // Funções para ações da tabela
   const abrirPagamentoParcela = (venda) => {
     setVendaSelecionada(venda);
-    setValorPago(venda.valor);
     setShowPagamentoModal(true);
   };
 
-  const processarPagamentoParcela = async () => {
+  const processarPagamentoParcela = async (valorPago) => {
     if (!vendaSelecionada || !valorPago) {
       showToast('Informe o valor pago', 'error');
       return;
@@ -119,70 +138,60 @@ function Vendas() {
       
       setShowPagamentoModal(false);
       setVendaSelecionada(null);
-      setValorPago('');
       showToast('Pagamento registrado com sucesso!', 'success');
     } catch (err) {
       handleError(err, 'registrar pagamento');
     }
   };
 
-  const imprimirRecibo = (venda) => {
-    const receiptContent = `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <title>Recibo de Pagamento - SpeakUp</title>
-        <style>
-          body { font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; }
-          .header { text-align: center; border-bottom: 2px solid #005DE4; padding-bottom: 20px; margin-bottom: 20px; }
-          .info { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin: 20px 0; }
-          .total { background-color: #f8f9fa; padding: 15px; border-radius: 8px; text-align: center; margin: 20px 0; }
-          .footer { text-align: center; margin-top: 30px; font-size: 12px; color: #666; }
-          .status { color: #28a745; font-weight: bold; }
-        </style>
+  const baixarReciboDoc = (venda) => {
+    const valorPago = parseFloat(venda.valorPago || venda.valor || 0);
+    const hojeStr = new Date().toLocaleDateString('pt-BR');
+    const html = `
+      <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
+      <head><meta charset='utf-8'><title>Recibo ${venda.id}</title>
+      <style>
+        body { font-family: Arial, sans-serif; color: #1e293b; margin: 40px; }
+        h1 { color: #005DE4; text-align: center; }
+        h2 { text-align: center; color: #334155; }
+        .label { font-weight: bold; color: #475569; }
+        .valor { font-size: 20pt; font-weight: bold; color: #005DE4; text-align: center; padding: 12px; background: #f0f6ff; border-radius: 6px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 16px; }
+        td { padding: 7px 4px; border-bottom: 1px solid #e2e8f0; font-size: 11pt; }
+        .rodape { margin-top: 40px; text-align: center; font-size: 9pt; color: #94a3b8; }
+        hr { border: none; border-top: 2px solid #005DE4; margin: 16px 0; }
+        .empresa { text-align: center; font-size: 9pt; color: #64748b; }
+      </style>
       </head>
       <body>
-        <div class="header">
-          <h1 style="color: #005DE4;">SpeakUp Cataguases</h1>
-          <h2>Recibo de Pagamento</h2>
-        </div>
-        
-        <div class="info">
-          <div>
-            <strong>Aluno:</strong> ${venda.aluno}<br>
-            <strong>Serviço:</strong> ${venda.tipo}<br>
-            ${venda.livro ? `<strong>Material:</strong> ${venda.livro}<br>` : ''}
-            <strong>Parcela:</strong> ${venda.parcelas}
-          </div>
-          <div>
-            <strong>Vencimento:</strong> ${new Date(venda.vencimento).toLocaleDateString('pt-BR')}<br>
-            <strong>Pagamento:</strong> ${venda.pagamento}<br>
-            <strong>Data Pagamento:</strong> ${venda.dataPagamento ? new Date(venda.dataPagamento).toLocaleDateString('pt-BR') : 'Pendente'}<br>
-            <strong>Status:</strong> <span class="status">${venda.status === 'pago' ? 'PAGO' : 'PENDENTE'}</span>
-          </div>
-        </div>
-        
-        <div class="total">
-          <h3>Valor: R$ ${parseFloat(venda.valorPago || venda.valor).toFixed(2)}</h3>
-        </div>
-        
-        <div class="footer">
-          <p>Recibo gerado em ${new Date().toLocaleString('pt-BR')}</p>
-          <p>SpeakUp Cataguases - Sistema de Gestão</p>
-        </div>
-      </body>
-      </html>
-    `;
-    
-    const printWindow = window.open('', '_blank');
-    printWindow.document.open();
-    printWindow.document.write(receiptContent);
-    printWindow.document.close();
-    printWindow.focus();
-    
-    setTimeout(() => {
-      printWindow.print();
-    }, 250);
+        <h1>SpeakUp English Language Academy</h1>
+        <h2>Recibo de Pagamento</h2>
+        <p class="empresa">
+          CNPJ: 28.649.636/0001-88<br/>
+          Praça Governador Valadares, 119 - Centro - Cataguases/MG
+        </p>
+        <hr/>
+        <p class="valor">R$ ${valorPago.toLocaleString('pt-BR', {minimumFractionDigits:2})}</p>
+        <hr/>
+        <table>
+          <tr><td class="label">Aluno(a):</td><td>${venda.aluno || '-'}</td></tr>
+          <tr><td class="label">Serviço:</td><td>${venda.tipo || '-'}</td></tr>
+          ${venda.livro ? `<tr><td class="label">Material:</td><td>${venda.livro}</td></tr>` : ''}
+          <tr><td class="label">Parcelas:</td><td>${venda.parcelas || '-'}</td></tr>
+          <tr><td class="label">Vencimento:</td><td>${venda.vencimento ? new Date(venda.vencimento).toLocaleDateString('pt-BR') : '-'}</td></tr>
+          <tr><td class="label">Forma de Pagamento:</td><td>${venda.pagamento || '-'}</td></tr>
+          <tr><td class="label">Data do Pagamento:</td><td>${venda.dataPagamento ? new Date(venda.dataPagamento).toLocaleDateString('pt-BR') : 'Pendente'}</td></tr>
+          <tr><td class="label">Status:</td><td>${venda.status === 'pago' ? 'PAGO' : 'PENDENTE'}</td></tr>
+        </table>
+        <div class="rodape">Recibo gerado em ${hojeStr} — SpeakUp English Language Academy</div>
+      </body></html>`;
+    const blob = new Blob(['\ufeff', html], { type: 'application/msword' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Recibo-${venda.aluno || venda.id}.doc`;
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   const abrirDetalhesVenda = (venda) => {
@@ -334,17 +343,6 @@ function Vendas() {
     carregarDados();
   }, []);
 
-  // Função para atualizar livro completo quando categoria ou número mudam
-  const atualizarLivroCompleto = (categoria, numero, isEstoque = false) => {
-    const livroCompleto = categoria && numero ? `${categoria} Book ${numero}` : '';
-    
-    if (isEstoque) {
-      setEstoqueForm(prev => ({ ...prev, livro: livroCompleto }));
-    } else {
-      setForm(prev => ({ ...prev, livro: livroCompleto }));
-    }
-  };
-
   const deletarCobranca = async (cobrancaId, cobrancaInfo) => {
     if (!cobrancaId) return;
 
@@ -369,24 +367,13 @@ function Vendas() {
 
   const abrirEdicaoCobranca = (cobranca) => {
     setCobrancaView(cobranca);
-    setFormView({
-      aluno: cobranca.aluno || '',
-      tipo: cobranca.tipo || '',
-      livro: cobranca.livro || '',
-      valor: cobranca.valor || '',
-      pagamento: cobranca.pagamento || '',
-      parcelas: cobranca.parcelas || '',
-      vencimento: cobranca.vencimento || '',
-      status: cobranca.status || 'pendente'
-    });
     setShowViewModal(true);
   };
 
-  const handleSalvarEdicao = async () => {
+  const handleSalvarEdicao = async (form) => {
     if (!cobrancaView?.id) return;
 
-    // Validações básicas
-    const validation = validateVendaForm(formView);
+    const validation = validateVendaForm(form);
     if (!validation.isValid) {
       showToast(`Erro: ${validation.errors.join(', ')}`, 'error');
     }
@@ -394,20 +381,20 @@ function Vendas() {
     setLoading(true);
     try {
       await updateDoc(doc(db, 'vendas', cobrancaView.id), {
-        aluno: formView.aluno.trim(),
-        tipo: formView.tipo,
-        livro: formView.livro || '',
-        valor: formView.valor.toString(),
-        pagamento: formView.pagamento,
-        vencimento: formView.vencimento,
+        aluno: form.aluno.trim(),
+        tipo: form.tipo,
+        livro: form.livro || '',
+        valor: form.valor.toString(),
+        pagamento: form.pagamento,
+        vencimento: form.vencimento,
         updatedAt: new Date().toISOString()
       });
 
       // Atualizar estado local
-      setVendas(prev => 
-        prev.map(v => 
-          v.id === cobrancaView.id 
-            ? { ...v, ...formView, valor: formView.valor.toString() }
+      setVendas(prev =>
+        prev.map(v =>
+          v.id === cobrancaView.id
+            ? { ...v, ...form, valor: form.valor.toString() }
             : v
         )
       );
@@ -537,18 +524,17 @@ function Vendas() {
   };
 
   // Função para lidar com estoque
-  const handleSalvarEstoque = async () => {
-    // Validação usando hook
-    const validation = validateEstoqueForm(estoqueForm);
+  const handleSalvarEstoque = async (form) => {
+    const validation = validateEstoqueForm(form);
     if (!validation.isValid) {
       showToast(`Erro: ${validation.errors.join(', ')}`, 'error');
       return;
     }
 
-    const quantidade = parseInt(estoqueForm.quantidade);
-    const estoqueMinimo = parseInt(estoqueForm.estoqueMinimo);
-    const precoCusto = parseFloat(estoqueForm.precoCusto);
-    const precoVenda = parseFloat(estoqueForm.precoVenda);
+    const quantidade = parseInt(form.quantidade);
+    const estoqueMinimo = parseInt(form.estoqueMinimo);
+    const precoCusto = parseFloat(form.precoCusto);
+    const precoVenda = parseFloat(form.precoVenda);
 
     setLoading(true);
     try {
@@ -572,16 +558,14 @@ function Vendas() {
 
         showToast('Item do estoque atualizado com sucesso!', 'success');
       } else {
-        // Verificar se já existe o livro no estoque
-        const itemExistente = estoque.find(item => item.livro === estoqueForm.livro);
+        const itemExistente = estoque.find(item => item.livro === form.livro);
         if (itemExistente) {
           showToast('Este livro já está cadastrado no estoque!', 'warning');
           return;
         }
 
-        // Adicionar novo item
         const novoItem = {
-          livro: estoqueForm.livro,
+          livro: form.livro,
           quantidade,
           estoqueMinimo,
           precoCusto: precoCusto.toFixed(2),
@@ -597,7 +581,6 @@ function Vendas() {
 
       setShowEstoqueModal(false);
       setEditingEstoque(null);
-      setEstoqueForm({ livro: '', quantidade: '', estoqueMinimo: '5', precoCusto: '', precoVenda: '' });
     } catch (err) {
       handleError(err, 'salvar item do estoque');
     } finally {
@@ -607,18 +590,63 @@ function Vendas() {
 
   const editarEstoque = (item) => {
     setEditingEstoque(item);
-    setEstoqueForm({
-      livro: item.livro,
-      quantidade: item.quantidade.toString(),
-      estoqueMinimo: item.estoqueMinimo?.toString() || '5',
-      precoCusto: item.precoCusto?.toString() || '',
-      precoVenda: item.precoVenda?.toString() || ''
-    });
     setShowEstoqueModal(true);
   };
 
+  const handleCriarVenda = async (form) => {
+    if (!form.aluno?.trim() || !form.tipo || !form.valor || !form.pagamento || !form.vencimento) {
+      showToast('Preencha todos os campos obrigatórios!', 'error');
+      return;
+    }
+    if (form.tipo === 'Material Didático' && !form.livro) {
+      showToast('Selecione o livro para Material Didático!', 'error');
+      return;
+    }
+    const valor = parseFloat(form.valor);
+    if (isNaN(valor) || valor <= 0) {
+      showToast('Digite um valor válido!', 'error');
+      return;
+    }
+    setLoading(true);
+    try {
+      const totalParcelas = parseInt(form.parcelas.split('/')[0]) || 1;
+      const valorParcela = (valor / totalParcelas).toFixed(2);
+      for (let i = 1; i <= totalParcelas; i++) {
+        const dataVencimento = new Date(form.vencimento);
+        dataVencimento.setMonth(dataVencimento.getMonth() + (i - 1));
+        await addDoc(collection(db, 'vendas'), {
+          aluno: form.aluno.trim(),
+          tipo: form.tipo,
+          livro: form.livro || '',
+          valor: valorParcela,
+          pagamento: form.pagamento,
+          parcelas: `${i}/${totalParcelas}`,
+          vencimento: dataVencimento.toISOString().slice(0, 10),
+          status: 'pendente',
+          createdAt: new Date().toISOString()
+        });
+      }
+      setShowModal(false);
+      showToast(`Venda criada com ${totalParcelas} parcela(s)!`, 'success');
+      const vendasRef = collection(db, 'vendas');
+      const vendasSnap = await getDocs(vendasRef);
+      const vendasData = vendasSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setVendas(vendasData);
+    } catch (err) {
+      handleError(err, 'criar venda');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const deletarEstoque = async (itemId, livro) => {
-    const confirmacao = confirm(`Tem certeza que deseja deletar "${livro}" do estoque?`);
+    const confirmacao = await showConfirm({
+      title: 'Remover do estoque',
+      message: `Tem certeza que deseja deletar "${livro}" do estoque?`,
+      type: 'danger',
+      confirmText: 'Deletar',
+      cancelText: 'Cancelar',
+    });
     if (!confirmacao) return;
 
     try {
@@ -642,7 +670,8 @@ function Vendas() {
               onClick={() => expandirSecao('indicadores')} 
               className="flex items-center gap-2 text-xl font-semibold text-gray-700"
             >
-              📊 Indicadores Rápidos
+              <BarChart3 size={20} className="text-gray-500" />
+              Indicadores rápidos
               <svg 
                 className={`w-5 h-5 transition-transform ${expandedSections.indicadores ? 'rotate-180' : ''}`} 
                 fill="none" 
@@ -693,8 +722,6 @@ function Vendas() {
                 const vendasComFiltroAluno = vendasFiltradasParaIndicadores.filter(venda => {
                   return !filterAluno || venda.aluno.toLowerCase().includes(filterAluno.toLowerCase());
                 });
-                
-                console.log('Vendas após filtro de aluno:', vendasComFiltroAluno.length);
                 
                 // Excluir vendas canceladas dos cálculos
                 const vendasNaoCanceladas = vendasComFiltroAluno.filter(v => v.status !== 'cancelado');
@@ -840,7 +867,8 @@ function Vendas() {
               onClick={() => expandirSecao('estoque')} 
               className="flex items-center gap-2 text-xl font-semibold text-gray-700"
             >
-              📦 Controle de Estoque
+              <Package size={20} className="text-gray-500" />
+              Controle de estoque
               <svg 
                 className={`w-5 h-5 transition-transform ${expandedSections.estoque ? 'rotate-180' : ''}`} 
                 fill="none" 
@@ -852,10 +880,10 @@ function Vendas() {
             </button>
             {expandedSections.estoque && (
               <button 
-                className="bg-orange-500 text-white px-4 py-2 rounded-lg hover:bg-orange-600 transition-colors font-medium"
+                className="bg-[#005DE4] text-white px-4 py-2 rounded-lg hover:bg-[#0041a8] transition-colors font-medium"
                 onClick={() => setShowEstoqueModal(true)}
               >
-                + Adicionar ao Estoque
+                + Adicionar ao estoque
               </button>
             )}
           </div>
@@ -1047,7 +1075,8 @@ function Vendas() {
                 onClick={() => expandirSecao('vendas')} 
                 className="flex items-center gap-2 text-xl font-semibold text-gray-700"
               >
-                💰 Vendas Realizadas
+                <ShoppingBag size={20} className="text-gray-500" />
+                Vendas realizadas
                 <svg 
                   className={`w-5 h-5 transition-transform ${expandedSections.vendas ? 'rotate-180' : ''}`} 
                   fill="none" 
@@ -1149,7 +1178,7 @@ function Vendas() {
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <span className="text-blue-600 font-semibold">📊 Resultados:</span>
+                      <span className="text-blue-600 font-semibold">Resultados:</span>
                       <span className="text-blue-800 font-bold">{vendasFiltradas.length} venda(s) encontrada(s)</span>
                     </div>
                     <div className="text-sm text-blue-600">
@@ -1287,10 +1316,10 @@ function Vendas() {
                                   {venda.status === 'pendente' && (
                                     <button
                                       onClick={() => abrirPagamentoParcela(venda)}
-                                      className="text-green-600 hover:text-green-800 hover:bg-green-100 p-2 rounded-full transition-colors text-sm"
+                                      className="p-2 rounded-lg hover:bg-green-50 text-green-600 hover:text-green-800 transition-colors"
                                       title="Dar Baixa"
                                     >
-                                      💰
+                                      <CheckCircle size={16} />
                                     </button>
                                   )}
                                   
@@ -1298,39 +1327,39 @@ function Vendas() {
                                   {venda.status === 'pago' && (
                                     <button
                                       onClick={() => reverterPagamento(venda)}
-                                      className="text-orange-600 hover:text-orange-800 hover:bg-orange-100 p-2 rounded-full transition-colors text-sm"
+                                      className="p-2 rounded-lg hover:bg-orange-50 text-orange-600 hover:text-orange-800 transition-colors"
                                       title="Reverter Pagamento"
                                     >
-                                      ↩️
+                                      <RotateCcw size={16} />
                                     </button>
                                   )}
                                   
-                                  {/* Imprimir Recibo */}
+                                  {/* Baixar Recibo .doc */}
                                   <button
-                                    onClick={() => imprimirRecibo(venda)}
-                                    className="text-blue-600 hover:text-blue-800 hover:bg-blue-100 p-2 rounded-full transition-colors text-sm"
-                                    title="Imprimir Recibo"
+                                    onClick={() => baixarReciboDoc(venda)}
+                                    className="p-2 rounded-lg hover:bg-emerald-50 text-emerald-600 hover:text-emerald-800 transition-colors"
+                                    title="Baixar Recibo (.doc)"
                                   >
-                                    🖨️
+                                    <FileDown size={16} />
                                   </button>
                                   
                                   {/* Ver Detalhes (Lupa) */}
                                   <button
                                     onClick={() => abrirDetalhesVenda(venda)}
-                                    className="text-indigo-600 hover:text-indigo-800 hover:bg-indigo-100 p-2 rounded-full transition-colors text-sm"
+                                    className="p-2 rounded-lg hover:bg-indigo-50 text-indigo-600 hover:text-indigo-800 transition-colors"
                                     title="Ver Detalhes"
                                   >
-                                    🔍
+                                    <Eye size={16} />
                                   </button>
                                   
                                   {/* Editar */}
                                   {venda.status !== 'cancelado' && (
                                     <button
                                       onClick={() => abrirEdicaoCobranca(venda)}
-                                      className="text-yellow-600 hover:text-yellow-800 hover:bg-yellow-100 p-2 rounded-full transition-colors text-sm"
+                                      className="p-2 rounded-lg hover:bg-yellow-50 text-yellow-600 hover:text-yellow-800 transition-colors"
                                       title="Editar"
                                     >
-                                      ✏️
+                                      <Edit2 size={16} />
                                     </button>
                                   )}
                                   
@@ -1338,10 +1367,10 @@ function Vendas() {
                                   {venda.status === 'pendente' && (
                                     <button
                                       onClick={() => cancelarCobranca(venda)}
-                                      className="text-red-600 hover:text-red-800 hover:bg-red-100 p-2 rounded-full transition-colors text-sm"
+                                      className="p-2 rounded-lg hover:bg-red-50 text-red-500 hover:text-red-700 transition-colors"
                                       title="Cancelar Cobrança"
                                     >
-                                      ❌
+                                      <XCircle size={16} />
                                     </button>
                                   )}
                                   
@@ -1349,10 +1378,10 @@ function Vendas() {
                                   {venda.status === 'cancelado' && (
                                     <button
                                       onClick={() => excluirVenda(venda)}
-                                      className="text-red-700 hover:text-red-900 hover:bg-red-200 p-2 rounded-full transition-colors text-sm"
+                                      className="p-2 rounded-lg hover:bg-red-100 text-red-700 hover:text-red-900 transition-colors"
                                       title="Excluir Venda Permanentemente"
                                     >
-                                      🗑️
+                                      <Trash2 size={16} />
                                     </button>
                                   )}
                                 </div>
@@ -1428,7 +1457,7 @@ function Vendas() {
                                   className="bg-green-500 text-white px-3 py-2 rounded-lg text-xs hover:bg-green-600 transition-colors flex items-center gap-1"
                                   title="Dar Baixa Personalizada"
                                 >
-                                  💰 Baixa
+                                  <CheckCircle size={13} /> Baixa
                                 </button>
                                 <button
                                   onClick={() => marcarComoPago(venda.id)}
@@ -1445,27 +1474,27 @@ function Vendas() {
                                 className="bg-orange-500 text-white px-3 py-2 rounded-lg text-xs hover:bg-orange-600 transition-colors flex items-center gap-1"
                                 title="Reverter Pagamento"
                               >
-                                ↩️ Reverter
+                                <RotateCcw size={13} /> Reverter
                               </button>
                             )}
                             <button
-                              onClick={() => imprimirRecibo(venda)}
-                              className="bg-blue-500 text-white px-3 py-2 rounded-lg text-xs hover:bg-blue-600 transition-colors flex items-center gap-1"
+                              onClick={() => baixarReciboDoc(venda)}
+                              className="bg-emerald-600 text-white px-3 py-2 rounded-lg text-xs hover:bg-emerald-700 transition-colors flex items-center gap-1"
                             >
-                              🖨️ Recibo
+                              <FileDown size={13} /> Recibo
                             </button>
                             <button
                               onClick={() => abrirDetalhesVenda(venda)}
                               className="bg-indigo-500 text-white px-3 py-2 rounded-lg text-xs hover:bg-indigo-600 transition-colors flex items-center gap-1"
                             >
-                              🔍 Ver
+                              <Eye size={13} /> Ver
                             </button>
                             {venda.status !== 'cancelado' && (
                               <button
                                 onClick={() => abrirEdicaoCobranca(venda)}
                                 className="bg-yellow-500 text-white px-3 py-2 rounded-lg text-xs hover:bg-yellow-600 transition-colors flex items-center gap-1"
                               >
-                                ✏️ Editar
+                                <Edit2 size={13} /> Editar
                               </button>
                             )}
                             {venda.status === 'cancelado' && (
@@ -1473,7 +1502,7 @@ function Vendas() {
                                 onClick={() => excluirVenda(venda)}
                                 className="bg-red-600 text-white px-3 py-2 rounded-lg text-xs hover:bg-red-700 transition-colors flex items-center gap-1"
                               >
-                                🗑️ Excluir
+                                <Trash2 size={13} /> Excluir
                               </button>
                             )}
                           </div>
@@ -1488,643 +1517,57 @@ function Vendas() {
         </div>
       </div>
 
-      {/* Modal de Nova Venda */}
       {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-          <div className="bg-white rounded-xl shadow-lg p-8 w-full max-w-lg relative">
-            <button className="absolute top-2 right-2 text-slate-400 hover:text-red-500" onClick={() => setShowModal(false)}>&times;</button>
-            <h3 className="text-xl font-bold mb-4">Nova Venda</h3>
-            <form className="space-y-4" onSubmit={async (e) => {
-              e.preventDefault();
-              
-              // Validações
-              if (!form.aluno?.trim() || !form.tipo || !form.valor || !form.pagamento || !form.vencimento) {
-                showToast('Preencha todos os campos obrigatórios!', 'error');
-                return;
-              }
-              
-              if (form.tipo === 'Material Didático' && !form.livro) {
-                showToast('Selecione o livro para Material Didático!', 'error');
-                return;
-              }
-              
-              const valor = parseFloat(form.valor);
-              if (isNaN(valor) || valor <= 0) {
-                showToast('Digite um valor válido!', 'error');
-                return;
-              }
-              
-              setLoading(true);
-              try {
-                const totalParcelas = parseInt(form.parcelas.split('/')[0]) || 1;
-                const valorParcela = (valor / totalParcelas).toFixed(2);
-                
-                for (let i = 1; i <= totalParcelas; i++) {
-                  const dataVencimento = new Date(form.vencimento);
-                  dataVencimento.setMonth(dataVencimento.getMonth() + (i - 1));
-                  
-                  await addDoc(collection(db, 'vendas'), {
-                    aluno: form.aluno.trim(),
-                    tipo: form.tipo,
-                    livro: form.livro || '',
-                    valor: valorParcela,
-                    pagamento: form.pagamento,
-                    parcelas: `${i}/${totalParcelas}`,
-                    vencimento: dataVencimento.toISOString().slice(0, 10),
-                    status: 'pendente',
-                    createdAt: new Date().toISOString()
-                  });
-                }
-                
-                setForm({ aluno: '', tipo: '', livro: '', valor: '', pagamento: '', parcelas: '1/1', vencimento: '' });
-                setShowModal(false);
-                showToast(`Venda criada com ${totalParcelas} parcela(s)!`, 'success');
-                
-                // Recarregar dados
-                const vendasRef = collection(db, 'vendas');
-                const vendasSnap = await getDocs(vendasRef);
-                const vendasData = vendasSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                setVendas(vendasData);
-                
-              } catch (err) {
-                handleError(err, 'criar venda');
-              } finally {
-                setLoading(false);
-              }
-            }}>
-              <div>
-                <label className="block text-sm font-semibold mb-1">Nome do Aluno *</label>
-                <input
-                  type="text"
-                  value={form.aluno || ''}
-                  onChange={e => setForm(f => ({ ...f, aluno: e.target.value }))}
-                  className="w-full border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-[#005DE4]"
-                  placeholder="Nome completo"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-semibold mb-1">Tipo de Compra *</label>
-                <select
-                  value={form.tipo || ''}
-                  onChange={e => setForm(f => ({ ...f, tipo: e.target.value, livro: '' }))}
-                  className="w-full border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-[#005DE4]"
-                  required
-                >
-                  <option value="">Selecione o tipo</option>
-                  <option value="Material Didático">Material Didático</option>
-                  <option value="Uniforme">Uniforme</option>
-                  <option value="Outros">Outros</option>
-                </select>
-              </div>
-              
-              {form.tipo === 'Material Didático' && (
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-semibold mb-1">Categoria *</label>
-                    <select
-                      value={form.categoria || ''}
-                      onChange={e => {
-                        const categoria = e.target.value;
-                        setForm(f => ({ ...f, categoria, numeroLivro: '', livro: '' }));
-                        if (categoria && form.numeroLivro) {
-                          atualizarLivroCompleto(categoria, form.numeroLivro);
-                        }
-                      }}
-                      className="w-full border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-[#005DE4]"
-                      required
-                    >
-                      <option value="">Selecione a categoria</option>
-                      {categoriasLivros.map(categoria => (
-                        <option key={categoria.valor} value={categoria.valor}>
-                          {categoria.label}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  
-                  {form.categoria && (
-                    <div>
-                      <label className="block text-sm font-semibold mb-1">Livro *</label>
-                      <select
-                        value={form.numeroLivro || ''}
-                        onChange={e => {
-                          const numero = e.target.value;
-                          setForm(f => ({ ...f, numeroLivro: numero }));
-                          if (form.categoria && numero) {
-                            atualizarLivroCompleto(form.categoria, numero);
-                          }
-                        }}
-                        className="w-full border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-[#005DE4]"
-                        required
-                      >
-                        <option value="">Selecione o número</option>
-                        {gerarNumerosLivros(form.categoria).map(livro => (
-                          <option key={livro.valor} value={livro.valor}>
-                            {livro.label}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  )}
-                  
-                  {form.livro && (
-                    <div className="text-sm text-blue-600 bg-blue-50 p-2 rounded">
-                      <strong>Livro selecionado:</strong> {form.livro}
-                    </div>
-                  )}
-                </div>
-              )}
-              
-              <div>
-                <label className="block text-sm font-semibold mb-1">Valor Total *</label>
-                <input
-                  type="number"
-                  value={form.valor || ''}
-                  onChange={e => setForm(f => ({ ...f, valor: e.target.value }))}
-                  className="w-full border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-[#005DE4]"
-                  placeholder="R$ 0,00"
-                  min="0"
-                  step="0.01"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-semibold mb-1">Forma de Pagamento *</label>
-                <select
-                  value={form.pagamento || ''}
-                  onChange={e => setForm(f => ({ ...f, pagamento: e.target.value }))}
-                  className="w-full border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-[#005DE4]"
-                  required
-                >
-                  <option value="">Selecione a forma</option>
-                  <option value="PIX">PIX</option>
-                  <option value="BOLETO">BOLETO</option>
-                  <option value="CARTÃO">CARTÃO</option>
-                  <option value="DINHEIRO">DINHEIRO</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-semibold mb-1">Número de Parcelas</label>
-                <select
-                  value={form.parcelas || '1/1'}
-                  onChange={e => setForm(f => ({ ...f, parcelas: e.target.value }))}
-                  className="w-full border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-[#005DE4]"
-                >
-                  {[1,2,3,4,5,6].map(num => (
-                    <option key={num} value={`${num}/${num}`}>{num}x</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-semibold mb-1">Vencimento da Primeira Parcela *</label>
-                <input
-                  type="date"
-                  value={form.vencimento || ''}
-                  onChange={e => setForm(f => ({ ...f, vencimento: e.target.value }))}
-                  className="w-full border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-[#005DE4]"
-                  required
-                />
-              </div>
-              <div className="flex justify-end gap-3 mt-8">
-                <button 
-                  type="button" 
-                  className="px-6 py-2 rounded-lg bg-slate-200 text-slate-700 font-medium hover:bg-slate-300 transition-colors" 
-                  onClick={() => setShowModal(false)}
-                >
-                  Cancelar
-                </button>
-                <button 
-                  type="submit" 
-                  className="px-6 py-2 rounded-lg bg-[#005DE4] text-white font-bold hover:bg-[#004BB8] transition-colors" 
-                  disabled={loading}
-                >
-                  {loading ? 'Criando...' : 'Criar Venda'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
+        <NovaVendaModal
+          onClose={() => setShowModal(false)}
+          onSubmit={handleCriarVenda}
+          loading={loading}
+          categoriasLivros={categoriasLivros}
+          gerarNumerosLivros={gerarNumerosLivros}
+        />
       )}
 
-      {/* Modal de Edição/Visualização de Venda */}
       {showViewModal && cobrancaView && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-          <div className="bg-white rounded-xl shadow-lg p-8 w-full max-w-lg relative">
-            <button className="absolute top-2 right-2 text-slate-400 hover:text-red-500" onClick={() => setShowViewModal(false)}>&times;</button>
-            <h3 className="text-xl font-bold mb-4">Editar Venda</h3>
-            <form className="space-y-4" onSubmit={async (e) => {
-              e.preventDefault();
-              await handleSalvarEdicao();
-            }}>
-              <div>
-                <label className="block text-sm font-semibold mb-1">Nome do Aluno</label>
-                <input
-                  type="text"
-                  value={formView.aluno || ''}
-                  onChange={e => setFormView(f => ({ ...f, aluno: e.target.value }))}
-                  className="w-full border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-[#005DE4]"
-                  placeholder="Nome do aluno"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-semibold mb-1">Tipo de Compra</label>
-                <select
-                  value={formView.tipo || ''}
-                  onChange={e => setFormView(f => ({ ...f, tipo: e.target.value, livro: '' }))}
-                  className="w-full border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-[#005DE4]"
-                >
-                  <option value="">Selecione</option>
-                  <option value="Material Didático">Material Didático</option>
-                  <option value="Uniforme">Uniforme</option>
-                  <option value="Outros">Outros</option>
-                </select>
-              </div>
-              {formView.tipo === 'Material Didático' && (
-                <div className="space-y-4">
-                  <div className="text-sm text-yellow-600 bg-yellow-50 p-2 rounded">
-                    <strong>Atenção:</strong> Para alterar categoria/livro, será necessário recriar a venda com as novas informações.
-                  </div>
-                  <div>
-                    <label className="block text-sm font-semibold mb-1">Livro Atual</label>
-                    <select
-                      value={formView.livro || ''}
-                      onChange={e => setFormView(f => ({ ...f, livro: e.target.value }))}
-                      className="w-full border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-[#005DE4]"
-                    >
-                      <option value="">Selecione o livro</option>
-                      {livros.map(livro => (
-                        <option key={livro} value={livro}>{livro}</option>
-                      ))}
-                    </select>
-                    <small className="text-xs text-gray-500">* Apenas para correções menores</small>
-                  </div>
-                </div>
-              )}
-              <div>
-                <label className="block text-sm font-semibold mb-1">Valor da Compra</label>
-                <input
-                  type="number"
-                  value={formView.valor || ''}
-                  onChange={e => setFormView(f => ({ ...f, valor: e.target.value }))}
-                  className="w-full border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-[#005DE4]"
-                  placeholder="R$ 0,00"
-                  min="0"
-                  step="0.01"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-semibold mb-1">Forma de Pagamento</label>
-                <select
-                  value={formView.pagamento || ''}
-                  onChange={e => setFormView(f => ({ ...f, pagamento: e.target.value }))}
-                  className="w-full border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-[#005DE4]"
-                >
-                  <option value="">Selecione</option>
-                  <option value="PIX">PIX</option>
-                  <option value="BOLETO">BOLETO</option>
-                  <option value="CARTÃO">CARTÃO</option>
-                  <option value="DINHEIRO">DINHEIRO</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-semibold mb-1">Vencimento</label>
-                <input
-                  type="date"
-                  value={formView.vencimento || ''}
-                  onChange={e => setFormView(f => ({ ...f, vencimento: e.target.value }))}
-                  className="w-full border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-[#005DE4]"
-                />
-              </div>
-              <div className="flex justify-end gap-3 mt-8">
-                <button 
-                  type="button" 
-                  className="px-6 py-2 rounded-lg bg-slate-200 text-slate-700 font-medium hover:bg-slate-300 transition-colors" 
-                  onClick={() => setShowViewModal(false)}
-                >
-                  Cancelar
-                </button>
-                <button 
-                  type="submit" 
-                  className="px-6 py-2 rounded-lg bg-[#005DE4] text-white font-bold hover:bg-[#004BB8] transition-colors" 
-                  disabled={loading}
-                >
-                  {loading ? 'Salvando...' : 'Salvar Alterações'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
+        <EditarVendaModal
+          venda={cobrancaView}
+          onClose={() => setShowViewModal(false)}
+          onSave={handleSalvarEdicao}
+          loading={loading}
+          livros={livros}
+        />
       )}
 
-      {/* Modal de Estoque */}
       {showEstoqueModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-          <div className="bg-white rounded-xl shadow-lg p-8 w-full max-w-lg relative">
-            <button className="absolute top-2 right-2 text-slate-400 hover:text-red-500" onClick={() => {
-              setShowEstoqueModal(false);
-              setEditingEstoque(null);
-              setEstoqueForm({ livro: '', quantidade: '', estoqueMinimo: '5', precoCusto: '', precoVenda: '' });
-            }}>&times;</button>
-            <h3 className="text-xl font-bold mb-4">{editingEstoque ? 'Editar Item' : 'Adicionar ao Estoque'}</h3>
-            <div className="space-y-4">
-              {!editingEstoque ? (
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-semibold mb-1">Categoria *</label>
-                    <select
-                      value={estoqueForm.categoria || ''}
-                      onChange={e => {
-                        const categoria = e.target.value;
-                        setEstoqueForm(f => ({ ...f, categoria, numeroLivro: '', livro: '' }));
-                        if (categoria && estoqueForm.numeroLivro) {
-                          atualizarLivroCompleto(categoria, estoqueForm.numeroLivro, true);
-                        }
-                      }}
-                      className="w-full border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-[#005DE4]"
-                      required
-                    >
-                      <option value="">Selecione a categoria</option>
-                      {categoriasLivros.map(categoria => (
-                        <option key={categoria.valor} value={categoria.valor}>
-                          {categoria.label}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  
-                  {estoqueForm.categoria && (
-                    <div>
-                      <label className="block text-sm font-semibold mb-1">Livro *</label>
-                      <select
-                        value={estoqueForm.numeroLivro || ''}
-                        onChange={e => {
-                          const numero = e.target.value;
-                          setEstoqueForm(f => ({ ...f, numeroLivro: numero }));
-                          if (estoqueForm.categoria && numero) {
-                            atualizarLivroCompleto(estoqueForm.categoria, numero, true);
-                          }
-                        }}
-                        className="w-full border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-[#005DE4]"
-                        required
-                      >
-                        <option value="">Selecione o número</option>
-                        {gerarNumerosLivros(estoqueForm.categoria).map(livro => (
-                          <option key={livro.valor} value={livro.valor}>
-                            {livro.label}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  )}
-                  
-                  {estoqueForm.livro && (
-                    <div className="text-sm text-green-600 bg-green-50 p-2 rounded">
-                      <strong>Livro selecionado:</strong> {estoqueForm.livro}
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div>
-                  <label className="block text-sm font-semibold mb-1">Livro *</label>
-                  <input
-                    type="text"
-                    value={estoqueForm.livro || ''}
-                    className="w-full border rounded-lg px-4 py-2 bg-gray-100 text-gray-500"
-                    disabled
-                  />
-                  <small className="text-xs text-gray-500">Não é possível alterar o livro ao editar</small>
-                </div>
-              )}
-              <div>
-                <label className="block text-sm font-semibold mb-1">Quantidade inicial *</label>
-                <input
-                  type="number"
-                  value={estoqueForm.quantidade || ''}
-                  onChange={e => setEstoqueForm(f => ({ ...f, quantidade: e.target.value }))}
-                  className="w-full border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-[#005DE4]"
-                  placeholder="Ex: 50"
-                  min="0"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-semibold mb-1">Estoque mínimo *</label>
-                <input
-                  type="number"
-                  value={estoqueForm.estoqueMinimo || ''}
-                  onChange={e => setEstoqueForm(f => ({ ...f, estoqueMinimo: e.target.value }))}
-                  className="w-full border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-[#005DE4]"
-                  placeholder="Ex: 5"
-                  min="1"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-semibold mb-1">Preço de custo *</label>
-                <input
-                  type="number"
-                  value={estoqueForm.precoCusto || ''}
-                  onChange={e => setEstoqueForm(f => ({ ...f, precoCusto: e.target.value }))}
-                  className="w-full border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-[#005DE4]"
-                  placeholder="R$ 0,00"
-                  min="0"
-                  step="0.01"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-semibold mb-1">Preço de venda *</label>
-                <input
-                  type="number"
-                  value={estoqueForm.precoVenda || ''}
-                  onChange={e => setEstoqueForm(f => ({ ...f, precoVenda: e.target.value }))}
-                  className="w-full border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-[#005DE4]"
-                  placeholder="R$ 0,00"
-                  min="0"
-                  step="0.01"
-                  required
-                />
-              </div>
-              
-              <div className="flex justify-end gap-3 mt-8">
-                <button 
-                  type="button" 
-                  className="px-6 py-2 rounded-lg bg-slate-200 text-slate-700 font-medium hover:bg-slate-300 transition-colors" 
-                  onClick={() => {
-                    setShowEstoqueModal(false);
-                    setEditingEstoque(null);
-                    setEstoqueForm({ livro: '', quantidade: '', estoqueMinimo: '5', precoCusto: '', precoVenda: '' });
-                  }}
-                >
-                  Cancelar
-                </button>
-                <button 
-                  type="button" 
-                  className="px-6 py-2 rounded-lg bg-orange-500 text-white font-bold hover:bg-orange-600 transition-colors" 
-                  onClick={handleSalvarEstoque}
-                >
-                  {editingEstoque ? 'Salvar Alterações' : 'Adicionar ao Estoque'}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
+        <EstoqueModal
+          editingItem={editingEstoque}
+          onClose={() => {
+            setShowEstoqueModal(false);
+            setEditingEstoque(null);
+          }}
+          onSave={handleSalvarEstoque}
+          loading={loading}
+          categoriasLivros={categoriasLivros}
+          gerarNumerosLivros={gerarNumerosLivros}
+        />
       )}
 
-      {/* Modal de Dar Baixa no Pagamento */}
       {showPagamentoModal && vendaSelecionada && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-          <div className="bg-white rounded-xl shadow-lg p-6 w-full max-w-md relative">
-            <button 
-              className="absolute top-2 right-2 text-slate-400 hover:text-red-500 text-2xl" 
-              onClick={() => setShowPagamentoModal(false)}
-            >
-              &times;
-            </button>
-            
-            <h3 className="text-xl font-bold mb-4 text-center">💰 Registrar Pagamento</h3>
-            
-            <div className="space-y-4">
-              {/* Informações da Venda */}
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <div className="grid grid-cols-2 gap-2 text-sm">
-                  <div><strong>Aluno:</strong></div>
-                  <div>{vendaSelecionada.aluno}</div>
-                  
-                  <div><strong>Serviço:</strong></div>
-                  <div>{vendaSelecionada.tipo}</div>
-                  
-                  <div><strong>Parcela:</strong></div>
-                  <div>{vendaSelecionada.parcelas}</div>
-                  
-                  <div><strong>Valor Original:</strong></div>
-                  <div className="font-bold text-blue-600">R$ {parseFloat(vendaSelecionada.valor).toFixed(2)}</div>
-                </div>
-              </div>
-              
-              {/* Input de Valor Pago */}
-              <div>
-                <label className="block text-sm font-semibold mb-2">Valor Pago *</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={valorPago}
-                  onChange={(e) => setValorPago(e.target.value)}
-                  className="w-full border rounded-lg px-4 py-3 text-lg font-bold text-center focus:outline-none focus:ring-2 focus:ring-green-500"
-                  placeholder="0,00"
-                  autoFocus
-                />
-              </div>
-              
-              <div className="flex justify-end gap-3 mt-6">
-                <button 
-                  type="button" 
-                  className="px-4 py-2 rounded-lg bg-gray-200 text-gray-700 font-medium hover:bg-gray-300 transition-colors"
-                  onClick={() => setShowPagamentoModal(false)}
-                >
-                  Cancelar
-                </button>
-                <button 
-                  type="button" 
-                  className="px-4 py-2 rounded-lg bg-green-600 text-white font-bold hover:bg-green-700 transition-colors"
-                  onClick={processarPagamentoParcela}
-                >
-                  💰 Confirmar Pagamento
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
+        <PagamentoModal
+          venda={vendaSelecionada}
+          onClose={() => setShowPagamentoModal(false)}
+          onConfirm={processarPagamentoParcela}
+        />
       )}
 
-      {/* Modal de Detalhes da Venda */}
       {showDetalhesModal && vendaSelecionada && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-          <div className="bg-white rounded-xl shadow-lg p-6 w-full max-w-lg relative">
-            <button 
-              className="absolute top-2 right-2 text-slate-400 hover:text-red-500 text-2xl" 
-              onClick={() => setShowDetalhesModal(false)}
-            >
-              &times;
-            </button>
-            
-            <h3 className="text-xl font-bold mb-4 flex items-center gap-2">
-              🔍 Detalhes da Venda
-              <span className={`px-2 py-1 text-xs rounded-full ${ 
-                vendaSelecionada.status === 'pago' ? 'bg-green-100 text-green-800' :
-                vendaSelecionada.status === 'cancelado' ? 'bg-red-100 text-red-800' :
-                'bg-yellow-100 text-yellow-800'
-              }`}>
-                {vendaSelecionada.status === 'pago' ? 'Pago' :
-                 vendaSelecionada.status === 'cancelado' ? 'Cancelado' : 'Pendente'}
-              </span>
-            </h3>
-            
-            <div className="space-y-4">
-              {/* Informações do Cliente */}
-              <div>
-                <h4 className="font-semibold text-gray-700 mb-2">👤 Informações do Cliente</h4>
-                <div className="bg-gray-50 p-3 rounded-lg space-y-1">
-                  <p><strong>Nome:</strong> {vendaSelecionada.aluno}</p>
-                  <p><strong>Tipo de Serviço:</strong> {vendaSelecionada.tipo}</p>
-                  {vendaSelecionada.livro && (
-                    <p><strong>Material Didático:</strong> {vendaSelecionada.livro}</p>
-                  )}
-                </div>
-              </div>
-              
-              {/* Informações Financeiras */}
-              <div>
-                <h4 className="font-semibold text-gray-700 mb-2">💰 Informações Financeiras</h4>
-                <div className="bg-gray-50 p-3 rounded-lg space-y-1">
-                  <p><strong>Parcela:</strong> {vendaSelecionada.parcelas}</p>
-                  <p><strong>Valor da Parcela:</strong> R$ {parseFloat(vendaSelecionada.valor).toFixed(2)}</p>
-                  <p><strong>Valor Pago:</strong> {vendaSelecionada.valorPago ? `R$ ${parseFloat(vendaSelecionada.valorPago).toFixed(2)}` : 'Não pago'}</p>
-                  <p><strong>Forma de Pagamento:</strong> {vendaSelecionada.pagamento}</p>
-                </div>
-              </div>
-              
-              {/* Informações de Data */}
-              <div>
-                <h4 className="font-semibold text-gray-700 mb-2">📅 Informações de Data</h4>
-                <div className="bg-gray-50 p-3 rounded-lg space-y-1">
-                  <p><strong>Vencimento:</strong> {new Date(vendaSelecionada.vencimento).toLocaleDateString('pt-BR')}</p>
-                  {vendaSelecionada.dataPagamento && (
-                    <p><strong>Data do Pagamento:</strong> {new Date(vendaSelecionada.dataPagamento).toLocaleDateString('pt-BR')}</p>
-                  )}
-                  {vendaSelecionada.dataCancelamento && (
-                    <p><strong>Data do Cancelamento:</strong> {new Date(vendaSelecionada.dataCancelamento).toLocaleDateString('pt-BR')}</p>
-                  )}
-                  <p><strong>Criada em:</strong> {vendaSelecionada.createdAt ? new Date(vendaSelecionada.createdAt).toLocaleString('pt-BR') : 'N/A'}</p>
-                </div>
-              </div>
-              
-              {/* Ações Rápidas */}
-              <div className="flex gap-2 mt-6">
-                <button 
-                  onClick={() => {
-                    imprimirRecibo(vendaSelecionada);
-                    setShowDetalhesModal(false);
-                  }}
-                  className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors font-medium"
-                >
-                  🖨️ Imprimir Recibo
-                </button>
-                <button 
-                  onClick={() => setShowDetalhesModal(false)}
-                  className="px-4 py-2 rounded-lg bg-gray-200 text-gray-700 font-medium hover:bg-gray-300 transition-colors"
-                >
-                  Fechar
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
+        <VendaDetalhesModal
+          venda={vendaSelecionada}
+          onClose={() => setShowDetalhesModal(false)}
+          onDownloadRecibo={baixarReciboDoc}
+        />
       )}
       
-      {/* Removed Toast and Confirm components to fix import issues */}
+      <ConfirmDialog {...confirmState} onConfirm={handleConfirm} onCancel={handleCancel} />
     </div>
   );
 }

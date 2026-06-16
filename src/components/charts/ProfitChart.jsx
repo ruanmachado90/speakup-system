@@ -1,45 +1,98 @@
-export const ProfitChart = ({labels, profit}) => {
-  const w = 800;
-  const h = 220;
-  const pad = 28;
+import { useState } from 'react';
+
+const fmt = (v) =>
+  (v < 0 ? '-' : '') +
+  (Math.abs(v) >= 1000
+    ? `R$ ${(Math.abs(v) / 1000).toFixed(1).replace('.', ',')}k`
+    : `R$ ${Math.abs(Number(v)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`);
+
+export const ProfitChart = ({ labels, profit }) => {
+  const [hover, setHover] = useState(null);
+
+  const W = 760, H = 200, PL = 56, PR = 16, PT = 16, PB = 32;
+  const chartW = W - PL - PR;
+  const chartH = H - PT - PB;
+  const n = labels.length;
+
   const minVal = Math.min(...profit, 0);
   const maxVal = Math.max(...profit, 0);
-  const range = maxVal - minVal || 1;
-  const stepX = (w - pad*2) / (labels.length - 1);
-  const y = v => pad + ((maxVal - v) / range) * (h - pad*2);
-  const pathD = (arr) => arr.map((v,i) => `${i===0? 'M':'L'} ${pad + i*stepX} ${y(v)}`).join(' ');
-  const baselineY = y(0);
+  const range  = maxVal - minVal || 1;
+  const GRID   = 4;
+
+  const barW = Math.max(8, (chartW / n) * 0.6);
+  const xOf  = (i) => PL + (i + 0.5) * (chartW / n);
+  const yOf  = (v) => PT + ((maxVal - v) / range) * chartH;
+  const zeroY = yOf(0);
 
   return (
     <div>
-      <svg viewBox={`0 0 ${w} ${h}`} className="w-full">
-        <g>
-          {/* baseline for 0 */}
-          <line x1={pad} x2={w - pad} y1={baselineY} y2={baselineY} stroke="#94a3b8" strokeWidth={1} strokeDasharray="4 4" />
-
-          <path d={pathD(profit)} fill="none" stroke="#f97316" strokeWidth="3" strokeLinejoin="round" strokeLinecap="round" />
-
-          {labels.map((lbl,i) => {
-            const val = profit[i] || 0;
-            const formatted = (val < 0 ? '-' : '') + `R$ ${Math.abs(Number(val)).toLocaleString('pt-BR',{minimumFractionDigits:2})}`;
-            const textY = val >= 0 ? y(val) - 8 : y(val) + 16;
-            return (
+      <svg
+        viewBox={`0 0 ${W} ${H}`}
+        className="w-full"
+        onMouseLeave={() => setHover(null)}
+      >
+        {/* Grid */}
+        {Array.from({ length: GRID + 1 }).map((_, i) => {
+          const y   = PT + (i / GRID) * chartH;
+          const val = maxVal - (i / GRID) * range;
+          return (
             <g key={i}>
-              <circle cx={pad + i*stepX} cy={y(val)} r={3} fill="#f97316" />
-              <text x={pad + i*stepX} y={textY} fontSize={9} textAnchor="middle" fill="#92400e">{formatted}</text>
+              <line x1={PL} x2={W - PR} y1={y} y2={y} stroke="#e2e8f0" strokeWidth={1} />
+              <text x={PL - 6} y={y + 3.5} fontSize={9} textAnchor="end" fill="#94a3b8">
+                {Math.abs(val) >= 1000 ? `${(val / 1000).toFixed(0)}k` : val.toFixed(0)}
+              </text>
             </g>
-          )})}
+          );
+        })}
 
-          {/* x-axis labels */}
-          {labels.map((lbl,i) => (
-            <text key={i} x={pad + i*stepX} y={h - 6} fontSize={10} textAnchor="middle" fill="#374151">{lbl}</text>
-          ))}
-        </g>
+        {/* Linha zero */}
+        <line x1={PL} x2={W - PR} y1={zeroY} y2={zeroY} stroke="#94a3b8" strokeWidth={1.5} />
+
+        {/* Barras */}
+        {profit.map((v, i) => {
+          const x    = xOf(i);
+          const isPos = v >= 0;
+          const barY  = isPos ? yOf(v) : zeroY;
+          const barH  = Math.max(Math.abs(yOf(v) - zeroY), 1);
+          return (
+            <g key={i} onMouseEnter={() => setHover(i)}>
+              <rect
+                x={x - barW / 2} y={barY}
+                width={barW} height={barH}
+                fill={hover === i ? '#0041a8' : (isPos ? '#005DE4' : '#ef4444')}
+                rx={3}
+              />
+              <text x={x} y={H - 6} fontSize={10} textAnchor="middle" fill="#64748b">
+                {labels[i]}
+              </text>
+            </g>
+          );
+        })}
+
+        {/* Tooltip */}
+        {hover !== null && (() => {
+          const x   = xOf(hover);
+          const v   = profit[hover] || 0;
+          const isPos = v >= 0;
+          const ttW = 130, ttH = 42;
+          const ttX = Math.min(Math.max(x - ttW / 2, PL), W - PR - ttW);
+          const ttY = PT + 4;
+          return (
+            <g>
+              <rect x={ttX} y={ttY} width={ttW} height={ttH}
+                fill="white" rx={6} stroke="#e2e8f0" strokeWidth={1}
+                filter="drop-shadow(0 2px 6px rgba(0,0,0,0.08))" />
+              <text x={ttX + 10} y={ttY + 15} fontSize={10} fontWeight="600" fill="#334155">
+                {labels[hover]}
+              </text>
+              <circle cx={ttX + 10} cy={ttY + 28} r={3} fill={isPos ? '#005DE4' : '#ef4444'} />
+              <text x={ttX + 17} y={ttY + 32} fontSize={9.5} fill={isPos ? '#334155' : '#ef4444'}>
+                {fmt(v)}
+              </text>
+            </g>
+          );
+        })()}
       </svg>
-
-      <div className="flex items-center gap-4 mt-2 text-xs">
-        <div className="flex items-center gap-2"><span className="w-3 h-3 bg-[#f97316] inline-block rounded" /> Lucro</div>
-      </div>
     </div>
   );
 };

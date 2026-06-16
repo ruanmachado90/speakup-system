@@ -1,23 +1,34 @@
-export const KPI = ({label, value, positive, warn, format='currency', accent}) => {
+export const KPI = ({ label, value, positive, warn, format = 'currency', accent, size = 'normal', badge, hidden }) => {
   const formatted = (() => {
+    if (hidden) return '••••';
     if (format === 'number') return Number(value).toLocaleString('pt-BR');
     if (format === 'percent') return `${Number(value).toLocaleString('pt-BR')}%`;
-    return `R$ ${Number(value).toLocaleString('pt-BR',{minimumFractionDigits:2})}`;
+    return `R$ ${Number(value).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
   })();
 
-  const colorClass = positive ? 'text-emerald-600' : warn ? 'text-amber-500' : '';
-  
-  const accentColor = accent === 'blue' ? 'bg-[#005DE4]' : 
-                      accent === 'green' ? 'bg-emerald-500' : 
-                      accent === 'yellow' ? 'bg-amber-400' : 
-                      accent === 'red' ? 'bg-red-500' : '';
+  const valueColor =
+    accent === 'red' ? 'text-red-600' :
+    accent === 'green' ? 'text-emerald-600' :
+    accent === 'yellow' ? 'text-amber-500' :
+    'text-slate-800';
+
+  const borderColor =
+    accent === 'red' ? 'border-red-400 bg-red-50' :
+    accent === 'yellow' ? 'border-amber-400 bg-amber-50' :
+    'border-slate-200 bg-white';
+
+  const valueSize = size === 'large' ? 'text-3xl' : 'text-2xl';
 
   return (
-    <div className="bg-white rounded-2xl border overflow-hidden flex">
-      {accent && <div className={`w-1.5 ${accentColor}`}></div>}
-      <div className="p-6 flex-1">
-        <p className="text-xs text-slate-400">{label}</p>
-        <h3 className={`text-2xl font-black ${colorClass}`}>
+    <div className={`rounded-2xl border-2 overflow-hidden ${borderColor}`}>
+      <div className="p-5">
+        <div className="flex items-center justify-between mb-2">
+          <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">{label}</p>
+          {badge && (
+            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-red-100 text-red-600">{badge}</span>
+          )}
+        </div>
+        <h3 className={`${valueSize} font-black ${valueColor}`}>
           {formatted}
         </h3>
       </div>

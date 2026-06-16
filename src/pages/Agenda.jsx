@@ -58,7 +58,7 @@ export default function AgendaGoogle() {
               <Calendar className={`w-6 h-6 ${calendar.color.replace('bg-', 'text-')}`} />
             </div>
             <div>
-              <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Agenda dos Professores</h2>
+              <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Agenda dos professores</h2>
               <p className="text-sm text-gray-500 hidden sm:block">Visualize e gerencie as agendas</p>
             </div>
           </div>

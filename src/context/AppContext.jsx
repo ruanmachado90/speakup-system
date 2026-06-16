@@ -38,17 +38,10 @@ export const AppProvider = ({ children }) => {
 // Re-exporta hooks especializados para facilitar imports
 export { useUI, useFilters, useData, useLoading };
 
-/**
- * Hook legado para compatibilidade retroativa
- * @deprecated Use hooks especializados ou seletores para melhor performance
- */
-export const useAppContext = () => {
-  console.warn('[Performance] useAppContext está deprecated. Use hooks seletores (usePage, useModal, etc.) para melhor performance.');
-  
-  return {
-    ...useUI(),
-    ...useFilters(),
-    ...useData(),
-    ...useLoading(),
-  };
-};
+/** @deprecated Use specialized hooks or selectors for better performance */
+export const useAppContext = () => ({
+  ...useUI(),
+  ...useFilters(),
+  ...useData(),
+  ...useLoading(),
+});

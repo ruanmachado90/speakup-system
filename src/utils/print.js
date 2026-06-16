@@ -1,3 +1,5 @@
+import { formatDate } from './formatters';
+
 /**
  * Print dashboard with all stats and charts
  * @param {Object} params - Dashboard data
@@ -375,7 +377,7 @@ export const printFicha = (student, payments) => {
     .sort((a,b)=> (a.year - b.year) || (a.installmentNum - b.installmentNum));
 
   const rows = studentPayments.map(p => {
-    const due = p.dueDate ? new Date(p.dueDate).toLocaleDateString('pt-BR') : '-';
+    const due = p.dueDate ? formatDate(p.dueDate) : '-';
     const val = `R$ ${Number(p.valuePlanned||0).toLocaleString('pt-BR',{minimumFractionDigits:2})}`;
     const valPaid = p.valuePaid ? `R$ ${Number(p.valuePaid).toLocaleString('pt-BR',{minimumFractionDigits:2})}` : '-';
     return `

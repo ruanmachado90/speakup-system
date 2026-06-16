@@ -1,31 +1,127 @@
 import { useState, useMemo, useEffect } from 'react';
-import { Search, Edit, X, FileText, CheckSquare, Square, Trash2, ArrowUpDown, School, Printer } from 'lucide-react';
+import { Search, Edit, X, FileText, CheckSquare, Square, Trash2, ArrowUpDown, School, Printer, UserCheck, UserX, Users, FileCheck, FileClock, FileMinus, GraduationCap, Loader2, RotateCcw, CheckCircle, Clock } from 'lucide-react';
 import { db } from '../firebase';
-import { doc, collection, getDoc, setDoc, getDocs } from 'firebase/firestore';
+import { doc, collection, getDoc, setDoc, getDocs, addDoc, onSnapshot, updateDoc, writeBatch, arrayUnion, query, where } from 'firebase/firestore';
 import { Card, Table, KPI } from '../components';
+import { APP_ID } from '../utils/constants';
+import { formatDate } from '../utils/formatters';
+import { CATEGORIAS, calcularMediaCategoria } from '../hooks/useNotas';
+import { useUI } from '../context/UIContext';
+import { useConfirm } from '../hooks/useConfirm';
+import ConfirmDialog from '../components/ui/ConfirmDialog';
+import FrequenciaAlunoModal from '../components/FrequenciaAlunoModal';
+import { buildBoletimHTML } from '../utils/boletim';
+import { ConfirmarMatriculaModal, ReativarMatriculaModal } from '../components/students/MatriculaModals';
+import InserirEmTurmaModal from '../components/students/InserirEmTurmaModal';
+import BoletimModal from '../components/students/BoletimModal';
 
-export const Students = ({ 
-  students, 
-  payments, 
-  searchTerm, 
-  setSearchTerm, 
-  setModal, 
+export const Students = ({
+  students,
+  payments,
+  searchTerm,
+  setSearchTerm,
+  setModal,
   handleCancelEnrollment,
-  handleDeleteStudent, 
+  handleReactivateEnrollment,
+  handleDeleteStudent,
   handleExcelUpload,
-  dashboardRange 
+  dashboardRange
 }) => {
+  const { toastMsg } = useUI();
+  const { confirmState, requestConfirm, handleConfirm, handleCancel } = useConfirm();
+
   const [selectedStudents, setSelectedStudents] = useState([]);
   const [boletimAluno, setBoletimAluno] = useState(null);
   const [boletimData, setBoletimData] = useState({ turma: '', nivel: '', dia: '', horario: '' });
   const [loadingBoletim, setLoadingBoletim] = useState(false);
+  const [generatingBoletimId, setGeneratingBoletimId] = useState(null);
   const [aulasData, setAulasData] = useState([]);
+  const [contratosAssinados, setContratosAssinados] = useState({}); // { [studentId]: { nome, timestamp } }
+  const [freqAluno, setFreqAluno] = useState(null); // { aluno, turma }
+  const [reativarAluno, setReativarAluno] = useState(null); // student object
+  const [savingReativar, setSavingReativar] = useState(false);
+  const [preCadastros, setPreCadastros] = useState([]);
+  const [confirmarMatricula, setConfirmarMatricula] = useState(null); // pre-cadastro object
+  const [savingConfirmar, setSavingConfirmar] = useState(false);
 
   // Carregar aulas para cálculo de frequência
   useEffect(() => {
     getDocs(collection(db, 'aulas'))
       .then(snap => setAulasData(snap.docs.map(d => ({ id: d.id, ...d.data() }))))
-      .catch(() => {});
+      .catch((err) => {
+        console.error('[Students] Erro ao carregar aulas:', err);
+        toastMsg('Erro ao carregar dados de frequência.');
+      });
+  }, []);
+
+  // Pré-cadastros pendentes em tempo real
+  useEffect(() => {
+    const unsub = onSnapshot(
+      query(collection(db, 'artifacts', APP_ID, 'public', 'data', 'pre-cadastros'), where('status', '==', 'pendente')),
+      snap => setPreCadastros(snap.docs.map(d => ({ id: d.id, ...d.data() })))
+    );
+    return unsub;
+  }, []);
+
+  const handleConfirmarMatricula = async (preCad, { fee, dueDate, installments }) => {
+    setSavingConfirmar(true);
+    try {
+      const colStudents = collection(db, 'artifacts', APP_ID, 'public', 'data', 'students');
+      const studentRef = await addDoc(colStudents, {
+        name: preCad.nome, cpf: preCad.cpf || '',
+        contact: preCad.celular || '', email: preCad.email || '',
+        dataNascimento: preCad.dataNascimento || '', cep: preCad.cep || '',
+        address: preCad.endereco || '',
+        responsibleName: preCad.responsavelNome || '',
+        responsibleContact: preCad.responsavelCelular || '',
+        formaPagamento: preCad.formaPagamento || '',
+        fee: Number(fee), dueDate, installments: Number(installments),
+        status: 'ativo', source: 'pre-cadastro',
+        preCadastroId: preCad.id, createdAt: Date.now(),
+      });
+
+      const batch = writeBatch(db);
+      const start = new Date(dueDate + 'T00:00:00');
+      const colPayments = collection(db, 'artifacts', APP_ID, 'public', 'data', 'payments');
+      for (let i = 0; i < Number(installments); i++) {
+        const d = new Date(start);
+        d.setMonth(start.getMonth() + i);
+        const iso = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}T00:00:00`;
+        batch.set(doc(colPayments), {
+          studentId: studentRef.id, studentName: preCad.nome,
+          installmentNum: i + 1, valuePlanned: Number(fee),
+          valuePaid: 0, status: 'Pendente',
+          month: d.getMonth() + 1, year: d.getFullYear(), dueDate: iso,
+        });
+      }
+      await batch.commit();
+
+      await updateDoc(doc(collection(db, 'artifacts', APP_ID, 'public', 'data', 'pre-cadastros'), preCad.id), {
+        status: 'convertido', convertidoEm: Date.now(), studentId: studentRef.id,
+      });
+
+      setConfirmarMatricula(null);
+      toastMsg(`${preCad.nome} matriculado com sucesso!`);
+    } catch (err) {
+      console.error(err);
+      toastMsg('Erro ao confirmar matrícula. Tente novamente.');
+    } finally {
+      setSavingConfirmar(false);
+    }
+  };
+
+  // Carregar contratos assinados
+  useEffect(() => {
+    getDocs(collection(db, 'artifacts', APP_ID, 'public', 'data', 'contratos'))
+      .then(snap => {
+        const map = {};
+        snap.docs.forEach(d => { map[d.id] = d.data(); });
+        setContratosAssinados(map);
+      })
+      .catch((err) => {
+        console.error('[Students] Erro ao carregar contratos:', err);
+        toastMsg('Erro ao carregar status dos contratos.');
+      });
   }, []);
     // Carregar dados do boletim ao abrir modal
     useEffect(() => {
@@ -47,11 +143,103 @@ export const Students = ({
       if (!boletimAluno) return;
       const boletimRef = doc(collection(doc(db, 'students', boletimAluno.id), 'boletins'), 'ficha');
       await setDoc(boletimRef, boletimData);
-      alert('Boletim salvo com sucesso!');
+      toastMsg('Boletim salvo com sucesso!');
     };
-  const [statusFilter, setStatusFilter] = useState('all'); // 'all', 'ativo', 'cancelado'
+
+  const gerarBoletim = async (student) => {
+    const turmaInfo = alunoTurmaMap.get(student.id);
+    const turmaId = turmaInfo?.id;
+    const anoAtual = new Date().getFullYear();
+    setGeneratingBoletimId(student.id);
+    try {
+      const semestres = [`${anoAtual}-1`, `${anoAtual}-2`];
+      const dadosSems = await Promise.all(semestres.map(async (sem) => {
+        if (!turmaId) return { avaliacoes: [], scores: {} };
+        const [avSnap, gSnap] = await Promise.all([
+          getDocs(query(collection(db, 'avaliacoes'), where('turmaId', '==', turmaId), where('semestre', '==', sem))),
+          getDocs(query(collection(db, 'grades'), where('turmaId', '==', turmaId), where('semestre', '==', sem))),
+        ]);
+        const avaliacoes = avSnap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => (a.ordem ?? 0) - (b.ordem ?? 0));
+        const gradeDoc = gSnap.docs.find(d => d.data().studentId === student.id);
+        const scores = gradeDoc ? (gradeDoc.data().scores || {}) : {};
+        return { avaliacoes, scores };
+      }));
+      const notasPorSem = dadosSems.map(({ avaliacoes, scores }) =>
+        CATEGORIAS.map(cat => {
+          const avsCat = avaliacoes.filter(a => a.tipo === cat.tipo);
+          const nota = calcularMediaCategoria(avsCat, scores, cat.max);
+          return { nota };
+        })
+      );
+      const sum = (semIdx) => notasPorSem[semIdx].reduce((s, n) => s + (n.nota ?? 0), 0);
+      const has = (semIdx) => notasPorSem[semIdx].some(n => n.nota != null);
+      const total1 = has(0) ? sum(0) : null;
+      const total2 = has(1) ? sum(1) : null;
+      const totalFinal = total1 != null && total2 != null
+        ? Math.round((total1 + total2) / 2)
+        : total1 ?? total2 ?? null;
+      const win = window.open('', '_blank');
+      win.document.write(buildBoletimHTML({ student, turmaInfo, notas: notasPorSem, total1, total2, totalFinal, anoAtual }));
+      win.document.close();
+    } finally {
+      setGeneratingBoletimId(null);
+    }
+  };
+  const [statusFilter, setStatusFilter] = useState('all'); // 'all', 'ativo', 'cancelado', 'sem-turma'
+  const [contratoFilter, setContratoFilter] = useState('all'); // 'all', 'assinado', 'pendente'
   const [sortOrder, setSortOrder] = useState('asc'); // 'asc' ou 'desc'
   const [teacherFilter, setTeacherFilter] = useState('all'); // 'all' ou nome do professor
+
+  // â”€â”€ Turmas â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  const [turmas, setTurmas] = useState([]);
+  const [inserirModal, setInserirModal] = useState(null); // aluno selecionado
+  const [turmaSelecionada, setTurmaSelecionada] = useState('');
+  const [inserindo, setInserindo] = useState(false);
+  const [filtroTurmaProf, setFiltroTurmaProf] = useState('');
+  const [filtroTurmaDia, setFiltroTurmaDia] = useState('');
+
+  useEffect(() => {
+    const unsub = onSnapshot(collection(db, 'turmas'), snap => {
+      setTurmas(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    });
+    return unsub;
+  }, []);
+
+  // Set com todos os studentIds que já estão em alguma turma
+  const alunosEmTurma = useMemo(() => {
+    const ids = new Set();
+    turmas.forEach(t => (t.alunosIds || []).forEach(id => ids.add(id)));
+    return ids;
+  }, [turmas]);
+
+  // Map studentId -> turma para exibição
+  const alunoTurmaMap = useMemo(() => {
+    const map = new Map();
+    turmas.forEach(t => {
+      (t.alunosIds || []).forEach(id => {
+        if (!map.has(id)) map.set(id, t);
+      });
+    });
+    return map;
+  }, [turmas]);
+
+  const handleInserirEmTurma = async () => {
+    if (!inserirModal || !turmaSelecionada) return;
+    setInserindo(true);
+    try {
+      const turmaRef = doc(db, 'turmas', turmaSelecionada);
+      const turma = turmas.find(t => t.id === turmaSelecionada);
+      const novosIds = Array.from(new Set([...(turma?.alunosIds || []), inserirModal.id]));
+      await updateDoc(turmaRef, {
+        alunosIds: novosIds,
+        alunosCount: novosIds.length,
+      });
+      setInserirModal(null);
+      setTurmaSelecionada('');
+    } finally {
+      setInserindo(false);
+    }
+  };
 
   // Função para imprimir lista de alunos ativos
   const printActiveStudents = () => {
@@ -143,6 +331,7 @@ export const Students = ({
 
   const activeStudents = students.filter(s => s.status !== 'cancelado').length;
   const inactiveStudents = students.filter(s => s.status === 'cancelado').length;
+  const pendingCount = preCadastros.length;
 
   // Lista de professores únicos
   const teachers = useMemo(() => {
@@ -167,10 +356,15 @@ export const Students = ({
     }
   };
 
-  const handleBulkDelete = () => {
+  const handleBulkDelete = async () => {
     if (selectedStudents.length === 0) return;
-    if (!confirm(`Excluir ${selectedStudents.length} aluno(s) selecionado(s)?`)) return;
-    
+    const ok = await requestConfirm({
+      title: 'Excluir alunos',
+      message: `Excluir ${selectedStudents.length} aluno(s) selecionado(s)? Esta ação não pode ser desfeita.`,
+      confirmLabel: 'Excluir',
+      variant: 'danger',
+    });
+    if (!ok) return;
     selectedStudents.forEach(id => handleDeleteStudent(id));
     setSelectedStudents([]);
   };
@@ -180,41 +374,70 @@ export const Students = ({
     setModal({ open: true, type: 'bulk-payment', data: { studentIds: selectedStudents } });
   };
 
-  const handleBulkCancel = () => {
+  const handleBulkCancel = async () => {
     if (selectedStudents.length === 0) return;
-    if (!confirm(`Cancelar matrícula de ${selectedStudents.length} aluno(s) selecionado(s)?`)) return;
-    
+    const ok = await requestConfirm({
+      title: 'Cancelar matrículas',
+      message: `Cancelar matrícula de ${selectedStudents.length} aluno(s) selecionado(s)?`,
+      confirmLabel: 'Cancelar matrículas',
+      variant: 'danger',
+    });
+    if (!ok) return;
     selectedStudents.forEach(id => handleCancelEnrollment(id));
     setSelectedStudents([]);
   };
 
-  const filteredStudents = useMemo(() => 
-    students
+  const semTurmaCount = useMemo(() =>
+    students.filter(s => s.status !== 'cancelado' && !alunosEmTurma.has(s.id)).length,
+    [students, alunosEmTurma]
+  );
+
+  const contratoPendenteCount = useMemo(() =>
+    students.filter(s => s.status !== 'cancelado' && !contratosAssinados[s.id]).length,
+    [students, contratosAssinados]
+  );
+
+  const contratoAssinadoCount = useMemo(() =>
+    students.filter(s => s.status !== 'cancelado' && contratosAssinados[s.id]).length,
+    [students, contratosAssinados]
+  );
+
+  const filteredStudents = useMemo(() => {
+    const q = searchTerm.toLowerCase();
+    const preCadItems = preCadastros
+      .filter(p => !q || p.nome?.toLowerCase().includes(q) || p.celular?.includes(q))
+      .filter(() => statusFilter === 'all' || statusFilter === 'aguardando')
+      .map(p => ({ ...p, _isPreCad: true, name: p.nome }));
+
+    const studentItems = students
       .filter(s => {
-        const searchLower = searchTerm.toLowerCase();
-        const studentName = (s.name || '').toLowerCase();
-        const responsibleName = (s.responsibleName || '').toLowerCase();
-        return studentName.includes(searchLower) || responsibleName.includes(searchLower);
+        const nome = (s.name || '').toLowerCase();
+        const resp = (s.responsibleName || '').toLowerCase();
+        return !q || nome.includes(q) || resp.includes(q);
       })
       .filter(s => {
+        if (statusFilter === 'aguardando') return false;
         if (statusFilter === 'all') return true;
         if (statusFilter === 'ativo') return s.status !== 'cancelado';
         if (statusFilter === 'cancelado') return s.status === 'cancelado';
+        if (statusFilter === 'sem-turma') return s.status !== 'cancelado' && !alunosEmTurma.has(s.id);
         return true;
       })
       .filter(s => {
-        if (teacherFilter === 'all') return true;
-        return s.teacher === teacherFilter;
+        if (contratoFilter === 'all') return true;
+        if (contratoFilter === 'assinado') return !!contratosAssinados[s.id];
+        if (contratoFilter === 'pendente') return s.status !== 'cancelado' && !contratosAssinados[s.id];
+        return true;
       })
+      .filter(s => teacherFilter === 'all' || s.teacher === teacherFilter)
       .sort((a, b) => {
         const nameA = (a.name || '').toLowerCase();
         const nameB = (b.name || '').toLowerCase();
-        return sortOrder === 'asc' 
-          ? nameA.localeCompare(nameB)
-          : nameB.localeCompare(nameA);
-      }),
-    [students, searchTerm, statusFilter, teacherFilter, sortOrder]
-  );
+        return sortOrder === 'asc' ? nameA.localeCompare(nameB) : nameB.localeCompare(nameA);
+      });
+
+    return [...preCadItems, ...studentItems];
+  }, [students, preCadastros, searchTerm, statusFilter, contratoFilter, teacherFilter, sortOrder, alunosEmTurma, contratosAssinados]);
 
   // Calcular estatísticas do professor baseado em pagamentos do período (igual ao Dashboard)
   const teacherFilteredStats = useMemo(() => {
@@ -262,19 +485,10 @@ export const Students = ({
 
   return (
     <>
-      <div className="grid grid-cols-2 gap-4 mb-4">
-        <KPI 
-          label="ATIVO"
-          value={activeStudents}
-          format="number"
-          accent="blue"
-        />
-        <KPI
-          label="INATIVO"
-          value={inactiveStudents}
-          format="number"
-          accent="red"
-        />
+      <div className={`grid gap-4 mb-4 ${pendingCount > 0 ? 'grid-cols-3' : 'grid-cols-2'}`}>
+        <KPI label="ATIVO" value={activeStudents} format="number" accent="blue" />
+        <KPI label="INATIVO" value={inactiveStudents} format="number" accent="red" />
+        {pendingCount > 0 && <KPI label="AGUARDANDO" value={pendingCount} format="number" accent="blue" />}
       </div>
 
       {/* Card de estatísticas do professor quando filtro é aplicado */}
@@ -291,7 +505,7 @@ export const Students = ({
                 <span className="text-gray-700">
                   <strong className="text-[#005DE4] text-xl">{teacherFilteredStats.count}</strong> aluno{teacherFilteredStats.count !== 1 ? 's' : ''} com pagamento{teacherFilteredStats.count !== 1 ? 's' : ''} no período
                 </span>
-                <span className="text-gray-400">•</span>
+                <span className="text-gray-400">"¢</span>
                 <span className="text-gray-700">
                   Receita Prevista: <strong className="text-emerald-600">
                     {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(teacherFilteredStats.revenue)}
@@ -337,6 +551,49 @@ export const Students = ({
               Inativos ({inactiveStudents})
             </button>
             <button
+              onClick={() => setStatusFilter('sem-turma')}
+              className={`px-4 py-2 rounded-full font-bold text-xs flex items-center gap-1 ${
+                statusFilter === 'sem-turma'
+                  ? 'bg-orange-500 text-white'
+                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+              }`}
+            >
+              <UserX size={12} /> Sem turma ({semTurmaCount})
+            </button>
+            {pendingCount > 0 && (
+              <button
+                onClick={() => setStatusFilter(statusFilter === 'aguardando' ? 'all' : 'aguardando')}
+                className={`px-4 py-2 rounded-full font-bold text-xs flex items-center gap-1 ${
+                  statusFilter === 'aguardando'
+                    ? 'bg-amber-500 text-white'
+                    : 'bg-amber-100 text-amber-700 hover:bg-amber-200'
+                }`}
+              >
+                <Clock size={12} /> Aguardando ({pendingCount})
+              </button>
+            )}
+            <button
+              onClick={() => setContratoFilter(prev => prev === 'pendente' ? 'all' : 'pendente')}
+              className={`px-4 py-2 rounded-full font-bold text-xs flex items-center gap-1 ${
+                contratoFilter === 'pendente'
+                  ? 'bg-amber-500 text-white'
+                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+              }`}
+              title="Alunos ativos sem contrato assinado"
+            >
+              <FileClock size={12} /> Sem contrato ({contratoPendenteCount})
+            </button>
+            <button
+              onClick={() => setContratoFilter(prev => prev === 'assinado' ? 'all' : 'assinado')}
+              className={`px-4 py-2 rounded-full font-bold text-xs flex items-center gap-1 ${
+                contratoFilter === 'assinado'
+                  ? 'bg-emerald-500 text-white'
+                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+              }`}
+            >
+              <FileCheck size={12} /> Assinados ({contratoAssinadoCount})
+            </button>
+            <button
               onClick={() => setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc')}
               className="px-4 py-2 rounded-full font-bold text-xs bg-gray-200 text-gray-700 hover:bg-gray-300 flex items-center gap-1"
               title={sortOrder === 'asc' ? 'Ordenar Z-A' : 'Ordenar A-Z'}
@@ -365,10 +622,10 @@ export const Students = ({
           <div className="flex gap-2">
           <button 
             onClick={printActiveStudents}
-            className="bg-gray-600 text-white px-4 py-2 rounded-full font-bold flex gap-2 items-center hover:bg-gray-700"
+            className="border border-slate-300 text-slate-600 px-4 py-2 rounded-full font-semibold text-xs flex gap-2 items-center hover:bg-slate-100 transition-colors"
             title="Imprimir lista de alunos ativos"
           >
-            <Printer size={16}/> Imprimir Lista
+            <Printer size={15}/> Imprimir lista
           </button>
           {selectedStudents.length > 0 && (
             <>
@@ -401,9 +658,9 @@ export const Students = ({
           />
           <button 
             onClick={() => document.getElementById('excelUpload').click()} 
-            className="bg-emerald-500 text-white px-4 py-2 rounded-full font-bold flex gap-2 items-center hover:bg-emerald-600"
+            className="border border-slate-300 text-slate-600 px-4 py-2 rounded-full font-semibold text-xs flex gap-2 items-center hover:bg-slate-100 transition-colors"
           >
-            <FileText size={16}/> Importar Excel
+            <FileText size={15}/> Importar Excel
           </button>
         </div>
       </div>
@@ -429,23 +686,68 @@ export const Students = ({
           <span key="mensalidade">Mensalidade</span>, 
           <span key="vencimento">Vencimento</span>, 
           <span key="frequencia">Frequência</span>,
+          <span key="contrato">Contrato</span>,
           <span key="acoes"></span>
         ]}
         data={filteredStudents}
-        render={s => (
+        render={s => s._isPreCad ? (
+          <>
+            <td key="select" className="px-6 py-3 text-slate-200"><Square size={18} /></td>
+            <td key="name" className="px-6 py-3">
+              <div className="font-bold text-xs text-slate-800">{s.nome}</div>
+              <span className="inline-flex items-center gap-1 bg-amber-100 text-amber-700 text-[10px] font-semibold px-2 py-0.5 rounded-full border border-amber-200 mt-0.5">
+                <Clock size={9} /> Aguardando matrícula
+              </span>
+            </td>
+            <td key="contact" className="px-6 py-3">
+              <div className="text-xs">{s.celular}</div>
+              {s.email && <div className="text-[10px] text-slate-400 mt-0.5">{s.email}</div>}
+            </td>
+            <td key="course" className="px-6 py-3 text-xs text-slate-400">{s.formaPagamento || '"”'}</td>
+            <td key="teacher" className="px-6 py-3 text-xs text-slate-300">"”</td>
+            <td key="mensalidade" className="px-6 py-3 text-xs text-slate-300">"”</td>
+            <td key="vencimento" className="px-6 py-3 text-xs text-slate-400">{s.diaVencimento ? `Dia ${s.diaVencimento}` : '"”'}</td>
+            <td key="freq" className="px-6 py-3 text-xs text-slate-300">"”</td>
+            <td key="contrato" className="px-6 py-3 text-xs text-slate-300">"”</td>
+            <td key="actions" className="px-6 py-3">
+              <button
+                onClick={() => setConfirmarMatricula(s)}
+                title="Confirmar matrícula"
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#005DE4] text-white text-xs font-semibold hover:bg-[#0041a8] transition-colors"
+              >
+                <CheckCircle size={12} /> Confirmar
+              </button>
+            </td>
+          </>
+        ) : (
           <>
             <td key="select" className="px-6 py-3">
               <button onClick={() => toggleStudent(s.id)}>
-                {selectedStudents.includes(s.id) ? 
-                  <CheckSquare size={18} className="text-[#005DE4]"/> : 
+                {selectedStudents.includes(s.id) ?
+                  <CheckSquare size={18} className="text-[#005DE4]"/> :
                   <Square size={18} className="text-slate-300"/>
                 }
               </button>
             </td>
             <td key="name" className="px-6 py-3">
-              <div className="font-bold text-xs">{s.name}</div>
+              <div className="flex items-center gap-1.5">
+                <div className="font-bold text-xs">{s.name}</div>
+                {s.status !== 'cancelado' && (
+                  alunosEmTurma.has(s.id)
+                    ? <span title="Inserido em turma"><UserCheck size={13} className="text-emerald-500 flex-shrink-0" /></span>
+                    : <span title="Sem turma"><UserX size={13} className="text-orange-400 flex-shrink-0" /></span>
+                )}
+              </div>
               {s.responsibleName && (
-                <div className="text-[10px] text-slate-400 mt-1">{s.responsibleName}</div>
+                <div className="text-[10px] text-slate-400 mt-0.5">{s.responsibleName}</div>
+              )}
+              {alunoTurmaMap.has(s.id) && (
+                <div className="mt-1">
+                  <span className="inline-flex items-center gap-1 bg-[#0e48fe]/8 text-[#0e48fe] text-[10px] font-semibold px-2 py-0.5 rounded-full border border-[#0e48fe]/20">
+                    <GraduationCap size={10} />
+                    {alunoTurmaMap.get(s.id).nome || alunoTurmaMap.get(s.id).name || 'Turma'}
+                  </span>
+                </div>
               )}
             </td>
             <td key="contact" className="px-6 py-3">
@@ -468,7 +770,7 @@ export const Students = ({
                 const next = payments
                   .filter(p => p.studentId === s.id && p.status !== "Pago")
                   .sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate))[0];
-                return next ? new Date(next.dueDate).toLocaleDateString('pt-BR') : '-';
+                return next ? formatDate(next.dueDate) : '-';
               })()}
             </td>
             <td key="freq" className="px-6 py-3 text-xs">
@@ -476,115 +778,159 @@ export const Students = ({
                 const aulasAluno = aulasData.filter(a =>
                   (a.chamadas || []).some(c => c.alunoId === s.id)
                 );
-                if (!aulasAluno.length) return <span className="text-gray-400">—</span>;
+                if (!aulasAluno.length) return <span className="text-gray-400">"”</span>;
                 const presencas = aulasAluno.filter(a =>
                   (a.chamadas || []).find(c => c.alunoId === s.id)?.status === 'presente'
                 ).length;
                 const pct = Math.round(presencas / aulasAluno.length * 100);
                 const cls = pct >= 75 ? 'text-emerald-600' : pct >= 50 ? 'text-amber-600' : 'text-red-600';
                 return (
-                  <span className={`font-semibold ${cls}`} title={`${presencas}/${aulasAluno.length} aulas`}>
+                  <button
+                    onClick={() => setFreqAluno({ aluno: s, turma: alunoTurmaMap.get(s.id) || null })}
+                    className={`font-semibold ${cls} underline-offset-2 hover:underline cursor-pointer bg-transparent border-none p-0`}
+                    title={`${presencas}/${aulasAluno.length} aulas "” clique para ver relatório`}
+                  >
                     {pct}%
-                  </span>
+                  </button>
                 );
               })()}
             </td>
+            <td key="contrato" className="px-6 py-3">
+              {s.status === 'cancelado' ? (
+                <span className="text-slate-300">"”</span>
+              ) : contratosAssinados[s.id] ? (
+                <span className="flex items-center gap-1 text-emerald-600 text-[10px] font-semibold" title={`Assinado por ${contratosAssinados[s.id].nome} em ${contratosAssinados[s.id].timestamp}`}>
+                  <FileCheck size={13}/> Assinado
+                </span>
+              ) : s.contratoEnviadoEm ? (
+                <span className="flex items-center gap-1 text-amber-600 text-[10px] font-semibold" title={`Link enviado em ${new Date(s.contratoEnviadoEm).toLocaleDateString('pt-BR')}`}>
+                  <FileClock size={13}/> Pendente
+                </span>
+              ) : (
+                <span className="flex items-center gap-1 text-slate-400 text-[10px]">
+                  <FileMinus size={13}/> Não enviado
+                </span>
+              )}
+            </td>
             <td key="actions" className="px-6 py-3">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-3">
                 <button 
-                  onClick={() => setModal({open: true, type: 'view', data: s})} 
+                  onClick={() => setModal({open: true, type: 'view', data: { ...s, turmaInfo: alunoTurmaMap.get(s.id) || null }})} 
                   aria-label="Visualizar aluno"
+                  className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-500 hover:text-slate-800 transition-colors"
                 >
-                  <Search size={16}/>
+                  <Search size={15}/>
                 </button>
                 <button
-                  onClick={() => setBoletimAluno(s)}
-                  aria-label="Boletim do aluno"
-                  className="text-blue-500 hover:text-blue-700"
+                  onClick={() => { setInserirModal(s); setTurmaSelecionada(''); setFiltroTurmaProf(''); setFiltroTurmaDia(''); }}
+                  aria-label="Inserir em turma"
+                  className="p-1.5 rounded-lg hover:bg-orange-50 text-orange-400 hover:text-orange-600 transition-colors"
+                  title="Inserir em turma"
                 >
-                  <School size={16}/>
+                  <Users size={15}/>
+                </button>
+                <button
+                  onClick={() => gerarBoletim(s)}
+                  disabled={generatingBoletimId === s.id}
+                  aria-label="Gerar boletim do aluno"
+                  className="p-1.5 rounded-lg hover:bg-blue-50 text-blue-400 hover:text-blue-600 transition-colors disabled:opacity-50"
+                  title="Gerar Boletim"
+                >
+                  {generatingBoletimId === s.id ? <Loader2 size={15} className="animate-spin" /> : <School size={15}/>}
                 </button>
                 <button 
                   onClick={() => setModal({open: true, type: 'student', data: s})}
                   aria-label="Editar aluno"
+                  className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition-colors"
                 >
-                  <Edit size={16}/>
+                  <Edit size={15}/>
                 </button>
-                <button
-                  onClick={() => handleCancelEnrollment(s.id)}
-                  aria-label="Cancelar matrícula"
-                  className="text-red-500 hover:text-red-700"
-                >
-                  <X size={16}/>
-                </button>
+                {s.status === 'cancelado' ? (
+                  <button
+                    onClick={() => setReativarAluno(s)}
+                    aria-label="Reativar matrícula"
+                    title="Reativar matrícula"
+                    className="p-1.5 rounded-lg hover:bg-emerald-50 text-emerald-500 hover:text-emerald-700 transition-colors"
+                  >
+                    <RotateCcw size={15}/>
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => handleCancelEnrollment(s.id)}
+                    aria-label="Cancelar matrícula"
+                    title="Cancelar matrícula"
+                    className="p-1.5 rounded-lg hover:bg-red-50 text-red-400 hover:text-red-600 transition-colors"
+                  >
+                    <X size={15}/>
+                  </button>
+                )}
               </div>
             </td>
           </>
         )}
       />
+
     </Card>
-    {/* Modal Boletim */}
-    {boletimAluno && (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-30">
-        <div className="bg-white rounded-lg shadow-lg w-full max-w-2xl p-6 relative print:p-0 print:shadow-none print:bg-white">
-          <button className="absolute top-2 right-2 p-2 print:hidden" onClick={() => setBoletimAluno(null)}>
-            <X className="w-5 h-5 text-slate-500" />
-          </button>
-          <div className="flex flex-col items-center border-b pb-2 mb-4">
-            <div className="flex w-full items-center">
-              <img src="https://www.speakupcataguases.com/wp-content/uploads/2025/11/logo-speakup-brancal-1.png" alt="Logo" className="h-24 w-24 object-contain mr-4 filter brightness-0" />
-              <div className="flex-1 text-center">
-                <div className="font-bold text-lg">SPEAKUP ENGLISH LANGUAGE ACADEMY</div>
-                <div className="text-xs">Praça Governador Valadares 119, Centro - Cataguases MG</div>
-                <div className="text-xs">CNPJ: 28.649.636/0001-88</div>
-              </div>
-            </div>
-            <div className="font-bold text-xl mt-2">Boletim</div>
-          </div>
-          <table className="w-full text-sm border mb-4">
-            <tbody>
-              <tr>
-                <td className="border px-2 py-1 font-semibold">Turma</td>
-                <td className="border px-2 py-1">
-                  <input type="text" className="border rounded px-2 py-1 w-full" value={boletimData.turma} onChange={e => setBoletimData(d => ({...d, turma: e.target.value}))} disabled={loadingBoletim} />
-                </td>
-                <td className="border px-2 py-1 font-semibold">Nível:</td>
-                <td className="border px-2 py-1">
-                  <input type="text" className="border rounded px-2 py-1 w-full" value={boletimData.nivel} onChange={e => setBoletimData(d => ({...d, nivel: e.target.value}))} disabled={loadingBoletim} />
-                </td>
-              </tr>
-              <tr>
-                <td className="border px-2 py-1 font-semibold">Aluno</td>
-                <td className="border px-2 py-1">{boletimAluno.name}</td>
-                <td className="border px-2 py-1 font-semibold">Dia:</td>
-                <td className="border px-2 py-1">
-                  <input type="text" className="border rounded px-2 py-1 w-full" value={boletimData.dia} onChange={e => setBoletimData(d => ({...d, dia: e.target.value}))} disabled={loadingBoletim} />
-                </td>
-              </tr>
-              <tr>
-                <td className="border px-2 py-1 font-semibold">Professor:</td>
-                <td className="border px-2 py-1">{boletimAluno.teacher || '-'}</td>
-                <td className="border px-2 py-1 font-semibold">Horário:</td>
-                <td className="border px-2 py-1">
-                  <input type="text" className="border rounded px-2 py-1 w-full" value={boletimData.horario} onChange={e => setBoletimData(d => ({...d, horario: e.target.value}))} disabled={loadingBoletim} />
-                </td>
-              </tr>
-            </tbody>
-          </table>
-          <div className="flex gap-2 print:hidden">
-            <button
-              className="bg-[#005DE4] text-white px-6 py-2 rounded-lg font-bold mt-2"
-              onClick={handleSaveBoletim}
-              disabled={loadingBoletim}
-            >Salvar</button>
-            <button
-              className="bg-gray-300 text-gray-700 px-6 py-2 rounded-lg font-bold mt-2"
-              onClick={() => window.print()}
-            >Imprimir</button>
-          </div>
-        </div>
-      </div>
+    {inserirModal && (
+      <InserirEmTurmaModal
+        aluno={inserirModal}
+        onClose={() => setInserirModal(null)}
+        turmas={turmas}
+        filtroProf={filtroTurmaProf}
+        setFiltroProf={setFiltroTurmaProf}
+        filtroDia={filtroTurmaDia}
+        setFiltroDia={setFiltroTurmaDia}
+        turmaSelecionada={turmaSelecionada}
+        setTurmaSelecionada={setTurmaSelecionada}
+        onConfirm={handleInserirEmTurma}
+        inserindo={inserindo}
+      />
     )}
+    {boletimAluno && (
+      <BoletimModal
+        aluno={boletimAluno}
+        boletimData={boletimData}
+        setBoletimData={setBoletimData}
+        loading={loadingBoletim}
+        onSave={handleSaveBoletim}
+        onClose={() => setBoletimAluno(null)}
+      />
+    )}
+      <ConfirmDialog {...confirmState} onConfirm={handleConfirm} onCancel={handleCancel} />
+
+      {confirmarMatricula && (
+        <ConfirmarMatriculaModal
+          preCad={confirmarMatricula}
+          saving={savingConfirmar}
+          onClose={() => setConfirmarMatricula(null)}
+          onConfirm={async (params) => {
+            await handleConfirmarMatricula(confirmarMatricula, params);
+          }}
+        />
+      )}
+
+      {reativarAluno && (
+        <ReativarMatriculaModal
+          aluno={reativarAluno}
+          saving={savingReativar}
+          onClose={() => setReativarAluno(null)}
+          onConfirm={async (params) => {
+            setSavingReativar(true);
+            await handleReactivateEnrollment(reativarAluno.id, params);
+            setSavingReativar(false);
+            setReativarAluno(null);
+          }}
+        />
+      )}
+
+      {freqAluno && (
+        <FrequenciaAlunoModal
+          aluno={freqAluno.aluno}
+          aulas={aulasData}
+          turma={freqAluno.turma}
+          onClose={() => setFreqAluno(null)}
+        />
+      )}
     </>
   );
 };

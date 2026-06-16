@@ -204,7 +204,7 @@ export default function AIManager({ students = [], payments = [], expenses = [],
           <div style={{ width: 32, height: 32, borderRadius: 8, background: "rgba(255,255,255,0.2)", display: "flex", alignItems: "center", justifyContent: "center" }}>
             <FileText size={16} />
           </div>
-          <span style={{ flex: 1 }}>📋 Relatório Mensal Completo</span>
+          <span style={{ flex: 1 }}>Relatório mensal completo</span>
           <span style={{ fontSize: 11, opacity: 0.8, background: "rgba(255,255,255,0.15)", padding: "3px 8px", borderRadius: 6 }}>Instantâneo</span>
           <ChevronRight size={16} color="rgba(255,255,255,0.7)" />
         </button>

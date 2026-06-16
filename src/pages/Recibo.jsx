@@ -108,8 +108,60 @@ export default function Recibo() {
         <div className="text-center text-xs text-slate-500 mt-8 mb-2">
           Recibo gerado em {hojeStr}<br />SpeakUp English Language Academy
         </div>
-        <div className="mt-6 flex justify-center print:hidden">
-          <button className="px-6 py-2 rounded bg-[#005DE4] text-white font-bold" onClick={() => window.print()}>Imprimir</button>
+        <div className="mt-6 flex justify-center gap-3 print:hidden">
+          <button className="px-6 py-2 rounded bg-[#005DE4] text-white font-bold" onClick={() => window.print()}>Imprimir / PDF</button>
+          <button
+            className="px-6 py-2 rounded bg-emerald-600 text-white font-bold"
+            onClick={() => {
+              const html = `
+                <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
+                <head><meta charset='utf-8'><title>Recibo ${cobranca.id}</title>
+                <style>
+                  body { font-family: Arial, sans-serif; color: #1e293b; margin: 40px; }
+                  h1 { color: #005DE4; text-align: center; }
+                  .label { font-weight: bold; color: #475569; }
+                  .valor { font-size: 24pt; font-weight: bold; color: #005DE4; text-align: center; }
+                  .extenso { font-style: italic; text-align: center; color: #334155; }
+                  table { width: 100%; border-collapse: collapse; margin-top: 16px; }
+                  td { padding: 6px 4px; border-bottom: 1px solid #e2e8f0; }
+                  .rodape { margin-top: 40px; text-align: center; font-size: 9pt; color: #94a3b8; }
+                  hr { border: none; border-top: 2px solid #005DE4; margin: 16px 0; }
+                </style>
+                </head>
+                <body>
+                  <h1>RECIBO DE VENDA</h1>
+                  <p style="text-align:center;font-size:9pt;color:#64748b;">Recibo Nº ${cobranca.id}</p>
+                  <p style="text-align:center;font-size:9pt;">
+                    <strong>SPEAKUP ENGLISH LANGUAGE ACADEMY</strong><br/>
+                    CNPJ: 28.649.636/0001-88<br/>
+                    Praça Governador Valadares, 119 - Centro - Cataguases/MG
+                  </p>
+                  <hr/>
+                  <p class="valor">R$ ${valor.toLocaleString('pt-BR', {minimumFractionDigits:2})}</p>
+                  <p class="extenso">(${valorExtenso})</p>
+                  ${referenciaMaterial ? `<p style="text-align:center;"><span class="label">Material/Referência:</span> ${referenciaMaterial}</p>` : ''}
+                  <hr/>
+                  <table>
+                    <tr><td class="label">Aluno(a):</td><td>${cobranca.aluno || '-'}</td></tr>
+                    <tr><td class="label">Data da Venda:</td><td>${dataVenda ? dataVenda.toLocaleDateString('pt-BR') : '-'}</td></tr>
+                    <tr><td class="label">Vencimento:</td><td>${dataVenc ? dataVenc.toLocaleDateString('pt-BR') : '-'}</td></tr>
+                    <tr><td class="label">Valor Pago:</td><td>R$ ${valorPago.toLocaleString('pt-BR', {minimumFractionDigits:2})}</td></tr>
+                    <tr><td class="label">Forma de Pagamento:</td><td>${cobranca.pagamento || '-'}</td></tr>
+                    <tr><td class="label">Parcelas:</td><td>${cobranca.parcelas || '-'}</td></tr>
+                  </table>
+                  <div class="rodape">Recibo gerado em ${hojeStr} — SpeakUp English Language Academy</div>
+                </body></html>`;
+              const blob = new Blob(['\ufeff', html], { type: 'application/msword' });
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement('a');
+              a.href = url;
+              a.download = `Recibo-${cobranca.aluno || cobranca.id}.doc`;
+              a.click();
+              URL.revokeObjectURL(url);
+            }}
+          >
+            Baixar .doc
+          </button>
         </div>
       </div>
     </div>

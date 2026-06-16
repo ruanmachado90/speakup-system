@@ -1,20 +1,3 @@
-/**
- * Delete a payment (cobrança)
- * @param {string} id - Payment ID
- * @param {Function} toastMsg - Toast notification function
- */
-export const handleDeletePayment = async (id, toastMsg) => {
-  if (!confirm('Remover esta cobrança?')) return;
-  try {
-    await deleteDoc(doc(col('payments'), id));
-    toastMsg('Cobrança removida');
-  } catch (err) {
-    if (import.meta.env.DEV) {
-      console.error('Erro ao remover cobrança:', err);
-    }
-    toastMsg('Erro ao remover cobrança');
-  }
-};
 import {
   collection,
   doc,
@@ -37,20 +20,11 @@ const toLocalISOString = (date) => {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, '0');
   const day = String(date.getDate()).padStart(2, '0');
-  const hours = String(date.getHours()).padStart(2, '0');
-  const minutes = String(date.getMinutes()).padStart(2, '0');
-  const seconds = String(date.getSeconds()).padStart(2, '0');
-  return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}.000Z`;
+  return `${year}-${month}-${day}T00:00:00`;
 };
 
 /**
  * Save or update a student
- * @param {Event} e - Form event
- * @param {Object} user - Current authenticated user
- * @param {Object} modal - Modal state with data
- * @param {Function} toastMsg - Toast notification function
- * @param {Function} setModal - Function to update modal state
- * @param {Function} setSaving - Function to update saving state
  */
 export const saveStudent = async (e, user, modal, toastMsg, setModal, setSaving) => {
   e.preventDefault();
@@ -65,13 +39,11 @@ export const saveStudent = async (e, user, modal, toastMsg, setModal, setSaving)
 
   try {
     if (modal.data?.id) {
-      // ✏️ EDITAR ALUNO
       await updateDoc(
         doc(db, "artifacts", appId, "public", "data", "students", modal.data.id),
         data
       );
 
-      // Atualizar parcelas pendentes com as novas informações do aluno
       const q = query(
         col("payments"),
         where("studentId", "==", modal.data.id),
@@ -88,29 +60,22 @@ export const saveStudent = async (e, user, modal, toastMsg, setModal, setSaving)
           const payment = paymentDoc.data();
           const updates = {};
 
-          // Atualizar nome do aluno se mudou
           if (data.name && data.name !== modal.data.name) {
             updates.studentName = data.name;
           }
 
-          // Atualizar valor planejado se mudou
           if (data.fee && Number(data.fee) !== Number(modal.data.fee)) {
             updates.valuePlanned = Number(data.fee);
           }
 
-          // Recalcular data se mudou
           if (hasDateChange) {
             const newDueDate = new Date(newBaseDate);
             newDueDate.setMonth(newBaseDate.getMonth() + (payment.installmentNum - 1));
             updates.dueDate = toLocalISOString(newDueDate);
           }
 
-          // Só atualiza se houver mudanças
           if (Object.keys(updates).length > 0) {
-            batch.update(
-              doc(col("payments"), paymentDoc.id),
-              updates
-            );
+            batch.update(doc(col("payments"), paymentDoc.id), updates);
           }
         });
 
@@ -122,11 +87,9 @@ export const saveStudent = async (e, user, modal, toastMsg, setModal, setSaving)
       return;
     }
 
-    // ➕ NOVO ALUNO
     const fee = Number(data.fee || 0);
     const installments = Number(data.installments || 1);
 
-    // Validar data de vencimento
     if (!data.dueDate) {
       toastMsg('Data de vencimento é obrigatória');
       setSaving(false);
@@ -146,7 +109,6 @@ export const saveStudent = async (e, user, modal, toastMsg, setModal, setSaving)
       }
     );
 
-    // 📄 GERAR PARCELAS
     const batch = writeBatch(db);
     const start = new Date(data.dueDate + 'T00:00:00');
 
@@ -171,7 +133,6 @@ export const saveStudent = async (e, user, modal, toastMsg, setModal, setSaving)
     }
 
     await batch.commit();
-    console.log('Aluno salvo em:', `artifacts/${appId}/public/data/students/${ref.id}`);
     toastMsg(`Aluno cadastrado (id: ${ref.id})`);
     setModal({ open: false, type: null, data: null });
 
@@ -185,8 +146,6 @@ export const saveStudent = async (e, user, modal, toastMsg, setModal, setSaving)
 
 /**
  * Delete a student and all related payments
- * @param {string} id - Student ID
- * @param {Function} toastMsg - Toast notification function
  */
 export const handleDeleteStudent = async (id, toastMsg) => {
   if (!confirm('Remover aluno e pagamentos associados?')) return;
@@ -209,27 +168,63 @@ export const handleDeleteStudent = async (id, toastMsg) => {
 
 /**
  * Cancel student enrollment
- * @param {string} id - Student ID
- * @param {Function} toastMsg - Toast notification function
  */
+export const handleReactivateEnrollment = async (id, { studentName, fee, dueDate, installments }, toastMsg) => {
+  try {
+    await updateDoc(doc(col("students"), id), {
+      status: 'ativo',
+      reactivatedAt: Date.now(),
+      canceledAt: null,
+      fee: Number(fee),
+      dueDate,
+      installments: Number(installments),
+    });
+
+    if (Number(fee) > 0 && Number(installments) > 0 && dueDate) {
+      const batch = writeBatch(db);
+      const start = new Date(dueDate + 'T00:00:00');
+
+      for (let i = 0; i < Number(installments); i++) {
+        const d = new Date(start);
+        d.setMonth(start.getMonth() + i);
+        batch.set(doc(col('payments')), {
+          studentId: id,
+          studentName,
+          installmentNum: i + 1,
+          valuePlanned: Number(fee),
+          valuePaid: 0,
+          status: 'Pendente',
+          month: d.getMonth() + 1,
+          year: d.getFullYear(),
+          dueDate: toLocalISOString(d),
+        });
+      }
+      await batch.commit();
+    }
+
+    toastMsg('Matrícula reativada com sucesso');
+  } catch (err) {
+    console.error(err);
+    toastMsg('Erro ao reativar matrícula');
+  }
+};
+
 export const handleCancelEnrollment = async (id, toastMsg) => {
   if (!confirm('Cancelar matrícula deste aluno? As parcelas pendentes serão excluídas.')) return;
 
   try {
-    // Atualizar status do aluno para 'cancelado'
-    await updateDoc(doc(col("students"), id), { 
+    await updateDoc(doc(col("students"), id), {
       status: 'cancelado',
       canceledAt: Date.now()
     });
 
-    // Excluir apenas parcelas pendentes (manter as pagas)
     const q = query(
-      col("payments"), 
+      col("payments"),
       where("studentId", "==", id),
       where("status", "==", "Pendente")
     );
     const snap = await getDocs(q);
-    
+
     if (!snap.empty) {
       const batch = writeBatch(db);
       snap.forEach(d => batch.delete(doc(col("payments"), d.id)));
@@ -245,11 +240,6 @@ export const handleCancelEnrollment = async (id, toastMsg) => {
 
 /**
  * Save a payment
- * @param {Event} e - Form event
- * @param {Object} modal - Modal state with payment data
- * @param {Function} toastMsg - Toast notification function
- * @param {Function} setModal - Function to update modal state
- * @param {Function} setPaymentSaving - Function to update saving state
  */
 export const savePayment = async (e, modal, toastMsg, setModal, setPaymentSaving) => {
   e.preventDefault();
@@ -268,7 +258,7 @@ export const savePayment = async (e, modal, toastMsg, setModal, setPaymentSaving
 
   try {
     setPaymentSaving(true);
-    
+
     const updateData = {
       status: 'Pago',
       valuePaid: valuePaid,
@@ -276,12 +266,11 @@ export const savePayment = async (e, modal, toastMsg, setModal, setPaymentSaving
       paymentMethod: paymentMethod,
       bank: bank
     };
-    
-    // Só atualiza paidAt se for um novo pagamento (não tinha paidAt antes)
+
     if (!modal.data.paidAt) {
       updateData.paidAt = Date.now();
     }
-    
+
     await updateDoc(doc(col('payments'), modal.data.id), updateData);
 
     toastMsg(modal.data.status === 'Pago' ? 'Pagamento atualizado' : 'Pagamento registrado');
@@ -296,8 +285,6 @@ export const savePayment = async (e, modal, toastMsg, setModal, setPaymentSaving
 
 /**
  * Undo a payment
- * @param {string} paymentId - Payment ID
- * @param {Function} toastMsg - Toast notification function
  */
 export const handleUndoPayment = async (paymentId, toastMsg) => {
   try {
@@ -318,13 +305,23 @@ export const handleUndoPayment = async (paymentId, toastMsg) => {
 };
 
 /**
+ * Delete a payment (cobrança)
+ */
+export const handleDeletePayment = async (id, toastMsg) => {
+  if (!confirm('Remover esta cobrança?')) return;
+  try {
+    await deleteDoc(doc(col('payments'), id));
+    toastMsg('Cobrança removida');
+  } catch (err) {
+    if (import.meta.env.DEV) {
+      console.error('Erro ao remover cobrança:', err);
+    }
+    toastMsg('Erro ao remover cobrança');
+  }
+};
+
+/**
  * Save or update an expense
- * @param {Event} e - Form event
- * @param {Object} user - Current authenticated user
- * @param {Object} modal - Modal state with data
- * @param {Function} toastMsg - Toast notification function
- * @param {Function} setModal - Function to update modal state
- * @param {Function} setExpenseSaving - Function to update saving state
  */
 export const saveExpense = async (e, user, modal, toastMsg, setModal, setExpenseSaving) => {
   e.preventDefault();
@@ -341,9 +338,9 @@ export const saveExpense = async (e, user, modal, toastMsg, setModal, setExpense
     return;
   }
 
-  if (!user) { 
-    toastMsg('Você não está autenticado'); 
-    return; 
+  if (!user) {
+    toastMsg('Você não está autenticado');
+    return;
   }
 
   try {
@@ -360,14 +357,12 @@ export const saveExpense = async (e, user, modal, toastMsg, setModal, setExpense
     };
 
     if (modal.data?.id) {
-      // ✏️ EDITAR DESPESA
       await updateDoc(doc(col('expenses'), modal.data.id), {
         ...expenseData,
         updatedAt: Date.now()
       });
       toastMsg('Despesa atualizada com sucesso!');
     } else {
-      // ➕ NOVA DESPESA
       await addDoc(col('expenses'), {
         ...expenseData,
         createdAt: Date.now()
@@ -388,8 +383,6 @@ export const saveExpense = async (e, user, modal, toastMsg, setModal, setExpense
 
 /**
  * Delete an expense
- * @param {string} id - Expense ID
- * @param {Function} toastMsg - Toast notification function
  */
 export const handleDeleteExpense = async (id, toastMsg) => {
   if (!confirm('Remover despesa?')) return;
@@ -404,9 +397,6 @@ export const handleDeleteExpense = async (id, toastMsg) => {
 
 /**
  * Handle Excel file upload and import students
- * @param {Event} e - File input event
- * @param {Function} toastMsg - Toast notification function
- * @param {Function} setSaving - Function to update saving state
  */
 export const handleExcelUpload = async (e, toastMsg, setSaving) => {
   const file = e.target.files?.[0];
@@ -414,13 +404,13 @@ export const handleExcelUpload = async (e, toastMsg, setSaving) => {
 
   try {
     toastMsg('Processando arquivo...');
-    
+
     const reader = new FileReader();
     reader.onload = async (event) => {
       try {
         const data = new Uint8Array(event.target.result);
-        const XLSX = await import('https://cdn.sheetjs.com/xlsx-0.20.1/package/xlsx.mjs');
-        
+        const XLSX = await import('xlsx');
+
         const workbook = XLSX.read(data, { type: 'array' });
         const sheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[sheetName];
@@ -436,7 +426,6 @@ export const handleExcelUpload = async (e, toastMsg, setSaving) => {
         let updated = 0;
         let errors = 0;
 
-        // Buscar todos os alunos existentes
         const studentsSnapshot = await getDocs(col('students'));
         const existingStudents = {};
         studentsSnapshot.forEach(doc => {
@@ -446,26 +435,22 @@ export const handleExcelUpload = async (e, toastMsg, setSaving) => {
 
         for (const row of jsonData) {
           try {
-            // Extrair valores brutos
             const rawName = String(row['Nome'] || row['nome'] || row['Nome do aluno'] || row['nome do aluno'] || '').trim();
             const rawCpf = String(row['CPF'] || row['cpf'] || row['CPF do aluno'] || row['cpf do aluno'] || '').trim();
             const rawContact = String(row['Contato'] || row['contato'] || row['contato do aluno'] || row['Contato do aluno'] || '').trim();
             const rawCourse = String(row['Curso'] || row['curso'] || '').trim();
-            
-            // Ignorar linhas com placeholders ou vazias
-            if (!rawName || 
-                rawName.match(/^(Coluna|Column)\s*\d+$/i) || 
+
+            if (!rawName ||
+                rawName.match(/^(Coluna|Column)\s*\d+$/i) ||
                 rawCourse.match(/^(Coluna|Column)\s*\d+$/i) ||
                 rawContact.match(/^(Coluna|Column)\s*\d+$/i)) {
               errors++;
               continue;
             }
-            
-            // Converter data do Excel se necessário
+
             let dueDate = row['Data Vencimento'] || row['data_vencimento'] || row['Vencimento'] || row['vencimento'] || row['Data'] || row['data'];
-            
+
             if (typeof dueDate === 'number') {
-              // Se for número pequeno (1-31), é apenas o dia do mês
               if (dueDate >= 1 && dueDate <= 31) {
                 const today = new Date();
                 const year = today.getFullYear();
@@ -473,7 +458,6 @@ export const handleExcelUpload = async (e, toastMsg, setSaving) => {
                 const day = String(Math.floor(dueDate)).padStart(2, '0');
                 dueDate = `${year}-${month}-${day}`;
               } else {
-                // Número grande - é data serial do Excel (dias desde 1900-01-01)
                 const excelEpoch = new Date(1900, 0, 1);
                 const date = new Date(excelEpoch.getTime() + (dueDate - 2) * 86400000);
                 const year = date.getFullYear();
@@ -482,13 +466,11 @@ export const handleExcelUpload = async (e, toastMsg, setSaving) => {
                 dueDate = `${year}-${month}-${day}`;
               }
             } else if (dueDate) {
-              // Tentar converter string de data DD/MM/YYYY para YYYY-MM-DD
               const match = String(dueDate).match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
               if (match) {
                 const [_, day, month, year] = match;
                 dueDate = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
               } else {
-                // Se for apenas número como string, tratar como dia do mês
                 const dayNum = parseInt(String(dueDate).trim());
                 if (!isNaN(dayNum) && dayNum >= 1 && dayNum <= 31) {
                   const today = new Date();
@@ -499,21 +481,17 @@ export const handleExcelUpload = async (e, toastMsg, setSaving) => {
                 }
               }
             }
-            
-            // Garantir que sempre temos uma data válida
+
             if (!dueDate || dueDate === 'Invalid Date') {
               const today = new Date();
               const year = today.getFullYear();
               const month = String(today.getMonth() + 1).padStart(2, '0');
-              const day = '10'; // Dia 10 como padrão
-              dueDate = `${year}-${month}-${day}`;
+              dueDate = `${year}-${month}-10`;
             }
-            
-            // Extrair mensalidade e converter corretamente
+
             const rawFee = row['Mensalidade'] || row['mensalidade'] || row['Valor'] || row['valor'] || 0;
             let fee = 0;
             if (typeof rawFee === 'string') {
-              // Remover R$, pontos e trocar vírgula por ponto
               fee = parseFloat(rawFee.replace(/[R$\s\.]/g, '').replace(',', '.')) || 0;
             } else {
               fee = Number(rawFee) || 0;
@@ -539,19 +517,15 @@ export const handleExcelUpload = async (e, toastMsg, setSaving) => {
               continue;
             }
 
-            // Verificar se aluno já existe
             const existingStudent = existingStudents[studentData.cpf];
-            
+
             if (existingStudent) {
-              // ATUALIZAR aluno existente
               await updateDoc(doc(db, "artifacts", APP_ID, "public", "data", "students", existingStudent.id), studentData);
               updated++;
             } else {
-              // CRIAR novo aluno
               studentData.createdAt = Date.now();
               const ref = await addDoc(col('students'), studentData);
 
-              // Criar parcelas de pagamento apenas para novos alunos usando batch
               if (studentData.fee > 0 && studentData.installments > 0) {
                 const batch = writeBatch(db);
                 const start = new Date(studentData.dueDate + 'T00:00:00');
@@ -575,7 +549,7 @@ export const handleExcelUpload = async (e, toastMsg, setSaving) => {
                   const paymentRef = doc(col('payments'));
                   batch.set(paymentRef, payment);
                 }
-                
+
                 await batch.commit();
               }
               imported++;
@@ -588,7 +562,7 @@ export const handleExcelUpload = async (e, toastMsg, setSaving) => {
         }
 
         toastMsg(`Importação concluída: ${imported} novos, ${updated} atualizados${errors > 0 ? `, ${errors} erros` : ''}`);
-        
+
       } catch (err) {
         console.error('Erro ao processar Excel:', err);
         toastMsg('Erro ao processar arquivo. Verifique o formato.');
@@ -624,24 +598,15 @@ export const saveLead = async (e, user, modal, toastMsg, setModal, setSaving) =>
     setSaving(true);
 
     if (modal.data?.id) {
-      // Editar lead existente
       await updateDoc(
         doc(db, "artifacts", appId, "public", "data", "leads", modal.data.id),
-        {
-          ...data,
-          updatedAt: Date.now()
-        }
+        { ...data, updatedAt: Date.now() }
       );
       toastMsg("Lead atualizado com sucesso");
     } else {
-      // Criar novo lead
       await addDoc(
         col("leads"),
-        {
-          ...data,
-          status: data.status || 'novo',
-          createdAt: Date.now()
-        }
+        { ...data, status: data.status || 'novo', createdAt: Date.now() }
       );
       toastMsg("Lead cadastrado com sucesso");
     }

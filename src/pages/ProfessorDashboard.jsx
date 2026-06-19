@@ -715,6 +715,7 @@ export default function ProfessorDashboard() {
       {activeView === 'historico' && (
         <div className="bg-white rounded-2xl max-w-full overflow-hidden shadow-sm">
           <HistoricoAulas
+            professorNome={professorNome}
             aulas={aulas}
             turmas={turmas}
             onClose={() => setActiveView('dashboard')}

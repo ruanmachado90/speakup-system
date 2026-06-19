@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import {
   X,
   Printer,
+  Download,
   BookOpen,
   Calendar,
   CheckCircle,
@@ -16,6 +17,7 @@ import {
   Edit,
   Save,
 } from 'lucide-react';
+import { baixarRelatorioSemanal } from '../utils/relatorioSemanal';
 import { useConfirm } from '../hooks/useConfirm';
 import ConfirmDialog from './ui/ConfirmDialog';
 
@@ -262,7 +264,7 @@ function AulaCard({ aula, defaultOpen = false, onDelete, onUpdate }) {
   );
 }
 
-export default function HistoricoAulas({ aulas, turmas, onClose, onDeleteAula, onUpdateAula, initialTurmaFiltro }) {
+export default function HistoricoAulas({ aulas, turmas, onClose, onDeleteAula, onUpdateAula, initialTurmaFiltro, professorNome }) {
   const [turmaFiltro, setTurmaFiltro] = useState(initialTurmaFiltro || 'all');
   const [mesFiltro, setMesFiltro] = useState('all');
 
@@ -388,6 +390,13 @@ export default function HistoricoAulas({ aulas, turmas, onClose, onDeleteAula, o
           </div>
         </div>
         <div className="flex items-center gap-2">
+          <button
+            onClick={() => baixarRelatorioSemanal(aulas, professorNome || 'Professor')}
+            className="flex items-center gap-2 px-4 py-2 bg-[#005DE4] text-white rounded-lg hover:bg-[#0041a8] transition-all text-sm"
+            title="Baixa o relatório da semana anterior como arquivo HTML"
+          >
+            <Download size={16} /> Relatório Semanal
+          </button>
           <button
             onClick={handlePrint}
             className="flex items-center gap-2 px-4 py-2 bg-slate-800 text-white rounded-lg hover:bg-slate-700 transition-all text-sm"

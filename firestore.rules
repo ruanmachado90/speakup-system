@@ -19,10 +19,17 @@ service cloud.firestore {
           in ['admin', 'secretaria'];
     }
 
-    // FIX #2 — professor só escreve/atualiza aulas que pertencem a ele
-    function isProfessorOwner(professorNome) {
-      return isNotAnonymous() &&
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.nome == professorNome;
+    // FIX #2 — professor só escreve/atualiza aulas que pertencem a ele.
+    // professorKey é o nome normalizado (sem acento/maiúsculas, ver src/utils/normalizeNome.js)
+    // gravado no documento junto com o nome original — evita que uma pequena
+    // divergência de acento/caixa entre o cadastro do professor (users/{uid}.nome)
+    // e o texto digitado nas turmas bloqueie a escrita só para aquele professor.
+    function isProfessorOwner(professorNome, professorKey) {
+      let userDoc = get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+      return isNotAnonymous() && (
+        userDoc.nome == professorNome ||
+        (userDoc.get('nomeKey', null) != null && userDoc.get('nomeKey', null) == professorKey)
+      );
     }
 
     // ── Roles dos usuários ────────────────────────────────────────────────
@@ -50,12 +57,24 @@ service cloud.firestore {
       allow write: if isAdminOrSecretaria();
     }
 
+    // ── Professores ──────────────────────────────────────────────────────
+    // Mesmo perfil de leitura de turmas; escrita só admin/secretaria.
+    match /professores/{docId} {
+      allow read: if isNotAnonymous();
+      allow write: if isAdminOrSecretaria();
+    }
+
     // ── Aulas ────────────────────────────────────────────────────────────
     // FIX #2: professor só cria/edita/deleta aulas que pertencem a ele.
     match /aulas/{docId} {
       allow read: if isNotAnonymous();
-      allow create: if isAdminOrSecretaria() || isProfessorOwner(request.resource.data.professor);
-      allow update, delete: if isAdminOrSecretaria() || isProfessorOwner(resource.data.professor);
+      allow create: if isAdminOrSecretaria() || isProfessorOwner(request.resource.data.professor, request.resource.data.get('professorKey', null));
+      allow update, delete: if isAdminOrSecretaria() || isProfessorOwner(resource.data.professor, resource.data.get('professorKey', null));
+    }
+
+    // ── Diário do professor (conteúdo + frequência + tarefas) ────────────
+    match /diario/{docId} {
+      allow read, write: if isNotAnonymous();
     }
 
     // ── Avaliações e notas ────────────────────────────────────────────────
@@ -68,14 +87,25 @@ service cloud.firestore {
 
     // ── Recados dos professores para coordenação ──────────────────────────
     // Professores precisam ler recados no ProfessorDashboard (onSnapshot).
+    // FIX: professor também precisa poder marcar como lido, responder e
+    // excluir os recados da própria conversa (campo "professor" identifica
+    // de quem é a conversa, tanto nas mensagens enviadas quanto recebidas).
     match /recados/{docId} {
       allow create: if isNotAnonymous();
       allow read: if isNotAnonymous();
-      allow update, delete: if isAdminOrSecretaria();
+      allow update, delete: if isAdminOrSecretaria() || isProfessorOwner(resource.data.professor, resource.data.get('professorKey', null));
     }
 
     // ── Agenda ───────────────────────────────────────────────────────────
     match /agendaEventos/{docId} {
+      allow read: if isNotAnonymous();
+      allow write: if isAdminOrSecretaria();
+    }
+
+    // ── Calendário letivo (recesso, provas, início/fim do ano) ────────────
+    // Professores precisam ler (futuros alertas de semana de prova); só
+    // admin/secretaria decide essas datas.
+    match /calendarioLetivo/{ano} {
       allow read: if isNotAnonymous();
       allow write: if isAdminOrSecretaria();
     }
@@ -85,14 +115,23 @@ service cloud.firestore {
 
     // Contrato público: alunos/responsáveis leem seu próprio documento sem login.
     // FIX #4: escrita restrita a admin/secretaria — professores não devem alterar dados de alunos.
+    // SEGURANÇA: "get" (não "read") — permite buscar por ID conhecido, mas
+    // bloqueia "list"/query, que exporia todos os alunos (CPF, contato etc.) de uma vez.
+    // "list" (consulta de coleção) continua liberado para autenticados —
+    // admin usa em DataContext/Students.jsx, professor usa em ChamadaForm/
+    // useTurmaAlunos/ProfessorDashboard para listar alunos das próprias turmas.
     match /artifacts/{appId}/public/data/students/{docId} {
-      allow read: if true;
+      allow get: if true;
+      allow list: if isNotAnonymous();
       allow write: if isAdminOrSecretaria();
     }
 
     // Assinaturas de contrato: qualquer um pode criar (assinar) e ler (verificar se já assinou), só auth pode alterar/deletar.
+    // SEGURANÇA: "get" em vez de "read" — evita listar todos os contratos assinados (CPF, IP, timestamp).
+    // "list" fica restrito a admin/secretaria (usado em Students.jsx para status de contratos assinados).
     match /artifacts/{appId}/public/data/contratos/{docId} {
-      allow read, create: if true;
+      allow get, create: if true;
+      allow list: if isAdminOrSecretaria();
       allow update, delete: if isNotAnonymous();
     }
 
@@ -127,8 +166,12 @@ service cloud.firestore {
     }
 
     // ── Link de pagamento público (acesso por clientes sem login) ─────────
+    // SEGURANÇA: "get" em vez de "read" — evita listar todos os pagamentos
+    // (valores, status, dados do aluno) sem login. "list" continua liberado
+    // para admin/secretaria, que usa em DataContext/Students.jsx.
     match /artifacts/{appId}/public/data/payments/{docId} {
-      allow read: if true;
+      allow get: if true;
+      allow list: if isAdminOrSecretaria();
       allow write: if isNotAnonymous();
     }
 

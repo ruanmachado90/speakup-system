@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { collection, addDoc, onSnapshot, updateDoc, deleteDoc, doc, Timestamp, query, where } from 'firebase/firestore';
 import { db } from '../firebase';
+import { normalizeNome } from '../utils/normalizeNome';
 
 export function useAulas(professorNome) {
   const [aulas, setAulas] = useState([]);
@@ -39,6 +40,7 @@ export function useAulas(professorNome) {
       const novaAula = {
         ...aulaData,
         professor: professorNome,
+        professorKey: normalizeNome(professorNome),
         createdAt: Timestamp.now(),
         updatedAt: Timestamp.now()
       };

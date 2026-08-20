@@ -17,14 +17,6 @@ import {
 import { useAI } from "../hooks/useAI";
 import { AI_CONFIG } from "../config/aiConfig";
 
-/**
- * AIManager - Interface de chat com IA para análises gerenciais
- * 
- * Componente principal responsável pela interface visual do chat com a IA.
- * A lógica de negócio está encapsulada no hook useAI.
- * As configurações estão centralizadas em AI_CONFIG.
- */
-
 // ─────────────────────────────────────────────
 // MAPEAMENTO DE ÍCONES
 // ─────────────────────────────────────────────
@@ -39,10 +31,116 @@ const ICONS_MAP = {
 };
 
 // ─────────────────────────────────────────────
+// MARKDOWN RENDERER
+// Suporta: # headings, - listas, 1. numeradas, --- divisores, **bold**, *italic*
+// ─────────────────────────────────────────────
+function renderInline(text, keyPrefix) {
+  const parts = text.split(/(\*\*[^*]+\*\*|\*[^*]+\*)/);
+  return parts.map((part, i) => {
+    if (part.startsWith("**") && part.endsWith("**"))
+      return <strong key={`${keyPrefix}-b${i}`}>{part.slice(2, -2)}</strong>;
+    if (part.startsWith("*") && part.endsWith("*"))
+      return <em key={`${keyPrefix}-i${i}`}>{part.slice(1, -1)}</em>;
+    return part;
+  });
+}
+
+function renderMarkdown(text) {
+  const lines = text.split("\n");
+  const elements = [];
+  let listItems = [];
+  let listType = null;
+
+  const flushList = (key) => {
+    if (!listItems.length) return;
+    const Tag = listType === "ol" ? "ol" : "ul";
+    elements.push(
+      <Tag key={key} style={{ paddingLeft: 18, margin: "4px 0 4px 0", lineHeight: 1.7 }}>
+        {listItems.map((item, j) => (
+          <li key={j} style={{ marginBottom: 2 }}>{renderInline(item, `${key}-${j}`)}</li>
+        ))}
+      </Tag>
+    );
+    listItems = [];
+    listType = null;
+  };
+
+  lines.forEach((line, idx) => {
+    // H1
+    const h1 = line.match(/^# (.+)/);
+    if (h1) {
+      flushList(`fl${idx}`);
+      elements.push(
+        <div key={idx} style={{ fontWeight: 700, fontSize: 15, marginTop: 14, marginBottom: 4, color: "#0f172a", borderBottom: "2px solid #005DE4", paddingBottom: 4 }}>
+          {renderInline(h1[1], `h1${idx}`)}
+        </div>
+      );
+      return;
+    }
+    // H2
+    const h2 = line.match(/^## (.+)/);
+    if (h2) {
+      flushList(`fl${idx}`);
+      elements.push(
+        <div key={idx} style={{ fontWeight: 700, fontSize: 13, marginTop: 10, marginBottom: 3, color: "#1e293b" }}>
+          {renderInline(h2[1], `h2${idx}`)}
+        </div>
+      );
+      return;
+    }
+    // H3
+    const h3 = line.match(/^### (.+)/);
+    if (h3) {
+      flushList(`fl${idx}`);
+      elements.push(
+        <div key={idx} style={{ fontWeight: 600, fontSize: 13, marginTop: 8, marginBottom: 2, color: "#334155" }}>
+          {renderInline(h3[1], `h3${idx}`)}
+        </div>
+      );
+      return;
+    }
+    // Divisor
+    if (/^---+$/.test(line.trim())) {
+      flushList(`fl${idx}`);
+      elements.push(<hr key={idx} style={{ border: "none", borderTop: "1px solid #e2e8f0", margin: "8px 0" }} />);
+      return;
+    }
+    // Bullet list
+    const bullet = line.match(/^[-*]\s+(.+)/);
+    if (bullet) {
+      if (listType !== "ul") { flushList(`fl${idx}`); listType = "ul"; }
+      listItems.push(bullet[1]);
+      return;
+    }
+    // Numbered list
+    const num = line.match(/^\d+\.\s+(.+)/);
+    if (num) {
+      if (listType !== "ol") { flushList(`fl${idx}`); listType = "ol"; }
+      listItems.push(num[1]);
+      return;
+    }
+    // Linha vazia
+    flushList(`fl${idx}`);
+    if (line.trim() === "") {
+      elements.push(<div key={idx} style={{ height: 6 }} />);
+      return;
+    }
+    // Texto normal
+    elements.push(
+      <span key={idx} style={{ display: "block" }}>
+        {renderInline(line, `ln${idx}`)}
+      </span>
+    );
+  });
+
+  flushList("fl-end");
+  return elements;
+}
+
+// ─────────────────────────────────────────────
 // COMPONENTE PRINCIPAL
 // ─────────────────────────────────────────────
 export default function AIManager({ students = [], payments = [], expenses = [], leads = [], filterMonth, filterYear }) {
-  // Hook customizado para lógica do chat
   const {
     messages,
     inputValue,
@@ -55,21 +153,28 @@ export default function AIManager({ students = [], payments = [], expenses = [],
 
   const [showReport, setShowReport] = useState(false);
   const bottomRef = useRef(null);
-  const inputRef = useRef(null);
+  const textareaRef = useRef(null);
 
   // Auto-scroll quando novas mensagens chegam
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // Handlers
+  // Auto-resize do textarea
+  useEffect(() => {
+    const el = textareaRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${Math.min(el.scrollHeight, 120)}px`;
+  }, [inputValue]);
+
   const handleSend = () => {
     if (inputValue.trim() && !isLoading) {
       sendMessage(inputValue);
     }
   };
 
-  const handleKeyPress = (e) => {
+  const handleKeyDown = (e) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       handleSend();
@@ -87,12 +192,6 @@ export default function AIManager({ students = [], payments = [], expenses = [],
         gap: "20px",
       }}
     >
-      {/* Google Font */}
-      <link 
-        href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&display=swap" 
-        rel="stylesheet" 
-      />
-
       {/* Relatório Mensal Modal */}
       {showReport && (
         <MonthlyReport
@@ -369,17 +468,12 @@ export default function AIManager({ students = [], payments = [], expenses = [],
                   fontSize: 14,
                   lineHeight: 1.65,
                   border: msg.role === "assistant" ? "1px solid #e2e8f0" : "none",
-                  whiteSpace: "pre-wrap",
                 }}
               >
-                {/* Renderização simples de markdown (bold com **) */}
-                {msg.content.split(/(\*\*[^*]+\*\*)/).map((part, j) =>
-                  part.startsWith("**") && part.endsWith("**") ? (
-                    <strong key={j}>{part.slice(2, -2)}</strong>
-                  ) : (
-                    <span key={j}>{part}</span>
-                  )
-                )}
+                {msg.role === "user"
+                  ? msg.content
+                  : renderMarkdown(msg.content)
+                }
               </div>
             </div>
           ))}
@@ -419,27 +513,28 @@ export default function AIManager({ students = [], payments = [], expenses = [],
               </div>
             </div>
           )}
-          
-          {/* Ref para auto-scroll */}
+
           <div ref={bottomRef} />
         </div>
 
         {/* Área de Input */}
         <div
           style={{
-            padding: "16px 20px",
+            padding: "12px 20px",
             borderTop: "1px solid #f1f5f9",
             display: "flex",
             gap: "10px",
+            alignItems: "flex-end",
           }}
         >
-          <input
-            ref={inputRef}
+          <textarea
+            ref={textareaRef}
             value={inputValue}
             onChange={(e) => setInput(e.target.value)}
-            onKeyDown={handleKeyPress}
-            placeholder="Pergunte sobre alunos, finanças, inadimplência..."
+            onKeyDown={handleKeyDown}
+            placeholder="Pergunte sobre alunos, finanças, inadimplência… (Shift+Enter para nova linha)"
             disabled={isLoading}
+            rows={1}
             style={{
               flex: 1,
               padding: "11px 16px",
@@ -451,6 +546,10 @@ export default function AIManager({ students = [], payments = [], expenses = [],
               outline: "none",
               fontFamily: "'DM Sans', sans-serif",
               transition: "border-color 0.15s",
+              resize: "none",
+              overflow: "hidden",
+              lineHeight: 1.5,
+              minHeight: 44,
             }}
             onFocus={(e) => (e.target.style.borderColor = "#005DE4")}
             onBlur={(e) => (e.target.style.borderColor = "#e2e8f0")}
@@ -461,6 +560,7 @@ export default function AIManager({ students = [], payments = [], expenses = [],
             style={{
               width: 44,
               height: 44,
+              minWidth: 44,
               borderRadius: "12px",
               background: isLoading || !inputValue.trim() ? "#e2e8f0" : "#005DE4",
               border: "none",
@@ -479,9 +579,9 @@ export default function AIManager({ students = [], payments = [], expenses = [],
 
       {/* CSS para animações */}
       <style>{`
-        @keyframes spin { 
-          from { transform: rotate(0deg); } 
-          to { transform: rotate(360deg); } 
+        @keyframes spin {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
         }
       `}</style>
     </div>

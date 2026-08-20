@@ -28,6 +28,7 @@ import {
 import { collection, getDocs, addDoc, onSnapshot, query, where, updateDoc, doc } from 'firebase/firestore';
 import { db, auth } from '../firebase';
 import { APP_ID } from '../utils/constants';
+import { normalizeNome } from '../utils/normalizeNome';
 import { useAulas } from '../hooks/useAulas';
 import { Card, KPI } from '../components';
 import ChamadaForm from '../components/forms/ChamadaForm';
@@ -62,7 +63,7 @@ export default function ProfessorDashboard() {
     return parts[0].charAt(0).toUpperCase() + parts[0].slice(1);
   }, [professorSlug]);
 
-  // Nome completo para exibição
+  // Nome completo para exibição (sem acentos — reconstruído do slug)
   const professorNome = useMemo(() => {
     if (!professorSlug) return '';
     return professorSlug
@@ -72,8 +73,9 @@ export default function ProfessorDashboard() {
   }, [professorSlug]);
 
   // Estados de navegação sidebar
-  const [sidebarMode, setSidebarMode] = useState('open'); // 'open' | 'mini' | 'closed'
+  const [sidebarMode, setSidebarMode] = useState(() => window.innerWidth < 1024 ? 'closed' : 'open'); // 'open' | 'mini' | 'closed'
   const [activeView, setActiveView] = useState('dashboard'); // 'dashboard' | 'turmas' | 'notas' | 'historico' | 'avisos'
+  const navClick = (fn) => () => { fn(); if (window.innerWidth < 1024) setSidebarMode('closed'); };
 
   // Estados
   const [turmas, setTurmas] = useState([]);
@@ -174,8 +176,16 @@ export default function ProfessorDashboard() {
     localStorage.setItem(`dismissed-avisos-${professorSlug}`, JSON.stringify([...dismissedIds]));
   }, [dismissedIds, professorSlug]);
 
-  // Hook de aulas - usa o nome completo para salvar corretamente
-  const { aulas, registrarAula, atualizarAula, excluirAula, calcularFrequencia } = useAulas(professorNome);
+  // Nome canônico do professor com acentos corretos, extraído das turmas carregadas.
+  // O slug perde acentos (Bárbara → barbara-dias → "Barbara Dias"), então usamos
+  // o campo professor da turma para recuperar o nome original (ex: "Bárbara Dias").
+  // Isso garante que a query de aulas e os dados salvos batem com o que o admin vê.
+  const professorNomeReal = useMemo(() => {
+    return turmas[0]?.professor || professorNome;
+  }, [turmas, professorNome]);
+
+  // Hook de aulas - usa o nome canônico (com acentos) para salvar e consultar corretamente
+  const { aulas, registrarAula, atualizarAula, excluirAula, calcularFrequencia } = useAulas(professorNomeReal);
 
   // Responsividade da sidebar
   useEffect(() => {
@@ -204,8 +214,12 @@ export default function ProfessorDashboard() {
       setSuccessMsg('Aula registrada com sucesso!');
       setTimeout(() => setSuccessMsg(''), 4000);
     } else {
-      setErrorMsg('Erro ao salvar aula. Verifique sua conexão e tente novamente.');
-      setTimeout(() => setErrorMsg(''), 5000);
+      const code = result.error || '';
+      const mensagem = code.includes('permission-denied') || code.includes('Missing or insufficient permissions')
+        ? 'Seu cadastro não tem permissão para lançar aulas desta turma. Contate a coordenação para corrigir seu cadastro de professor.'
+        : `Erro ao salvar aula: ${code || 'tente novamente.'}`;
+      setErrorMsg(mensagem);
+      setTimeout(() => setErrorMsg(''), 8000);
     }
   };
 
@@ -218,6 +232,7 @@ export default function ProfessorDashboard() {
         collection(db, 'recados'),
         {
           professor: professorNome,
+          professorKey: normalizeNome(professorNome),
           professorSlug,
           texto: recadoTexto.trim(),
           tipo: recadoTipo,
@@ -241,14 +256,20 @@ export default function ProfessorDashboard() {
       try {
         setLoading(true);
         
-        // Buscar turmas do professor (compara por primeiro nome para compatibilidade com dados existentes)
+        // Buscar turmas do professor
+        // Normaliza acentos para comparar "Bárbara" == "barbara", "João" == "joao" etc.
+        const norm = str => str.normalize('NFD').replace(/\p{Mn}/gu, '').toLowerCase();
+
         const turmasRef = collection(db, 'turmas');
         const turmasSnapshot = await getDocs(turmasRef);
         const turmasData = turmasSnapshot.docs
           .map(doc => ({ id: doc.id, ...doc.data() }))
           .filter(t => {
-            const prof = (t.professor || '').toLowerCase();
-            return prof.includes(professorPrimeiroNome.toLowerCase());
+            // Prioridade 1: campo professorSlug direto (mais confiável)
+            if (t.professorSlug) return t.professorSlug === professorSlug;
+            // Prioridade 2: comparação por nome sem acento
+            const prof = norm(t.professor || '');
+            return prof.includes(norm(professorPrimeiroNome));
           });
         
         setTurmas(turmasData);
@@ -582,28 +603,28 @@ export default function ProfessorDashboard() {
             icon={<LayoutDashboard size={18} />}
             label="Início"
             active={activeView === 'dashboard'}
-            onClick={() => setActiveView('dashboard')}
+            onClick={navClick(() => setActiveView('dashboard'))}
           />
           <SidebarNav
             collapsed={sidebarMode === 'mini'}
             icon={<Users size={18} />}
             label="Minhas Turmas"
             active={activeView === 'turmas'}
-            onClick={() => setActiveView('turmas')}
+            onClick={navClick(() => setActiveView('turmas'))}
           />
           <SidebarNav
             collapsed={sidebarMode === 'mini'}
             icon={<BookOpen size={18} />}
             label="Notas"
             active={activeView === 'notas'}
-            onClick={() => setActiveView('notas')}
+            onClick={navClick(() => setActiveView('notas'))}
           />
           <SidebarNav
             collapsed={sidebarMode === 'mini'}
             icon={<FileText size={18} />}
             label="Histórico de Aulas"
             active={activeView === 'historico'}
-            onClick={() => setActiveView('historico')}
+            onClick={navClick(() => setActiveView('historico'))}
           />
           <SidebarNav
             collapsed={sidebarMode === 'mini'}
@@ -611,19 +632,19 @@ export default function ProfessorDashboard() {
             label="Avisos"
             badge={notificacoesAuto.length + lembretes.filter(l => !dismissedIds.has(l.id)).length + recadosAdmin.filter(r => !r.lido).length}
             active={activeView === 'avisos'}
-            onClick={() => setActiveView('avisos')}
+            onClick={navClick(() => setActiveView('avisos'))}
           />
           <SidebarNav
             collapsed={sidebarMode === 'mini'}
             icon={<MessageSquare size={18} />}
             label="Enviar Recado"
-            onClick={() => setShowRecado(true)}
+            onClick={navClick(() => setShowRecado(true))}
           />
           <SidebarNav
             collapsed={sidebarMode === 'mini'}
             icon={<Printer size={18} />}
             label="Relatório Mensal"
-            onClick={() => setShowRelatorio(true)}
+            onClick={navClick(() => setShowRelatorio(true))}
           />
         </nav>
 
@@ -687,9 +708,9 @@ export default function ProfessorDashboard() {
 
       {/* MAIN CONTENT */}
       <main className={`flex-1 transition-all duration-300 ease-in-out ${
-        sidebarMode === 'open' ? 'ml-64' :
-        sidebarMode === 'mini' ? 'ml-16' :
-        'ml-0'
+        sidebarMode === 'open' ? 'lg:ml-64' :
+        sidebarMode === 'mini' ? 'lg:ml-16' :
+        ''
       }`}>
         {/* Mobile menu toggle */}
         <button
@@ -699,7 +720,7 @@ export default function ProfessorDashboard() {
           <Menu size={20} className="text-slate-700" />
         </button>
 
-        <div className="p-6">
+        <div className="p-4 pt-16 lg:p-6 lg:pt-6">
       {/* Painel de Notas inline */}
       {activeView === 'notas' && (
         <NotasView
@@ -746,7 +767,7 @@ export default function ProfessorDashboard() {
       <div className="mb-8">
         <div className="flex items-center gap-4">
           <div>
-            <h1 className="text-3xl font-bold text-slate-800 mb-1">
+            <h1 className="text-xl lg:text-3xl font-bold text-slate-800 mb-1">
               {activeView === 'dashboard' ? `Olá, ${professorNome}! 👋` :
                activeView === 'turmas' ? 'Minhas Turmas' :
                activeView === 'avisos' ? 'Avisos e Notificações' :
@@ -813,7 +834,7 @@ export default function ProfessorDashboard() {
               return (
                 <div
                   key={turma.id}
-                  className="flex items-center justify-between p-4 bg-slate-50 rounded-lg border border-slate-200 hover:border-[#005DE4] transition-all"
+                  className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-4 bg-slate-50 rounded-lg border border-slate-200 hover:border-[#005DE4] transition-all"
                 >
                   <div className="flex items-center gap-4">
                     <div className="bg-[#005DE4] text-white rounded-lg p-3">
@@ -1648,7 +1669,7 @@ export default function ProfessorDashboard() {
             <ChamadaForm
               turma={selectedTurma}
               alunosIniciais={alunosPorTurma[selectedTurma.id] || []}
-              professorNome={professorNome}
+              professorNome={professorNomeReal}
               saving={saving}
               initialDate={selectedDate}
               aulasRecentes={aulas.filter(a => a.turmaId === selectedTurma.id).sort((a, b) => (b.data || '').localeCompare(a.data || '')).slice(0, 5)}

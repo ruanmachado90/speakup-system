@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useCallback, useMemo } from 'react';
 
-const LoadingContext = createContext();
+export const LoadingContext = createContext();
 
 export const useLoading = () => {
   const context = useContext(LoadingContext);

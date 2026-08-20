@@ -23,8 +23,19 @@ export default defineConfig({
       },
       output: {
         manualChunks(id) {
-          // React e React-DOM em chunk separado
-          if (id.includes('node_modules/react') || id.includes('node_modules/react-dom')) {
+          // React e React-DOM em chunk separado.
+          // prop-types e hoist-non-react-statics também entram aqui: são
+          // dependências de tempo de inicialização de libs React (ex:
+          // react-google-recaptcha -> react-async-script -> prop-types),
+          // e deixá-las no chunk genérico "vendor-other" cria uma dependência
+          // circular entre vendor-react e vendor-other que quebra a ordem de
+          // carregamento em produção ("Cannot set properties of undefined").
+          if (
+            id.includes('node_modules/react') ||
+            id.includes('node_modules/react-dom') ||
+            id.includes('node_modules/prop-types') ||
+            id.includes('node_modules/hoist-non-react-statics')
+          ) {
             return 'vendor-react';
           }
           // Firebase em chunk separado

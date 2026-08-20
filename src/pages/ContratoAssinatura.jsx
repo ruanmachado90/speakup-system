@@ -1,9 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import ReCAPTCHA from 'react-google-recaptcha';
 import { enviarContratoPorEmail } from '../utils/email';
 import { useParams } from 'react-router-dom';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { APP_ID } from '../utils/constants';
+
+const RECAPTCHA_SITE_KEY = import.meta.env.VITE_RECAPTCHA_SITE_KEY;
 
 function escapeHtml(str) {
   if (str == null) return '';
@@ -122,6 +125,8 @@ export default function ContratoAssinatura() {
   const [loading, setLoading] = useState(false);
   const [assinatura, setAssinatura] = useState(null); // { nome, cpf, timestamp, ip }
   const [ip, setIp] = useState('');
+  const [recaptchaToken, setRecaptchaToken] = useState('');
+  const recaptchaRef = useRef(null);
 
   // Carrega aluno e verifica se contrato já foi assinado (página pública, sem auth)
   useEffect(() => {
@@ -191,6 +196,10 @@ export default function ContratoAssinatura() {
       setErro('Você deve aceitar os termos do contrato.');
       return;
     }
+    if (RECAPTCHA_SITE_KEY && !recaptchaToken) {
+      setErro('Confirme que você não é um robô.');
+      return;
+    }
     setLoading(true);
     const now = new Date();
     const timestamp = now.toLocaleString('pt-BR', { hour12: false, timeZone: 'America/Sao_Paulo' }) + ' (BRT)';
@@ -216,9 +225,13 @@ export default function ContratoAssinatura() {
             responsavel_nome: aluno?.responsibleName || aluno?.name,
             contrato_html: contratoHtml(aluno, true, assinaturaObj),
             destinatario: emailDestinatario,
+            recaptchaToken,
           });
         } catch (err) {
           console.error('Erro ao enviar contrato por email:', err);
+        } finally {
+          recaptchaRef.current?.reset();
+          setRecaptchaToken('');
         }
       }
     } catch (err) {
@@ -267,6 +280,16 @@ export default function ContratoAssinatura() {
             <input type="checkbox" name="aceite" checked={form.aceite} onChange={handleInput} style={{ marginRight: 6 }} />
             Li e concordo com os termos do contrato
           </label>
+          {RECAPTCHA_SITE_KEY && (
+            <div style={{ marginBottom: 12 }}>
+              <ReCAPTCHA
+                ref={recaptchaRef}
+                sitekey={RECAPTCHA_SITE_KEY}
+                onChange={token => setRecaptchaToken(token || '')}
+                onExpired={() => setRecaptchaToken('')}
+              />
+            </div>
+          )}
           {erro && <div style={{ color: 'red', fontSize: 14, marginBottom: 8 }}>{erro}</div>}
           <button type="submit" disabled={loading} style={{ background: loading ? '#7a9bff' : '#0e48fe', color: '#fff', border: 'none', borderRadius: 4, padding: '10px 24px', fontSize: 15, cursor: loading ? 'not-allowed' : 'pointer', marginTop: 8, display: 'flex', alignItems: 'center', gap: 8 }}>
             {loading ? 'Registrando assinatura...' : 'Assinar digitalmente'}

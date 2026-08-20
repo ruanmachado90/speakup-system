@@ -80,6 +80,8 @@ export function useGrades({ professorSlug, turmaId, semestre }) {
       setGradesDocs(gSnap.docs.map(d => ({ id: d.id, ...d.data() })));
     } catch (e) {
       console.error('useGrades fetch error:', e);
+      setAvaliacoes([]);
+      setGradesDocs([]);
     } finally {
       setLoading(false);
     }

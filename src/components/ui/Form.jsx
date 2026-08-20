@@ -1,7 +1,8 @@
 export const Form = ({label, name, type="text", defaultValue, required, step, placeholder}) => (
   <div>
-    <label className="block text-sm font-semibold mb-2">{label} {required && <span className="text-rose-500">*</span>}</label>
+    <label htmlFor={name} className="block text-sm font-semibold mb-2">{label} {required && <span className="text-rose-500">*</span>}</label>
     <input
+      id={name}
       type={type}
       name={name}
       defaultValue={defaultValue}

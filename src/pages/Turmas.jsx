@@ -5,12 +5,13 @@ import {
 } from "lucide-react";
 
 import {
-  PROFESSORES, NIVEIS, DIAS_DISPONIVEIS,
+  NIVEIS, DIAS_DISPONIVEIS, NIVEL_POR_CURSO_BOOK,
   DEFAULT_MAX_ALUNOS, DEFAULT_TOTAL_AULAS,
 } from '../constants/turmasConfig';
-import { normalizarDias, calcularHorasAula, contarDiasAula, normalizarString, escapeHtml } from '../utils/turmas';
+import { normalizarDias, calcularHorasSemanaisTurma, normalizarString, escapeHtml, gerarNomeTurma } from '../utils/turmas';
 
 import { useTurmas } from '../hooks/useTurmas';
+import { useProfessores } from '../hooks/useProfessores';
 import { useConfirm } from '../hooks/useConfirm';
 import { useErrorHandler } from '../hooks/useErrorHandler';
 
@@ -33,11 +34,11 @@ function showToastMsg(message, type) {
 }
 
 const FORM_INICIAL = {
-  nome: '', nivel: '', professor: '', horarios: [],
+  nome: '', curso: '', book: '', nivel: '', professor: '', horarios: [],
   maxAlunos: DEFAULT_MAX_ALUNOS, totalAulas: DEFAULT_TOTAL_AULAS,
 };
 
-function validateForm(form) {
+function validateForm(form, nomesProfessores) {
   const errors = {};
   if (!form.nome?.trim()) errors.nome = 'Nome da turma é obrigatório';
   else if (form.nome.length < 3) errors.nome = 'Nome deve ter pelo menos 3 caracteres';
@@ -45,7 +46,7 @@ function validateForm(form) {
   if (!form.nivel) errors.nivel = 'Selecione um nível';
   else if (!NIVEIS.includes(form.nivel)) errors.nivel = 'Nível inválido';
   if (!form.professor) errors.professor = 'Selecione um professor';
-  else if (!PROFESSORES.includes(form.professor)) errors.professor = 'Professor inválido';
+  else if (!nomesProfessores.includes(form.professor)) errors.professor = 'Professor inválido';
   if (!form.horarios?.length) errors.horarios = 'Selecione ao menos um dia com horário';
   else if (form.horarios.some(function(h) { return !h.horario; })) errors.horarios = 'Informe o horário de cada dia selecionado';
   if (form.maxAlunos < 1 || form.maxAlunos > 30) errors.maxAlunos = 'Máximo de alunos deve ser entre 1 e 30';
@@ -55,8 +56,11 @@ function validateForm(form) {
 // Converte array de horarios para string legível para exibição
 function formatarHorarios(horarios) {
   if (!horarios?.length) return '';
-  if (horarios.length === 1) return horarios[0].dia + ' ' + horarios[0].horario;
-  return horarios.map(function(h) { return h.dia.slice(0, 3) + ' ' + h.horario; }).join(' · ');
+  const fmt = (h) => h.dia + ' ' + h.horario + (h.horarioFim ? ' – ' + h.horarioFim : '');
+  if (horarios.length === 1) return fmt(horarios[0]);
+  return horarios.map(function(h) {
+    return h.dia.slice(0, 3) + ' ' + h.horario + (h.horarioFim ? '–' + h.horarioFim : '');
+  }).join(' · ');
 }
 
 // Extrai string de dias a partir do array de horarios (para funções legadas)
@@ -89,6 +93,8 @@ function gerarDiasAulaMes(turma, mes, ano) {
 export default function Turmas({ students }) {
   const alunosProp = students || [];
   const { turmas, aulas: aulasRegistradas, loading, criarTurma, editarTurma, excluirTurma, verificarDuplicata } = useTurmas();
+  const { professores } = useProfessores();
+  const professoresAtivos = useMemo(function() { return professores.filter(function(p) { return p.status !== 'inativo'; }); }, [professores]);
   const { handleError } = useErrorHandler(showToastMsg);
   const { confirmState, requestConfirm, handleConfirm, handleCancel } = useConfirm();
 
@@ -104,6 +110,8 @@ export default function Turmas({ students }) {
   const [expandedProfessores, setExpandedProfessores] = useState(new Set());
   const [copiedLink, setCopiedLink] = useState(null);
   const [filtros, setFiltros] = useState({ professor: 'all', dia: 'all', nivel: 'all' });
+  const [nomeAuto, setNomeAuto] = useState(''); // último nome sugerido automaticamente (curso+book+dia)
+  const [nivelAuto, setNivelAuto] = useState(''); // último nível sugerido automaticamente (curso+book)
 
   const alunosAtivos = useMemo(function() { return alunosProp.filter(function(a) { return a.status !== 'cancelado'; }); }, [alunosProp]);
 
@@ -132,11 +140,9 @@ export default function Turmas({ students }) {
       if (!stats[turma.professor]) {
         stats[turma.professor] = { nome: turma.professor, turmas: [], totalTurmas: 0, totalAlunos: 0, horasPorSemana: 0, horasPorMes: 0 };
       }
-      const horasAula = calcularHorasAula(turma.horario);
-      const diasSemana = contarDiasAula(turma.dias);
-      const horasSemanais = horasAula * diasSemana;
+      const horasSemanais = calcularHorasSemanaisTurma(turma);
       const alunos = getAlunosDaTurma(turma);
-      stats[turma.professor].turmas.push(Object.assign({}, turma, { horasAula, diasSemana, horasSemanais, alunos }));
+      stats[turma.professor].turmas.push(Object.assign({}, turma, { horasSemanais, alunos }));
       stats[turma.professor].totalTurmas += 1;
       stats[turma.professor].totalAlunos += alunos.length;
       stats[turma.professor].horasPorSemana += horasSemanais;
@@ -172,6 +178,8 @@ export default function Turmas({ students }) {
     setEditingTurma(null);
     setShowModal(false);
     setFormErrors({});
+    setNomeAuto('');
+    setNivelAuto('');
   }, []);
 
   const abrirNovoModal = useCallback(function() {
@@ -179,6 +187,8 @@ export default function Turmas({ students }) {
     setForm(FORM_INICIAL);
     setSelectedAlunos([]);
     setFormErrors({});
+    setNomeAuto('');
+    setNivelAuto('');
     setShowModal(true);
   }, []);
 
@@ -192,14 +202,22 @@ export default function Turmas({ students }) {
       horarios = diasArr.map(function(dia) { return { dia: dia, horario: horarioInicio }; });
     }
     setForm({
-      nome: turma.nome, nivel: turma.nivel, professor: turma.professor,
+      nome: turma.nome, curso: turma.curso || '', book: turma.book || '',
+      nivel: turma.nivel, professor: turma.professor,
       horarios: horarios,
       maxAlunos: turma.maxAlunos || DEFAULT_MAX_ALUNOS, totalAulas: turma.totalAulas || DEFAULT_TOTAL_AULAS,
     });
     setSelectedAlunos(turma.alunosIds && turma.alunosIds.length ? alunosProp.filter(function(s) { return turma.alunosIds.includes(s.id); }) : []);
     setFormErrors({});
+    setNomeAuto('');
+    setNivelAuto('');
     setShowModal(true);
   }, [alunosProp]);
+
+  // Nome sugerido a partir de curso + book + dias + horário + professor (padroniza o nome da turma).
+  const nomeSugerido = useMemo(function() {
+    return gerarNomeTurma({ curso: form.curso, book: form.book, horarios: form.horarios, professor: form.professor });
+  }, [form.curso, form.book, form.horarios, form.professor]);
 
   const handleFormChange = useCallback(function(newForm) {
     if (newForm._clearError) {
@@ -208,10 +226,30 @@ export default function Turmas({ students }) {
       delete rest._clearError;
       setFormErrors(function(prev) { return Object.assign({}, prev, { [_clearError]: '' }); });
       setForm(rest);
-    } else {
-      setForm(newForm);
+      return;
     }
-  }, []);
+    const sugestaoNome = gerarNomeTurma({ curso: newForm.curso, book: newForm.book, horarios: newForm.horarios, professor: newForm.professor });
+    const mudouCursoOuBook = newForm.curso !== form.curso || newForm.book !== form.book;
+    const mudaramHorarios = JSON.stringify(newForm.horarios) !== JSON.stringify(form.horarios);
+    const mudouProfessor = newForm.professor !== form.professor;
+    let atualizado = newForm;
+
+    // Só substitui o nome automaticamente se o usuário não tiver digitado algo próprio.
+    if (sugestaoNome && (mudouCursoOuBook || mudaramHorarios || mudouProfessor) && (!newForm.nome || newForm.nome === nomeAuto)) {
+      atualizado = Object.assign({}, atualizado, { nome: sugestaoNome });
+      setNomeAuto(sugestaoNome);
+    }
+
+    // Idem pro Nível — só entra automaticamente se curso/book mudou e o campo
+    // está vazio ou ainda tem o valor sugerido anteriormente (KIDS não tem mapa, fica manual).
+    const sugestaoNivel = (NIVEL_POR_CURSO_BOOK[newForm.curso] || {})[newForm.book] || '';
+    if (sugestaoNivel && mudouCursoOuBook && (!newForm.nivel || newForm.nivel === nivelAuto)) {
+      atualizado = Object.assign({}, atualizado, { nivel: sugestaoNivel });
+      setNivelAuto(sugestaoNivel);
+    }
+
+    setForm(atualizado);
+  }, [form, nomeAuto, nivelAuto]);
 
   const adicionarAluno = useCallback(function(aluno) {
     setSelectedAlunos(function(prev) { return prev.find(function(a) { return a.id === aluno.id; }) ? prev : [...prev, aluno]; });
@@ -223,15 +261,18 @@ export default function Turmas({ students }) {
   }, []);
 
   const salvarTurma = useCallback(async function() {
-    const errors = validateForm(form);
+    const errors = validateForm(form, professoresAtivos.map(function(p) { return p.nome; }));
     if (Object.keys(errors).length > 0) {
       setFormErrors(errors);
       showToastMsg('Corrija os erros no formulário', 'error');
       return;
     }
+    var professorSelecionado = professoresAtivos.find(function(p) { return p.nome === form.professor; });
     var horarios = form.horarios || [];
     var turmaData = {
-      nome: form.nome.trim(), professor: form.professor, nivel: form.nivel,
+      nome: form.nome.trim(), curso: form.curso || '', book: form.book || '',
+      professor: form.professor, professorId: professorSelecionado ? professorSelecionado.id : null,
+      nivel: form.nivel,
       horarios: horarios,
       // Campos legados para compatibilidade com ChamadaForm e filtros
       dias: extrairDias(horarios),
@@ -260,7 +301,7 @@ export default function Turmas({ students }) {
     } finally {
       setSaving(false);
     }
-  }, [form, selectedAlunos, editingTurma, verificarDuplicata, criarTurma, editarTurma, handleError, resetForm]);
+  }, [form, selectedAlunos, editingTurma, verificarDuplicata, criarTurma, editarTurma, handleError, resetForm, professoresAtivos]);
 
   const handleDeleteTurma = useCallback(async function(turma) {
     const confirmed = await requestConfirm({
@@ -361,7 +402,7 @@ export default function Turmas({ students }) {
           <div className="flex flex-wrap items-center gap-3">
             <select value={filtros.professor} onChange={function(e) { setFiltros(function(f) { return Object.assign({}, f, { professor: e.target.value }); }); }} className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#005DE4] bg-white">
               <option value="all">Todos os professores</option>
-              {PROFESSORES.map(function(p) { return <option key={p} value={p}>{p}</option>; })}
+              {professoresAtivos.map(function(p) { return <option key={p.id} value={p.nome}>{p.nome}</option>; })}
             </select>
             <select value={filtros.dia} onChange={function(e) { setFiltros(function(f) { return Object.assign({}, f, { dia: e.target.value }); }); }} className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#005DE4] bg-white">
               <option value="all">Todos os dias</option>
@@ -461,7 +502,7 @@ export default function Turmas({ students }) {
                               {turma.horarios.map(function(h) {
                                 return (
                                   <span key={h.dia} className="inline-flex items-center gap-1 bg-blue-50 text-[#005DE4] text-xs font-semibold px-2 py-0.5 rounded-full border border-blue-100">
-                                    {h.dia} {h.horario}
+                                    {h.dia} {h.horario}{h.horarioFim ? ` – ${h.horarioFim}` : ''}
                                   </span>
                                 );
                               })}
@@ -600,12 +641,14 @@ export default function Turmas({ students }) {
       <TurmasForm
         isOpen={showModal}
         editingTurma={editingTurma}
+        professores={professoresAtivos}
         form={form}
         formErrors={formErrors}
         saving={saving}
         selectedAlunos={selectedAlunos}
         searchAluno={searchAluno}
         alunosFiltrados={alunosFiltrados}
+        nomeSugerido={nomeSugerido}
         onClose={resetForm}
         onSave={salvarTurma}
         onFormChange={handleFormChange}

@@ -16,6 +16,7 @@ export const Dashboard = ({
   filteredExpenses,
   students,
   payments,
+  professores,
   role
 }) => {
   const [showRegistrationsModal, setShowRegistrationsModal] = useState(false);
@@ -595,28 +596,6 @@ export const Dashboard = ({
           );
         })()}
 
-        <Card>
-          <h3 className="font-bold mb-2">Despesas do {dashboardRange === 'month' ? 'Mês' : 'Ano'}</h3>
-          <Table
-            header={["Descrição", "Categoria", "Data", "Valor"]}
-            data={filteredExpenses}
-            render={x => (
-              <>
-                <td key="description" className="px-6 py-3 font-semibold">{x.description}</td>
-                <td key="category" className="px-6 py-3 text-sm text-slate-600">{x.category}</td>
-                <td key="date" className="px-6 py-3 text-sm">
-                  {x.date ? new Date(x.date).toLocaleDateString('pt-BR') : '-'}
-                </td>
-                <td key="value" className="px-6 py-3 font-semibold">
-                  R$ {Number(x.value || 0).toLocaleString('pt-BR', {minimumFractionDigits: 2})}
-                </td>
-              </>
-            )}
-          />
-          {filteredExpenses.length === 0 && (
-            <p className="text-sm text-slate-400 text-center py-4">Nenhuma despesa registrada</p>
-          )}
-        </Card>
       </div>
 
       <RegistrationsModal
@@ -629,6 +608,7 @@ export const Dashboard = ({
         isOpen={showCancellationsModal}
         onClose={() => setShowCancellationsModal(false)}
         students={cancelledStudents}
+        professores={professores}
         dashboardRange={dashboardRange}
       />
     </>

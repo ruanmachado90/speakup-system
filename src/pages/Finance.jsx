@@ -1,6 +1,6 @@
 import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useUI } from '../context/UIContext';
-import { Search, Edit, X, Printer, Trash2, ChevronUp, ChevronDown, Link, Check, Settings, CheckCircle, DollarSign, AlertCircle, User, Clock, XCircle, Mail, FileText, Info, Download, FileDown, MessageCircle } from 'lucide-react';
+import { Search, Edit, X, Printer, Trash2, ChevronUp, ChevronDown, Link, Check, Settings, CheckCircle, DollarSign, AlertCircle, User, Clock, XCircle, Mail, FileText, Info, Download, FileDown, MessageCircle, CalendarClock, Plus } from 'lucide-react';
 import { Card, KPI, PaymentMethodChart } from '../components';
 import { printReceipt } from '../utils/print';
 import { exportPaymentsToCSV, exportPaymentsToExcel, printPayments } from '../utils/export';
@@ -610,7 +610,17 @@ const Finance = ({
             >
               {payment.status === 'Pago' ? <Edit size={18} /> : <CheckCircle size={18} />}
             </button>
-            
+
+            {/* Editar vencimento (qualquer status — resolve parcelas com data customizada, ex: semestralidade) */}
+            <button
+              onClick={() => setModal({ open: true, type: 'edit-due-date', data: payment })}
+              aria-label="Editar vencimento da parcela"
+              className="p-2 rounded-lg transition-all text-slate-500 hover:bg-slate-100"
+              title="Editar vencimento"
+            >
+              <CalendarClock size={18} />
+            </button>
+
             {/* Baixar Recibo .doc (only if paid) */}
             {payment.status === 'Pago' && (
               <button
@@ -769,6 +779,15 @@ const Finance = ({
 
         {/* Export and Print buttons */}
         <div className="flex flex-wrap gap-2 mb-6">
+          <button
+            onClick={() => setModal({ open: true, type: 'new-charge', data: null })}
+            className="flex items-center gap-2 px-4 py-2 bg-[#005DE4] text-white rounded-lg hover:bg-[#0041a8] transition-colors font-semibold"
+            title="Criar cobrança avulsa pra um aluno já ativo"
+          >
+            <Plus size={16} />
+            <span className="text-sm font-medium">Nova Cobrança</span>
+          </button>
+
           <button
             onClick={handleExportCSV}
             className="flex items-center gap-2 px-4 py-2 border border-slate-300 text-slate-600 rounded-lg hover:bg-slate-100 transition-colors"

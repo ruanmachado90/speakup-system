@@ -1,68 +1,94 @@
-import React, { useState } from 'react';
-import { Calendar as CalendarIcon, ChevronLeft, ChevronRight } from 'lucide-react';
+import React, { useState, useMemo } from 'react';
+import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
 import { Card } from '../components';
+import { gerarFeriadosNacionais } from '../utils/calendarioLetivo';
+import { useCalendarioLetivo } from '../hooks/useCalendarioLetivo';
+
+// Dados de 2026 tal como estavam hardcoded antes da migração pro Firestore
+// (calendarioLetivo/{ano}). Usado só como semente pro botão "Migrar" — depois
+// que o documento existir no Firestore, isso deixa de ser lido.
+const SEED_2026 = {
+  inicioAno: '2026-02-02',
+  fimAno: '2026-12-18',
+  recesso: [
+    { inicio: '2026-02-14', fim: '2026-02-20', nome: 'Recesso Escolar' },
+    { inicio: '2026-04-20', fim: '2026-04-20', nome: 'Recesso Escolar' },
+    { inicio: '2026-06-05', fim: '2026-06-06', nome: 'Recesso Escolar' },
+    { inicio: '2026-07-18', fim: '2026-07-31', nome: 'Férias Escolares' },
+    { inicio: '2026-10-12', fim: '2026-10-16', nome: 'Recesso Escolar - Semana da Criança' },
+    { inicio: '2026-12-13', fim: '2026-12-31', nome: 'Férias Escolares' },
+  ],
+  semanasProva: [
+    { inicio: '2026-07-13', fim: '2026-07-17', nome: 'Semana de Prova (Listening / Speaking)' },
+    { inicio: '2026-12-07', fim: '2026-12-12', nome: 'Semana de Prova (Listening / Speaking)' },
+  ],
+  recuperacao: [
+    { inicio: '2026-12-13', fim: '2026-12-17', nome: 'Recuperação' },
+  ],
+  eventos: [
+    { data: '2026-02-02', nome: 'Início do ano letivo' },
+    { data: '2026-07-18', nome: 'Encerramento do 1º semestre' },
+    { data: '2026-08-01', nome: 'Início do 2º semestre' },
+    { data: '2026-12-18', nome: 'Encerramento do ano letivo' },
+  ],
+};
 
 export default function Calendar() {
   const [calendarView, setCalendarView] = useState('month'); // 'month' ou 'year'
   const [selectedDate, setSelectedDate] = useState(new Date());
-  
+  const [migrando, setMigrando] = useState(false);
+
   const currentDate = new Date();
   const currentMonth = selectedDate.getMonth();
   const currentYear = selectedDate.getFullYear();
 
+  const { dados: calendarioAno, loading: loadingCalendario, salvarCalendario } = useCalendarioLetivo(currentYear);
+
   // Dias da semana
   const weekDays = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
-  
+
   // Meses
   const months = [
     'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
     'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
   ];
 
-  // Feriados Nacionais do Brasil - 2026
-  const holidays = [
-    { month: 0, day: 1, name: 'Confraternização Universal' },
-    { month: 1, day: 17, name: 'Carnaval' },
-    { month: 3, day: 3, name: 'Sexta-feira Santa' },
-    { month: 3, day: 21, name: 'Tiradentes' },
-    { month: 4, day: 1, name: 'Dia do Trabalho' },
-    { month: 5, day: 4, name: 'Corpus Christi' },
-    { month: 8, day: 7, name: 'Independência do Brasil' },
-    { month: 9, day: 12, name: 'Nossa Senhora Aparecida' },
-    { month: 10, day: 2, name: 'Finados' },
-    { month: 10, day: 15, name: 'Proclamação da República' },
-    { month: 10, day: 20, name: 'Consciência Negra' },
-    { month: 11, day: 25, name: 'Natal' }
-  ];
+  // Feriados nacionais calculados pro ano em exibição (fixos + móveis via Páscoa)
+  const holidaysISO = useMemo(() => gerarFeriadosNacionais(currentYear), [currentYear]);
+  const holidays = useMemo(() => holidaysISO.map((h) => {
+    const [ano, mes, dia] = h.data.split('-').map(Number);
+    return { month: mes - 1, day: dia, name: h.nome };
+  }), [holidaysISO]);
 
-  // Recesso Escolar
-  const schoolBreak = [
-    { month: 1, startDay: 14, endDay: 20, name: 'Recesso Escolar' },
-    { month: 3, startDay: 20, endDay: 20, name: 'Recesso Escolar' },
-    { month: 5, startDay: 5, endDay: 6, name: 'Recesso Escolar' },
-    { month: 6, startDay: 18, endDay: 31, name: 'Férias Escolares' },
-    { month: 9, startDay: 12, endDay: 16, name: 'Recesso Escolar - Semana da Criança' },
-    { month: 11, startDay: 13, endDay: 31, name: 'Férias Escolares' }
-  ];
+  // Datas específicas da escola: vêm do Firestore (calendarioLetivo/{ano}).
+  // Sem dado ainda cadastrado pro ano, fica tudo vazio (exceto 2026, que tem
+  // o botão de migração da semente antiga).
+  const fonte = calendarioAno || {};
+  const converterIntervalo = (arr) => (arr || []).map((item) => {
+    const [, mesIni, diaIni] = item.inicio.split('-').map(Number);
+    const [, , diaFim] = item.fim.split('-').map(Number);
+    return { month: mesIni - 1, startDay: diaIni, endDay: diaFim, name: item.nome };
+  });
+  const converterEvento = (arr) => (arr || []).map((item) => {
+    const [, mes, dia] = item.data.split('-').map(Number);
+    return { month: mes - 1, day: dia, name: item.nome };
+  });
 
-  // Semanas de Prova
-  const examWeeks = [
-    { month: 6, startDay: 13, endDay: 17, name: 'Semana de Prova (Listening / Speaking)' },
-    { month: 11, startDay: 7, endDay: 12, name: 'Semana de Prova (Listening / Speaking)' }
-  ];
+  const schoolBreak = converterIntervalo(fonte.recesso);
+  const examWeeks = converterIntervalo(fonte.semanasProva);
+  const recoveryPeriods = converterIntervalo(fonte.recuperacao);
+  const schoolEvents = converterEvento(fonte.eventos);
 
-  // Períodos de Recuperação
-  const recoveryPeriods = [
-    { month: 11, startDay: 13, endDay: 17, name: 'Recuperação' }
-  ];
-
-  // Eventos Escolares Importantes
-  const schoolEvents = [
-    { month: 1, day: 2, name: 'Início do ano letivo' },
-    { month: 6, day: 18, name: 'Encerramento do 1º semestre' },
-    { month: 7, day: 1, name: 'Início do 2º semestre' },
-    { month: 11, day: 18, name: 'Encerramento do ano letivo' }
-  ];
+  const handleMigrarSemente = async () => {
+    setMigrando(true);
+    try {
+      await salvarCalendario(SEED_2026);
+    } catch (err) {
+      console.error('[Calendar] Erro ao migrar calendário letivo:', err);
+    } finally {
+      setMigrando(false);
+    }
+  };
 
   // Verificar se é feriado
   const isHoliday = (day) => {
@@ -177,6 +203,22 @@ export default function Calendar() {
             Hoje
           </button>
         </div>
+
+        {!loadingCalendario && !calendarioAno && currentYear === 2026 && (
+          <div className="mt-4 flex items-center justify-between gap-3 bg-amber-50 border border-amber-200 rounded-lg px-4 py-3">
+            <p className="text-sm text-amber-800">
+              As datas específicas de {currentYear} (recesso, provas, início/fim do ano) ainda não estão no banco de dados.
+            </p>
+            <button
+              onClick={handleMigrarSemente}
+              disabled={migrando}
+              className="flex-shrink-0 flex items-center gap-2 px-3 py-2 bg-amber-500 text-white rounded-lg font-semibold text-sm hover:bg-amber-600 disabled:opacity-50 transition-colors"
+            >
+              {migrando && <Loader2 size={14} className="animate-spin" />}
+              Migrar dados de {currentYear}
+            </button>
+          </div>
+        )}
       </Card>
 
       {/* Calendário */}

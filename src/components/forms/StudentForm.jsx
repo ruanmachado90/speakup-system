@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Form } from '../ui';
 import { useModal } from '../../context/selectors';
 import { useGeneralLoading } from '../../context/selectors';
+import { useProfessores } from '../../hooks/useProfessores';
 
 const formatCPF = (value) => {
   const numbers = value.replace(/\D/g, '');
@@ -42,8 +43,9 @@ const MaskedInput = ({ label, name, defaultValue, mask, required }) => {
 
   return (
     <div className="flex flex-col">
-      <label className="text-sm font-bold text-slate-600 mb-1">{label}</label>
+      <label htmlFor={name} className="text-sm font-bold text-slate-600 mb-1">{label}</label>
       <input
+        id={name}
         type="text"
         name={name}
         value={value}
@@ -51,6 +53,34 @@ const MaskedInput = ({ label, name, defaultValue, mask, required }) => {
         required={required}
         className="border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#005DE4]"
       />
+    </div>
+  );
+};
+
+const TeacherSelect = ({ defaultValue, defaultProfessorId, required }) => {
+  const { professores } = useProfessores();
+  const professoresAtivos = professores.filter((p) => p.status !== 'inativo');
+  const [professorId, setProfessorId] = useState(defaultProfessorId || '');
+
+  return (
+    <div className="flex flex-col">
+      <label className="text-sm font-bold text-slate-600 mb-1">Professor</label>
+      <select
+        name="teacher"
+        defaultValue={defaultValue || ''}
+        required={required}
+        onChange={(e) => {
+          const selecionado = professoresAtivos.find((p) => p.nome === e.target.value);
+          setProfessorId(selecionado ? selecionado.id : '');
+        }}
+        className="border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#005DE4]"
+      >
+        <option value="">Selecione o professor</option>
+        {professoresAtivos.map((p) => (
+          <option key={p.id} value={p.nome}>{p.nome}</option>
+        ))}
+      </select>
+      <input type="hidden" name="professorId" value={professorId} />
     </div>
   );
 };
@@ -82,7 +112,7 @@ export const StudentForm = ({ onSubmit }) => {
 
       <div className="grid grid-cols-2 gap-4">
         <Form label="Curso" name="course" defaultValue={modal.data?.course} required />
-        <Form label="Professor" name="teacher" defaultValue={modal.data?.teacher} required />
+        <TeacherSelect defaultValue={modal.data?.teacher} defaultProfessorId={modal.data?.professorId} required />
       </div>
 
       <div className="grid grid-cols-3 gap-4">

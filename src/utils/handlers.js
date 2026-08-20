@@ -169,7 +169,7 @@ export const handleDeleteStudent = async (id, toastMsg) => {
 /**
  * Cancel student enrollment
  */
-export const handleReactivateEnrollment = async (id, { studentName, fee, dueDate, installments }, toastMsg) => {
+export const handleReactivateEnrollment = async (id, { studentName, fee, dueDate, installments, installmentDates }, toastMsg) => {
   try {
     await updateDoc(doc(col("students"), id), {
       status: 'ativo',
@@ -182,11 +182,16 @@ export const handleReactivateEnrollment = async (id, { studentName, fee, dueDate
 
     if (Number(fee) > 0 && Number(installments) > 0 && dueDate) {
       const batch = writeBatch(db);
-      const start = new Date(dueDate + 'T00:00:00');
 
+      // installmentDates traz a data (já ajustada manualmente, se for o caso) de
+      // cada parcela; se não vier (chamada legada), cai no cálculo mensal padrão.
       for (let i = 0; i < Number(installments); i++) {
-        const d = new Date(start);
-        d.setMonth(start.getMonth() + i);
+        const dataStr = installmentDates?.[i];
+        const d = dataStr ? new Date(dataStr + 'T00:00:00') : (() => {
+          const start = new Date(dueDate + 'T00:00:00');
+          start.setMonth(start.getMonth() + i);
+          return start;
+        })();
         batch.set(doc(col('payments')), {
           studentId: id,
           studentName,
@@ -280,6 +285,61 @@ export const savePayment = async (e, modal, toastMsg, setModal, setPaymentSaving
     toastMsg('Erro ao registrar pagamento');
   } finally {
     setPaymentSaving(false);
+  }
+};
+
+/**
+ * Cria uma cobrança avulsa pra um aluno já ativo, fora do lote de parcelas
+ * gerado na matrícula/reativação (ex: uma 2ª parcela de semestralidade
+ * vencendo em julho, adicionada depois).
+ */
+export const handleAddPayment = async (
+  { studentId, studentName, valuePlanned, dueDate, description },
+  toastMsg,
+  setModal
+) => {
+  try {
+    const d = new Date(dueDate + 'T00:00:00');
+    await addDoc(col('payments'), {
+      studentId, studentName,
+      valuePlanned: Number(valuePlanned),
+      valuePaid: 0,
+      status: 'Pendente',
+      month: d.getMonth() + 1,
+      year: d.getFullYear(),
+      dueDate: toLocalISOString(d),
+      description: description || '',
+      createdAt: Date.now(),
+    });
+    toastMsg('Cobrança criada com sucesso');
+    setModal({ open: false, type: null, data: null });
+  } catch (err) {
+    console.error('Erro ao criar cobrança:', err);
+    toastMsg('Erro ao criar cobrança');
+  }
+};
+
+/**
+ * Edita o vencimento de uma parcela (pendente ou já paga), sem mexer em
+ * status/valor pago. Recalcula month/year junto, já que os filtros do
+ * Financeiro usam esses campos, não o dueDate diretamente.
+ */
+export const handleEditDueDate = async (paymentId, newDueDate, toastMsg) => {
+  if (!newDueDate) {
+    toastMsg('Informe uma data de vencimento válida');
+    return;
+  }
+  try {
+    const d = new Date(newDueDate + 'T00:00:00');
+    await updateDoc(doc(col('payments'), paymentId), {
+      dueDate: toLocalISOString(d),
+      month: d.getMonth() + 1,
+      year: d.getFullYear(),
+    });
+    toastMsg('Vencimento atualizado');
+  } catch (err) {
+    console.error('Erro ao editar vencimento:', err);
+    toastMsg('Erro ao editar vencimento');
   }
 };
 

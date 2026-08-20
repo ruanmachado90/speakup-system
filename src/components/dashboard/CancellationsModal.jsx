@@ -1,8 +1,13 @@
 import { Printer, X, User, Calendar } from 'lucide-react';
 import { formatCurrency, formatDate } from '../../utils';
 
-export default function CancellationsModal({ isOpen, onClose, students, dashboardRange }) {
+export default function CancellationsModal({ isOpen, onClose, students, professores, dashboardRange }) {
   if (!isOpen) return null;
+
+  // Nome canônico por professorId — evita mostrar grafia antiga do texto
+  // livre (ex: "VERA") em vez do nome completo cadastrado.
+  const nomeProfessor = (student) =>
+    (professores || []).find((p) => p.id === student.professorId)?.nome || student.teacher;
 
   const printCancellations = () => {
     const html = `
@@ -47,7 +52,7 @@ export default function CancellationsModal({ isOpen, onClose, students, dashboar
               <td><strong>${student.name || '---'}</strong></td>
               <td>${student.responsibleName || '-'}</td>
               <td>${formatDate(student.cancelDate)}</td>
-              <td>${student.teacher || '-'}</td>
+              <td>${nomeProfessor(student) || '-'}</td>
               <td>${student.course || '-'}</td>
               <td>${formatCurrency(Number(student.fee || 0))}</td>
               <td>${student.responsiblePhone || student.phone || '-'}</td>
@@ -100,7 +105,7 @@ export default function CancellationsModal({ isOpen, onClose, students, dashboar
                         {student.responsibleName && <p className="text-sm text-gray-600 mt-1">Resp.: {student.responsibleName}</p>}
                         <div className="flex items-center gap-4 mt-2 text-xs text-gray-500">
                           <span className="flex items-center gap-1"><Calendar size={14} />Cancelamento: {formatDate(student.cancelDate)}</span>
-                          {student.teacher && <span>Professor: {student.teacher}</span>}
+                          {nomeProfessor(student) && <span>Professor: {nomeProfessor(student)}</span>}
                           {student.course && <span>Curso: {student.course}</span>}
                         </div>
                       </div>

@@ -40,6 +40,8 @@ export default function ProfessorLoginPage() {
       const slug = snap.exists() ? snap.data().slug : null;
       if (slug) {
         navigate(`/professor/${slug}`, { replace: true });
+      } else {
+        setError('Sua conta entrou, mas não está configurada corretamente (falta o link do painel). Contate a administração.');
       }
     } catch (err) {
       const msgs = {
@@ -130,7 +132,7 @@ export default function ProfessorLoginPage() {
           </form>
 
           <p className="mt-6 text-xs text-slate-400 text-center">
-            Ã‰ administrador ou secretÃ¡ria?{' '}
+            É administrador ou secretária?{' '}
             <Link to="/login" className="text-[#005DE4] hover:underline">
               Entrar com Google
             </Link>

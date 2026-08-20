@@ -25,6 +25,21 @@ const CONFIG = {
 // ============================================
 
 /**
+ * Normaliza nome para comparação tolerante a acentos/maiúsculas
+ * (mesma lógica de src/utils/normalizeNome.js)
+ * @param {string} str - Nome a normalizar
+ * @return {string} Nome normalizado
+ */
+function normalizeNome(str) {
+  return (str || "")
+    .normalize("NFD")
+    .replace(/\p{Mn}/gu, "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, " ");
+}
+
+/**
  * Valida o payload da requisição
  * @param {Object} body - Corpo da requisição
  * @returns {Object} - { valid: boolean, error?: string }
@@ -223,12 +238,44 @@ exports.createProfessor = functions.https.onCall(async (data, context) => {
   await admin.firestore().doc(`users/${userRecord.uid}`).set({
     role: "professor",
     nome: nome.trim(),
+    nomeKey: normalizeNome(nome),
     slug: slug.trim(),
     email: email.trim().toLowerCase(),
     criadoEm: admin.firestore.FieldValue.serverTimestamp(),
   }, { merge: true });
 
   return { uid: userRecord.uid, email: userRecord.email };
+});
+
+/**
+ * Migração única: preenche/corrige o campo nomeKey (nome normalizado, sem
+ * acento/maiúsculas) em todos os usuários com role "professor" que já
+ * existiam antes desta correção. Sem isso, professores cadastrados antes
+ * não conseguem lançar conteúdo se o nome digitado nas turmas divergir em
+ * acento/caixa do nome salvo no login (ex: "Bárbara" vs "Barbara").
+ * Callable: httpsCallable(functions, 'backfillProfessorNomeKeys')
+ */
+exports.backfillProfessorNomeKeys = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError("unauthenticated", "Não autorizado.");
+  }
+  const callerSnap = await admin.firestore().doc(`users/${context.auth.uid}`).get();
+  if (!callerSnap.exists || callerSnap.data().role !== "admin") {
+    throw new functions.https.HttpsError("permission-denied", "Apenas administradores podem executar esta migração.");
+  }
+
+  const usersSnap = await admin.firestore().collection("users").where("role", "==", "professor").get();
+  const batch = admin.firestore().batch();
+  let updated = 0;
+  usersSnap.forEach((docSnap) => {
+    const nome = docSnap.data().nome;
+    if (!nome) return;
+    batch.set(docSnap.ref, { nomeKey: normalizeNome(nome) }, { merge: true });
+    updated += 1;
+  });
+  if (updated > 0) await batch.commit();
+
+  return { updated };
 });
 
 /**

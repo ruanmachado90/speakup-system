@@ -33,7 +33,7 @@ import {
   Nav
 } from './components';
 import ErrorBoundary from './components/ui/ErrorBoundary';
-import { StudentForm, PaymentForm, ExpenseForm, LeadForm } from './components/forms';
+import { StudentForm, PaymentForm, EditDueDateForm, NovaCobrancaForm, ExpenseForm, LeadForm } from './components/forms';
 import { AppProvider } from './context';
 import { 
   useStudentActions, 
@@ -58,7 +58,8 @@ import {
   useSaving,
   usePaymentSaving,
   useExpenseSaving,
-  useUser
+  useUser,
+  useProfessoresData
 } from './hooks';
 
 // Lazy loading de páginas para melhor performance
@@ -77,6 +78,14 @@ const PaymentLink = lazy(() => import('./pages/PaymentLink'));
 const AgendaGoogle = lazy(() => import('./pages/Agenda'));
 const Turmas = lazy(() => import('./pages/Turmas'));
 const ProfessorDashboard = lazy(() => import('./pages/ProfessorDashboard'));
+const ProfessorHome = lazy(() => import('./pages/ProfessorHome'));
+const ConteudoFrequenciaPage = lazy(() => import('./pages/ConteudoFrequenciaPage'));
+const NotasParciais = lazy(() => import('./pages/NotasParciais'));
+const RelatorioNotas = lazy(() => import('./pages/RelatorioNotas'));
+const TarefasPage = lazy(() => import('./pages/TarefasPage'));
+const AvisosPage = lazy(() => import('./pages/AvisosPage'));
+const ProfessorWikiPage = lazy(() => import('./pages/ProfessorWikiPage'));
+const HistoricoPage = lazy(() => import('./pages/HistoricoPage'));
 const Notas = lazy(() => import('./pages/Notas'));
 const LoginPage = lazy(() => import('./pages/LoginPage'));
 const ProfessorLoginPage = lazy(() => import('./pages/ProfessorLoginPage'));
@@ -216,16 +225,18 @@ function AppContent() {
   const payments = usePayments();
   const expenses = useExpenses();
   const leads = useLeads();
+  const professores = useProfessoresData();
   const { stats, teacherStats, filteredExpenses, monthlyData } = useDashboardStats();
   const { financeStats, filteredPayments } = useFinanceData();
   const { filteredExpensesData, expenseEvolutionData } = useExpenseData();
 
   /* ================= ACTIONS ================= */
   const { saveStudent, handleCancelEnrollment, handleReactivateEnrollment, handleDeleteStudent, handleExcelUpload } = useStudentActions(user, modal, toastMsg, setModal, setSaving);
-  const { savePayment, handleUndoPayment } = usePaymentActions(modal, toastMsg, setModal, setSaving);
+  const { savePayment, handleEditDueDate, handleAddPayment, handleUndoPayment } = usePaymentActions(modal, toastMsg, setModal, setSaving);
   const { saveExpense, handleDeleteExpense } = useExpenseActions(user, modal, toastMsg, setModal, setSaving);
   const { saveLead } = useLeadActions(user, modal, toastMsg, setModal, setSaving);
-  const { printDashboard, printFicha } = usePrintActions(dashboardRange, stats, monthlyData, teacherStats, filteredExpenses, modal, payments);
+  const { printDashboard, printFicha } = usePrintActions(dashboardRange, stats, monthlyData, teacherStats, filteredExpenses, modal, payments, professores);
+  const nomeProfessorModal = professores.find((p) => p.id === modal.data?.professorId)?.nome || modal.data?.teacher;
 
   /* ================= RENDER ================= */
   return (
@@ -415,6 +426,7 @@ function AppContent() {
               filteredExpenses={filteredExpenses}
               students={students}
               payments={payments}
+              professores={professores}
               role={role}
             />}
 
@@ -515,12 +527,30 @@ function AppContent() {
           )}
 
           {modal.type === 'edit-payment' && (
-            <PaymentForm 
+            <PaymentForm
               modal={modal}
               paymentSaving={paymentSaving}
               onSubmit={savePayment}
               onCancel={()=>setModal({open:false,type:null,data:null})}
               isEdit={true}
+            />
+          )}
+
+          {modal.type === 'edit-due-date' && (
+            <EditDueDateForm
+              modal={modal}
+              saving={paymentSaving}
+              onSubmit={handleEditDueDate}
+              onCancel={()=>setModal({open:false,type:null,data:null})}
+            />
+          )}
+
+          {modal.type === 'new-charge' && (
+            <NovaCobrancaForm
+              students={students}
+              saving={paymentSaving}
+              onSubmit={handleAddPayment}
+              onCancel={()=>setModal({open:false,type:null,data:null})}
             />
           )}
 
@@ -575,7 +605,7 @@ function AppContent() {
 
                     <div>
                       <p className="text-xs text-slate-500 mb-1">Professor</p>
-                      <div className="border rounded-lg p-3">{modal.data?.teacher}</div>
+                      <div className="border rounded-lg p-3">{nomeProfessorModal}</div>
                     </div>
 
                     <div>
@@ -822,6 +852,20 @@ function ProfessoresAdmin() {
     }
   };
 
+  const [fixingCadastros, setFixingCadastros] = useState(false);
+  const handleCorrigirCadastros = async () => {
+    setFixingCadastros(true); setError(''); setSuccess('');
+    try {
+      const fn = httpsCallable(fns, 'backfillProfessorNomeKeys');
+      const res = await fn();
+      setSuccess(`Cadastros corrigidos: ${res.data.updated} professor(es) atualizados.`);
+    } catch (err) {
+      setError(err.message || 'Erro ao corrigir cadastros.');
+    } finally {
+      setFixingCadastros(false);
+    }
+  };
+
   // Auto-gerar slug a partir do nome
   const handleNomeChange = (e) => {
     const nome = e.target.value;
@@ -831,9 +875,17 @@ function ProfessoresAdmin() {
 
   return (
     <div className="space-y-6 p-1">
-      <div className="flex items-center gap-3 mb-2">
-        <GraduationCap size={22} className="text-[#005DE4]" />
-        <h2 className="text-xl font-bold text-slate-800">Gerenciar Professores</h2>
+      <div className="flex items-center justify-between gap-3 mb-2">
+        <div className="flex items-center gap-3">
+          <GraduationCap size={22} className="text-[#005DE4]" />
+          <h2 className="text-xl font-bold text-slate-800">Gerenciar Professores</h2>
+        </div>
+        <button
+          onClick={handleCorrigirCadastros}
+          disabled={fixingCadastros}
+          title="Corrige o cadastro de professores existentes para tolerar acentos/maiúsculas ao lançar conteúdo (execute uma vez após a atualização do sistema)"
+          className="px-3 py-1.5 text-xs border border-slate-300 text-slate-600 rounded-lg hover:bg-slate-50 transition-colors disabled:opacity-50"
+        >{fixingCadastros ? 'Corrigindo...' : 'Corrigir cadastros (acentos)'}</button>
       </div>
 
       {error && <div className="bg-red-50 border border-red-200 text-red-700 rounded-xl px-4 py-3 text-sm">{error}</div>}
@@ -1017,6 +1069,70 @@ export default function App() {
 
             {/* Rotas do professor (magic link) */}
             <Route path="/professor/dashboard" element={<Navigate to="/" replace />} />
+            <Route
+              path="/professor/:professorSlug/home"
+              element={
+                <RequireProfessorAuth>
+                  <ProfessorHome />
+                </RequireProfessorAuth>
+              }
+            />
+            <Route
+              path="/professor/:professorSlug/frequencia"
+              element={
+                <RequireProfessorAuth>
+                  <ConteudoFrequenciaPage />
+                </RequireProfessorAuth>
+              }
+            />
+            <Route
+              path="/professor/:professorSlug/notas"
+              element={
+                <RequireProfessorAuth>
+                  <NotasParciais />
+                </RequireProfessorAuth>
+              }
+            />
+            <Route
+              path="/professor/:professorSlug/avisos"
+              element={
+                <RequireProfessorAuth>
+                  <AvisosPage />
+                </RequireProfessorAuth>
+              }
+            />
+            <Route
+              path="/professor/:professorSlug/tarefas"
+              element={
+                <RequireProfessorAuth>
+                  <TarefasPage />
+                </RequireProfessorAuth>
+              }
+            />
+            <Route
+              path="/professor/:professorSlug/wiki"
+              element={
+                <RequireProfessorAuth>
+                  <ProfessorWikiPage />
+                </RequireProfessorAuth>
+              }
+            />
+            <Route
+              path="/professor/:professorSlug/historico"
+              element={
+                <RequireProfessorAuth>
+                  <HistoricoPage />
+                </RequireProfessorAuth>
+              }
+            />
+            <Route
+              path="/professor/:professorSlug/relatorio-notas"
+              element={
+                <RequireProfessorAuth>
+                  <RelatorioNotas />
+                </RequireProfessorAuth>
+              }
+            />
             <Route
               path="/professor/:professorSlug"
               element={

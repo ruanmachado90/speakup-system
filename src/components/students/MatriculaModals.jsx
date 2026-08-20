@@ -1,5 +1,58 @@
 import { useState } from 'react';
-import { CheckCircle, RotateCcw, X, Loader2 } from 'lucide-react';
+import { CheckCircle, RotateCcw, X, Loader2, RefreshCw } from 'lucide-react';
+
+// Data (YYYY-MM-DD) da parcela N, somando N meses à data da 1ª parcela —
+// mesmo dia do mês, salvo quando o usuário sobrescreve individualmente.
+function dataParcelaPadrao(primeiraData, indice) {
+  const d = new Date(primeiraData + 'T00:00:00');
+  d.setMonth(d.getMonth() + indice);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+// Lista editável das N datas de vencimento. Cada parcela nasce com a data
+// padrão (mesmo dia, +1 mês por parcela), mas pode ser ajustada individualmente
+// — por exemplo, uma semestralidade em 2x com a 2ª parcela vencendo em julho.
+function ParcelasEditor({ primeiraData, installments, overrides, onChange, onReset, focusColor }) {
+  const n = Number(installments) || 0;
+  if (!primeiraData || n < 1) return null;
+
+  return (
+    <div>
+      <label className="block text-sm font-medium text-slate-700 mb-1">Vencimento de cada parcela</label>
+      <div className="border border-slate-200 rounded-lg divide-y divide-slate-100 max-h-52 overflow-y-auto">
+        {Array.from({ length: n }, (_, i) => {
+          const padrao = dataParcelaPadrao(primeiraData, i);
+          const valor = overrides[i] ?? padrao;
+          const alterada = overrides[i] != null && overrides[i] !== padrao;
+          return (
+            <div key={i} className="flex items-center gap-2 px-3 py-2">
+              <span className="text-xs font-semibold text-slate-500 w-14 flex-shrink-0">{i + 1}ª parcela</span>
+              <input
+                type="date"
+                value={valor}
+                onChange={e => onChange(i, e.target.value)}
+                className={`flex-1 border rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 ${focusColor} ${alterada ? 'border-amber-300 bg-amber-50' : 'border-slate-300'}`}
+              />
+              {alterada && (
+                <button
+                  type="button"
+                  onClick={() => onReset(i)}
+                  title="Restaurar data padrão"
+                  className="p-1.5 text-slate-400 hover:text-slate-600 flex-shrink-0"
+                >
+                  <RefreshCw size={14} />
+                </button>
+              )}
+            </div>
+          );
+        })}
+      </div>
+      <p className="text-xs text-slate-400 mt-1">
+        Por padrão, cada parcela vence um mês após a anterior. Ajuste a data de qualquer parcela individualmente se precisar (ex: semestralidade).
+      </p>
+    </div>
+  );
+}
 
 export function ConfirmarMatriculaModal({ preCad, onConfirm, onClose, saving }) {
   const [fee, setFee] = useState('');
@@ -8,14 +61,19 @@ export function ConfirmarMatriculaModal({ preCad, onConfirm, onClose, saving }) 
     return `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, '0')}-${String(hoje.getDate()).padStart(2, '0')}`;
   });
   const [installments, setInstallments] = useState(12);
+  const [overrides, setOverrides] = useState({});
   const [erro, setErro] = useState('');
+
+  const handleChangeData = (i, valor) => setOverrides(prev => ({ ...prev, [i]: valor }));
+  const handleResetData = (i) => setOverrides(prev => { const n = { ...prev }; delete n[i]; return n; });
 
   const handleSubmit = () => {
     if (!dueDate) return setErro('Informe a data de vencimento.');
     if (!fee || Number(fee) <= 0) return setErro('Informe um valor de mensalidade válido.');
     if (!installments || Number(installments) < 1) return setErro('Informe ao menos 1 parcela.');
     setErro('');
-    onConfirm({ fee: Number(fee), dueDate, installments: Number(installments) });
+    const installmentDates = Array.from({ length: Number(installments) }, (_, i) => overrides[i] ?? dataParcelaPadrao(dueDate, i));
+    onConfirm({ fee: Number(fee), dueDate, installments: Number(installments), installmentDates });
   };
 
   const previewEnd = (() => {
@@ -27,7 +85,7 @@ export function ConfirmarMatriculaModal({ preCad, onConfirm, onClose, saving }) 
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between p-5 border-b border-slate-100">
           <div className="flex items-center gap-3">
             <div className="bg-[#005DE4] text-white p-2 rounded-lg"><CheckCircle size={18} /></div>
@@ -64,6 +122,14 @@ export function ConfirmarMatriculaModal({ preCad, onConfirm, onClose, saving }) 
             <input type="number" min="1" max="24" value={installments} onChange={e => setInstallments(e.target.value)}
               className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#005DE4]" />
           </div>
+          <ParcelasEditor
+            primeiraData={dueDate}
+            installments={installments}
+            overrides={overrides}
+            onChange={handleChangeData}
+            onReset={handleResetData}
+            focusColor="focus:ring-[#005DE4]"
+          />
           {previewEnd && Number(fee) > 0 && (
             <div className="bg-blue-50 border border-blue-200 rounded-lg px-3 py-2.5 text-sm text-blue-800">
               <span className="font-semibold">{installments}x</span> de{' '}
@@ -94,14 +160,19 @@ export function ReativarMatriculaModal({ aluno, onConfirm, onClose, saving }) {
     return `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, '0')}-${String(hoje.getDate()).padStart(2, '0')}`;
   });
   const [installments, setInstallments] = useState(aluno.installments ?? 12);
+  const [overrides, setOverrides] = useState({});
   const [erro, setErro] = useState('');
+
+  const handleChangeData = (i, valor) => setOverrides(prev => ({ ...prev, [i]: valor }));
+  const handleResetData = (i) => setOverrides(prev => { const n = { ...prev }; delete n[i]; return n; });
 
   const handleSubmit = () => {
     if (!dueDate) return setErro('Informe a data de vencimento.');
     if (!fee || Number(fee) <= 0) return setErro('Informe um valor de mensalidade válido.');
     if (!installments || Number(installments) < 1) return setErro('Informe ao menos 1 parcela.');
     setErro('');
-    onConfirm({ studentName: aluno.name, fee: Number(fee), dueDate, installments: Number(installments) });
+    const installmentDates = Array.from({ length: Number(installments) }, (_, i) => overrides[i] ?? dataParcelaPadrao(dueDate, i));
+    onConfirm({ studentName: aluno.name, fee: Number(fee), dueDate, installments: Number(installments), installmentDates });
   };
 
   const previewEnd = (() => {
@@ -113,7 +184,7 @@ export function ReativarMatriculaModal({ aluno, onConfirm, onClose, saving }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between p-5 border-b border-slate-100">
           <div className="flex items-center gap-3">
             <div className="bg-emerald-500 text-white p-2 rounded-lg"><RotateCcw size={18} /></div>
@@ -144,6 +215,14 @@ export function ReativarMatriculaModal({ aluno, onConfirm, onClose, saving }) {
             <input type="number" min="1" max="24" value={installments} onChange={e => setInstallments(e.target.value)}
               className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400" />
           </div>
+          <ParcelasEditor
+            primeiraData={dueDate}
+            installments={installments}
+            overrides={overrides}
+            onChange={handleChangeData}
+            onReset={handleResetData}
+            focusColor="focus:ring-emerald-400"
+          />
           {previewEnd && Number(fee) > 0 && (
             <div className="bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2.5 text-sm text-emerald-800">
               <span className="font-semibold">{installments}x</span> de{' '}

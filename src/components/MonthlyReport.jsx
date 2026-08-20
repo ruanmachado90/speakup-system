@@ -70,6 +70,28 @@ function Trend({ current, prev }) {
   return <span style={{ color: "#64748b", fontSize: 12 }}>→ Estável</span>;
 }
 
+function Sparkline({ values, color = "#005DE4", fillColor, height = 48 }) {
+  if (!values || values.length < 2) return null;
+  const max = Math.max(...values);
+  const min = Math.min(...values);
+  const range = max - min || 1;
+  const W = 200, H = height;
+  const pts = values.map((v, i) => ({
+    x: (i / (values.length - 1)) * W,
+    y: H - 6 - ((v - min) / range) * (H - 12),
+  }));
+  const polyline = pts.map(p => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
+  const fillPath = `M ${pts[0].x},${H} L ${polyline} L ${pts[pts.length - 1].x},${H} Z`;
+  const last = pts[pts.length - 1];
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", height }} preserveAspectRatio="none">
+      {fillColor && <path d={fillPath} fill={fillColor} />}
+      <polyline points={polyline} fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+      <circle cx={last.x.toFixed(1)} cy={last.y.toFixed(1)} r="4" fill={color} stroke="white" strokeWidth="1.5" />
+    </svg>
+  );
+}
+
 export default function MonthlyReport({ onClose, students = [], payments = [], expenses = [], leads = [], filterMonth, filterYear }) {
   const printRef = useRef(null);
 
@@ -86,9 +108,16 @@ export default function MonthlyReport({ onClose, students = [], payments = [], e
     const today = new Date(); today.setHours(0,0,0,0);
 
     // ── helper date filter ──
+    // Strings "YYYY-MM-DD" são parseadas com construtor local para evitar deslocamento UTC
     const inMonth = (raw, m, y) => {
       if (!raw) return false;
-      const d = new Date(typeof raw === "number" ? raw : raw);
+      let d;
+      if (typeof raw === "number") {
+        d = new Date(raw);
+      } else {
+        const [yr, mo, dy] = String(raw).substring(0, 10).split('-').map(Number);
+        d = new Date(yr, mo - 1, dy);
+      }
       return d.getMonth() === m && d.getFullYear() === y;
     };
 
@@ -206,6 +235,32 @@ export default function MonthlyReport({ onClose, students = [], payments = [], e
     const defaultRate = monthPayments.length > 0 ? (late.length / monthPayments.length) * 100 : 0;
     const ticketMedio = paid.length > 0 ? revenue / paid.length : 0;
 
+    // ── Score de saúde do negócio (0-100) ──
+    let _s = 50;
+    if (margin >= 30) _s += 20; else if (margin >= 25) _s += 14; else if (margin >= 15) _s += 7; else if (margin < 0) _s -= 10;
+    if (defaultRate <= 3) _s += 15; else if (defaultRate <= 5) _s += 10; else if (defaultRate <= 10) _s += 3; else _s -= 5;
+    if (retentionRate >= 90) _s += 10; else if (retentionRate >= 85) _s += 7; else if (retentionRate >= 75) _s += 3;
+    if (conversionRate >= 30) _s += 10; else if (conversionRate >= 20) _s += 7; else if (conversionRate >= 10) _s += 3;
+    const healthScore = Math.min(100, Math.max(0, Math.round(_s)));
+
+    // ── Pontos positivos / negativos para o modal ──
+    const posPoints = [];
+    if (margin >= 25) posPoints.push(`Margem ${margin.toFixed(1)}% — operação lucrativa`);
+    if (canceledThisMonth.length === 0) posPoints.push('Zero cancelamentos no mês');
+    if (prevMonth && totalExpenses < prevMonth.expenses)
+      posPoints.push(`Despesas caíram ${((prevMonth.expenses - totalExpenses) / prevMonth.expenses * 100).toFixed(1)}% vs. mês anterior`);
+    if (defaultRate <= 5) posPoints.push('Inadimplência dentro da meta (<5%)');
+    if (retentionRate >= 85) posPoints.push(`Retenção excelente: ${retentionRate.toFixed(1)}%`);
+    posPoints.push(`${activeStudents.length} alunos ativos na base`);
+
+    const negPoints = [];
+    if (defaultRate > 5) negPoints.push(`Inadimplência em ${defaultRate.toFixed(1)}% — acima da meta de 5%`);
+    if (newStudentsThisMonth.length < 10) negPoints.push(`Apenas ${newStudentsThisMonth.length} novas matrículas`);
+    if (ticketMedio < 250) negPoints.push(`Ticket médio R$${ticketMedio.toFixed(0)} abaixo do mercado`);
+    if (forgottenLeads.length > 5) negPoints.push(`${forgottenLeads.length} leads esquecidos há +30 dias`);
+    if (conversionRate < 20) negPoints.push(`Conversão de leads em ${conversionRate.toFixed(1)}% — abaixo de 20%`);
+    if (negPoints.length === 0) negPoints.push('Nenhum alerta crítico identificado!');
+
     return {
       period: { month: currentMonth, year: currentYear, label: `${MONTH_NAMES[currentMonth]} de ${currentYear}` },
       revenue, totalExpenses, profit, margin, defaultRate, ticketMedio,
@@ -224,13 +279,24 @@ export default function MonthlyReport({ onClose, students = [], payments = [], e
       convertedLeads: convertedLeadsMonth.length, convertedLeadsAll: convertedLeadsAll.length,
       conversionRate,
       forgottenLeads: forgottenLeads.length, leadsByStatus, leadsByOrigin,
-      history, prevMonth,
+      history, prevMonth, healthScore, posPoints, negPoints,
+      isEmpty: monthPayments.length === 0 && monthExpenses.length === 0 && monthLeads.length === 0,
     };
   }, [students, payments, expenses, leads, selectedMonth, selectedYear]);
 
   const handlePrint = () => {
     const d = data;
     const pm = d.prevMonth;
+    const healthScore = (() => {
+      let s = 50;
+      if (d.margin >= 30) s += 20; else if (d.margin >= 25) s += 14; else if (d.margin >= 15) s += 7; else if (d.margin < 0) s -= 10;
+      if (d.defaultRate <= 3) s += 15; else if (d.defaultRate <= 5) s += 10; else if (d.defaultRate <= 10) s += 3; else s -= 5;
+      if (d.retentionRate >= 90) s += 10; else if (d.retentionRate >= 85) s += 7; else if (d.retentionRate >= 75) s += 3;
+      if (d.conversionRate >= 30) s += 10; else if (d.conversionRate >= 20) s += 7; else if (d.conversionRate >= 10) s += 3;
+      return Math.min(100, Math.max(0, Math.round(s)));
+    })();
+    const healthColor = healthScore >= 70 ? 'var(--green)' : healthScore >= 50 ? 'var(--amber)' : 'var(--red)';
+    const healthLabel = healthScore >= 70 ? '✅ Saudável' : healthScore >= 50 ? '⚠️ Atenção' : '🔴 Crítico';
     const pmMargin = pm && pm.revenue > 0 ? (pm.profit / pm.revenue) * 100 : 0;
     const pmTicket = pm && pm.paid > 0 ? pm.revenue / pm.paid : 0;
 
@@ -311,7 +377,7 @@ export default function MonthlyReport({ onClose, students = [], payments = [], e
 
     // Leads progress bars
     const leadsProgress = Object.entries(d.leadsByStatus).slice(0,5).map(([status, count]) => {
-      const pv = d.totalLeadsAll > 0 ? Math.min(count/d.totalLeadsAll*100, 100) : 0;
+      const pv = d.leads > 0 ? Math.min(count/d.leads*100, 100) : 0;
       return `<div class="pi"><div class="pi-h"><span class="pi-n">${status}</span><span class="pi-v">${count} (${fmtP(pv)})</span></div><div class="pt"><div class="pf" style="width:${pv}%"></div></div></div>`;
     }).join('');
 
@@ -495,6 +561,67 @@ body{font-family:var(--font);background:#d1d5db;color:var(--s900);font-size:10px
 <body>
 <button class="fab" onclick="window.print()">🖨️ Imprimir / Salvar PDF</button>
 
+<!-- CAPA -->
+<div class="a4" style="display:flex;flex-direction:column;">
+  <div class="cover-bar">
+    <div class="cbar-logo">
+      <div class="cbar-mark">S</div>
+      <div><div class="cbar-name">SpeakUp</div><div class="cbar-sub">English Academy</div></div>
+    </div>
+    <div class="cbar-badge">Relatório Executivo</div>
+  </div>
+  <div class="cover-hero">
+    <div class="cover-left">
+      <div class="c-eyebrow"><div class="c-dot"></div>Análise Gerencial</div>
+      <div class="c-title">Relatório<br/><span>Mensal</span></div>
+      <div class="c-desc">Análise completa de desempenho financeiro, matrículas, inadimplência, leads e plano estratégico para o próximo período.</div>
+    </div>
+    <div class="cover-right">
+      <div style="text-align:center">
+        <div style="font-size:52px;font-weight:900;color:${healthColor};line-height:1">${healthScore}</div>
+        <div style="font-size:8px;text-transform:uppercase;letter-spacing:2px;color:var(--s500);margin-top:3px">Score de Saúde</div>
+        <div style="width:70px;height:5px;border-radius:4px;background:linear-gradient(90deg,var(--red),var(--amber),var(--green));margin:7px auto;position:relative">
+          <div style="position:absolute;top:-4px;left:${Math.min(healthScore, 97)}%;transform:translateX(-50%);width:3px;height:13px;background:var(--s900);border-radius:2px"></div>
+        </div>
+        <div style="font-size:9px;color:${healthColor};font-weight:700;margin-top:4px">${healthLabel}</div>
+      </div>
+    </div>
+  </div>
+  <div class="cover-kpis">
+    <div class="ck a">
+      <div class="ck-val">${fmtCur(d.revenue)}</div>
+      <div class="ck-label">Receita do Mês</div>
+      <div class="ck-delta ${pm && d.revenue >= pm.revenue ? 'du' : 'dd'}">${pm ? momStr(d.revenue, pm.revenue) : '→ Mês atual'}</div>
+    </div>
+    <div class="ck ${d.defaultRate <= 5 ? 'g' : 'r'}">
+      <div class="ck-val">${fmtP(d.defaultRate)}</div>
+      <div class="ck-label">Inadimplência</div>
+      <div class="ck-delta ${d.defaultRate <= 5 ? 'du' : 'dd'}">${d.defaultRate <= 5 ? '✅ Meta OK' : '⚠️ Acima da meta'}</div>
+    </div>
+    <div class="ck">
+      <div class="ck-val">${d.activeStudents}</div>
+      <div class="ck-label">Alunos Ativos</div>
+      <div class="ck-delta ${d.netBalance >= 0 ? 'du' : 'dd'}">Saldo: ${d.netBalance > 0 ? '+' : ''}${d.netBalance} no mês</div>
+    </div>
+    <div class="ck ${d.margin >= 25 ? 'g' : 'r'}">
+      <div class="ck-val">${fmtP(d.margin)}</div>
+      <div class="ck-label">Margem de Lucro</div>
+      <div class="ck-delta ${d.margin >= 25 ? 'du' : 'dd'}">${d.margin >= 25 ? '✅ Saudável' : '⚠️ Abaixo da meta'}</div>
+    </div>
+  </div>
+  <div style="flex:1;display:flex;align-items:center;justify-content:center;padding:0 0 4mm">
+    <div style="text-align:center">
+      <div style="font-size:9px;color:var(--s500);text-transform:uppercase;letter-spacing:2px;margin-bottom:7px">Período de Análise</div>
+      <div style="font-size:26px;font-weight:900;color:var(--s900);letter-spacing:-1px">${d.period.label}</div>
+      <div style="font-size:8px;color:var(--s500);margin-top:5px">Gerado em ${new Date().toLocaleDateString('pt-BR', {day:'2-digit', month:'long', year:'numeric'})}</div>
+    </div>
+  </div>
+  <div class="cover-foot">
+    <div><div class="cf-brand">SpeakUp English Academy</div><div class="cf-meta">Sistema de Gestão Escolar</div></div>
+    <div class="cf-right">Documento Confidencial<br/>Uso interno</div>
+  </div>
+</div>
+
 <!-- PÁG 1 — FINANCEIRO -->
 <div class="a4">
   <div class="ph"><div class="ph-l"><div class="ph-icon">💰</div><div class="ph-title">Desempenho Financeiro</div></div><div class="ph-period">${d.period.label}</div></div>
@@ -629,6 +756,7 @@ body{font-family:var(--font);background:#d1d5db;color:var(--s900);font-size:10px
 </div>
 
 <script>
+Chart.defaults.devicePixelRatio = Math.max(window.devicePixelRatio || 1, 3);
 Chart.defaults.font.family="'Montserrat',sans-serif";
 Chart.defaults.font.size=11;
 Chart.defaults.color='#9ca3af';
@@ -657,6 +785,16 @@ new Chart(document.getElementById('ticketChart'),{type:'line',data:{labels:${hla
 new Chart(document.getElementById('cobChart'),{type:'bar',data:{labels:${hlabels},datasets:[{label:'Pagas',data:${hpaid},backgroundColor:'rgba(16,185,129,.75)',borderRadius:4},{label:'Atrasadas',data:${hlate},backgroundColor:'rgba(239,68,68,.8)',borderRadius:4}]},options:{plugins:{legend:leg,tooltip:tip},scales:{y:{...yAx,beginAtZero:true,ticks:{...yAx.ticks,stepSize:10}},x:xAx}}});
 
 ${expCats.length > 0 ? `new Chart(document.getElementById('expCatChart'),{type:'doughnut',data:{labels:${expCJ},datasets:[{data:${expVjson},backgroundColor:['#0e48fe','#10b981','#f59e0b','#ef4444','#8b5cf6','#06b6d4'],borderWidth:0,hoverOffset:3}]},options:{maintainAspectRatio:false,cutout:'55%',plugins:{legend:{...leg,position:'bottom'},tooltip:tip}}});` : ''}
+// Aguarda fontes + 3 ciclos de rAF para garantir que todos os gráficos estejam desenhados antes de abrir o diálogo de impressão
+document.fonts.ready.then(function(){
+  requestAnimationFrame(function(){
+    requestAnimationFrame(function(){
+      requestAnimationFrame(function(){
+        window.print();
+      });
+    });
+  });
+});
 <\/script>
 </body>
 </html>`;
@@ -664,7 +802,7 @@ ${expCats.length > 0 ? `new Chart(document.getElementById('expCatChart'),{type:'
     const win = window.open('', '_blank');
     win.document.write(html);
     win.document.close();
-    setTimeout(() => win.print(), 900);
+    // Print disparado dentro do HTML via document.fonts.ready — sem setTimeout frágil
   };
 
   const { defaultRate, margin, conversionRate, retentionRate } = data;
@@ -705,26 +843,32 @@ ${expCats.length > 0 ? `new Chart(document.getElementById('expCatChart'),{type:'
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             {/* Month/Year selector */}
-            <div style={{ display: "flex", alignItems: "center", gap: 6, background: "rgba(255,255,255,0.15)", borderRadius: 8, padding: "4px 8px" }}>
-              <select
-                value={selectedMonth}
-                onChange={e => setSelectedMonth(Number(e.target.value))}
-                style={{ background: "transparent", border: "none", color: "white", fontSize: 12, fontWeight: 600, cursor: "pointer", outline: "none", appearance: "none", paddingRight: 2 }}
-              >
-                {MONTH_NAMES.map((m, i) => (
-                  <option key={i} value={i} style={{ background: "#0041a8", color: "white" }}>{m}</option>
-                ))}
-              </select>
-              <span style={{ color: "rgba(255,255,255,0.5)", fontSize: 11 }}>/</span>
-              <select
-                value={selectedYear}
-                onChange={e => setSelectedYear(Number(e.target.value))}
-                style={{ background: "transparent", border: "none", color: "white", fontSize: 12, fontWeight: 600, cursor: "pointer", outline: "none", appearance: "none" }}
-              >
-                {yearOptions.map(y => (
-                  <option key={y} value={y} style={{ background: "#0041a8", color: "white" }}>{y}</option>
-                ))}
-              </select>
+            <div style={{ display: "flex", alignItems: "center", gap: 6, background: "rgba(255,255,255,0.15)", borderRadius: 8, padding: "4px 12px", border: "1px solid rgba(255,255,255,0.25)" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 3 }}>
+                <select
+                  value={selectedMonth}
+                  onChange={e => setSelectedMonth(Number(e.target.value))}
+                  style={{ background: "transparent", border: "none", color: "white", fontSize: 12, fontWeight: 600, cursor: "pointer", outline: "none", appearance: "none" }}
+                >
+                  {MONTH_NAMES.map((m, i) => (
+                    <option key={i} value={i} style={{ background: "#0041a8", color: "white" }}>{m}</option>
+                  ))}
+                </select>
+                <span style={{ color: "rgba(255,255,255,0.55)", fontSize: 9, pointerEvents: "none" }}>▾</span>
+              </div>
+              <span style={{ color: "rgba(255,255,255,0.4)", fontSize: 11 }}>/</span>
+              <div style={{ display: "flex", alignItems: "center", gap: 3 }}>
+                <select
+                  value={selectedYear}
+                  onChange={e => setSelectedYear(Number(e.target.value))}
+                  style={{ background: "transparent", border: "none", color: "white", fontSize: 12, fontWeight: 600, cursor: "pointer", outline: "none", appearance: "none" }}
+                >
+                  {yearOptions.map(y => (
+                    <option key={y} value={y} style={{ background: "#0041a8", color: "white" }}>{y}</option>
+                  ))}
+                </select>
+                <span style={{ color: "rgba(255,255,255,0.55)", fontSize: 9, pointerEvents: "none" }}>▾</span>
+              </div>
             </div>
             <button onClick={handlePrint} style={{
               display: "flex", alignItems: "center", gap: 6,
@@ -750,6 +894,23 @@ ${expCats.length > 0 ? `new Chart(document.getElementById('expCatChart'),{type:'
             <h1>Relatório Mensal — SpeakUp</h1>
             <div className="subtitle">Período: {data.period.label} • Gerado em {new Date().toLocaleDateString("pt-BR")}</div>
           </div>
+
+          {/* Estado vazio */}
+          {data.isEmpty && (
+            <div style={{ textAlign: "center", padding: "64px 24px" }}>
+              <div style={{ fontSize: 52, marginBottom: 16 }}>📭</div>
+              <div style={{ fontWeight: 700, fontSize: 17, color: "#0f172a", marginBottom: 8 }}>
+                Sem dados para {data.period.label}
+              </div>
+              <div style={{ fontSize: 13, color: "#64748b", lineHeight: 1.7 }}>
+                Nenhum pagamento, despesa ou lead registrado neste período.<br />
+                Selecione outro mês usando o seletor no cabeçalho.
+              </div>
+            </div>
+          )}
+
+          {/* Conteúdo principal — oculto quando não há dados */}
+          <div style={{ display: data.isEmpty ? "none" : undefined }}>
 
           {/* ── 1. FINANCEIRO ── */}
           <div className="section-title" style={{ fontWeight: 700, fontSize: 14, borderBottom: "2px solid #0e48fe", paddingBottom: 6, marginBottom: 12, color: "#0f172a" }}>
@@ -914,6 +1075,42 @@ ${expCats.length > 0 ? `new Chart(document.getElementById('expCatChart'),{type:'
             </div>
           )}
 
+          {/* ── TENDÊNCIAS VISUAIS ── */}
+          <div style={{ fontWeight: 700, fontSize: 14, borderBottom: "2px solid #0e48fe", paddingBottom: 6, marginBottom: 12, color: "#0f172a" }}>
+            📈 Tendência — Últimos 6 Meses
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 10, marginBottom: 20 }}>
+            <div style={{ border: "1px solid #e2e8f0", borderRadius: 10, padding: "12px 14px" }}>
+              <div style={{ fontSize: 11, color: "#64748b", marginBottom: 2 }}>Receita</div>
+              <div style={{ fontSize: 16, fontWeight: 700, color: "#16a34a", marginBottom: 8 }}>{fmt(data.history[data.history.length - 1].revenue)}</div>
+              <Sparkline values={data.history.map(h => h.revenue)} color="#16a34a" fillColor="rgba(22,163,74,0.08)" height={48} />
+              <div style={{ display: "flex", justifyContent: "space-between", marginTop: 4, fontSize: 10, color: "#94a3b8" }}>
+                <span>{data.history[0].label}</span><span>{data.history[data.history.length - 1].label}</span>
+              </div>
+            </div>
+            <div style={{ border: "1px solid #e2e8f0", borderRadius: 10, padding: "12px 14px" }}>
+              <div style={{ fontSize: 11, color: "#64748b", marginBottom: 2 }}>Lucro Líquido</div>
+              <div style={{ fontSize: 16, fontWeight: 700, color: data.profit >= 0 ? "#16a34a" : "#dc2626", marginBottom: 8 }}>{fmt(data.profit)}</div>
+              <Sparkline values={data.history.map(h => h.profit)} color="#005DE4" fillColor="rgba(0,93,228,0.08)" height={48} />
+              <div style={{ display: "flex", justifyContent: "space-between", marginTop: 4, fontSize: 10, color: "#94a3b8" }}>
+                <span>{data.history[0].label}</span><span>{data.history[data.history.length - 1].label}</span>
+              </div>
+            </div>
+            <div style={{ border: "1px solid #e2e8f0", borderRadius: 10, padding: "12px 14px" }}>
+              <div style={{ fontSize: 11, color: "#64748b", marginBottom: 2 }}>Inadimplência</div>
+              <div style={{ fontSize: 16, fontWeight: 700, color: data.defaultRate > 5 ? "#dc2626" : "#16a34a", marginBottom: 8 }}>{pct(data.defaultRate)}</div>
+              <Sparkline
+                values={data.history.map(h => { const t = h.paid + h.late; return t > 0 ? (h.late / t) * 100 : 0; })}
+                color={data.defaultRate > 5 ? "#dc2626" : "#16a34a"}
+                fillColor={data.defaultRate > 5 ? "rgba(220,38,38,0.08)" : "rgba(22,163,74,0.08)"}
+                height={48}
+              />
+              <div style={{ display: "flex", justifyContent: "space-between", marginTop: 4, fontSize: 10, color: "#94a3b8" }}>
+                <span>{data.history[0].label}</span><span>{data.history[data.history.length - 1].label}</span>
+              </div>
+            </div>
+          </div>
+
           {/* ── 5. HISTÓRICO 6 MESES ── */}
           <div className="section-title" style={{ fontWeight: 700, fontSize: 14, borderBottom: "2px solid #0e48fe", paddingBottom: 6, marginBottom: 12, color: "#0f172a" }}>
             📅 5. Histórico — Últimos 6 Meses
@@ -940,8 +1137,51 @@ ${expCats.length > 0 ? `new Chart(document.getElementById('expCatChart'),{type:'
             </tbody>
           </table>
 
+          {/* ── Score de Saúde + Pontos ── */}
+          <div style={{ marginBottom: 20 }}>
+            <div style={{ fontWeight: 700, fontSize: 14, borderBottom: "2px solid #0e48fe", paddingBottom: 6, marginBottom: 12, color: "#0f172a" }}>
+              🏆 Score de Saúde do Negócio
+            </div>
+            <div style={{ display: "flex", gap: 12, alignItems: "stretch" }}>
+              {/* Score card */}
+              <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 10, padding: "16px 20px", display: "flex", flexDirection: "column", alignItems: "center", minWidth: 120, justifyContent: "center" }}>
+                <div style={{ fontSize: 44, fontWeight: 800, lineHeight: 1, color: data.healthScore >= 70 ? "#16a34a" : data.healthScore >= 50 ? "#d97706" : "#dc2626" }}>
+                  {data.healthScore}
+                </div>
+                <div style={{ fontSize: 10, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "1px", marginTop: 2 }}>/ 100</div>
+                <div style={{ marginTop: 10, width: "100%", height: 6, background: "linear-gradient(90deg,#dc2626,#d97706,#16a34a)", borderRadius: 3, position: "relative" }}>
+                  <div style={{ position: "absolute", top: -3, left: `${Math.min(data.healthScore, 97)}%`, transform: "translateX(-50%)", width: 4, height: 12, background: "#0f172a", borderRadius: 2 }} />
+                </div>
+                <div style={{ marginTop: 8, fontSize: 12, fontWeight: 600, color: data.healthScore >= 70 ? "#16a34a" : data.healthScore >= 50 ? "#d97706" : "#dc2626" }}>
+                  {data.healthScore >= 70 ? "✅ Saudável" : data.healthScore >= 50 ? "⚠️ Atenção" : "🔴 Crítico"}
+                </div>
+              </div>
+              {/* Pontos positivos / negativos */}
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, flex: 1 }}>
+                <div style={{ background: "#f0fdf4", border: "1px solid #dcfce7", borderRadius: 10, padding: "12px 14px" }}>
+                  <div style={{ fontWeight: 700, fontSize: 12, color: "#16a34a", marginBottom: 8 }}>✅ Pontos Positivos</div>
+                  {data.posPoints.map((p, i) => (
+                    <div key={i} style={{ fontSize: 12, color: "#374151", marginBottom: 5, display: "flex", gap: 6, lineHeight: 1.4 }}>
+                      <span style={{ color: "#16a34a", flexShrink: 0 }}>✓</span>{p}
+                    </div>
+                  ))}
+                </div>
+                <div style={{ background: "#fef2f2", border: "1px solid #fee2e2", borderRadius: 10, padding: "12px 14px" }}>
+                  <div style={{ fontWeight: 700, fontSize: 12, color: "#dc2626", marginBottom: 8 }}>🔴 Pontos de Alerta</div>
+                  {data.negPoints.map((p, i) => (
+                    <div key={i} style={{ fontSize: 12, color: "#374151", marginBottom: 5, display: "flex", gap: 6, lineHeight: 1.4 }}>
+                      <span style={{ color: "#dc2626", flexShrink: 0 }}>✗</span>{p}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          </div>{/* fim do wrapper de conteúdo principal */}
+
           {/* Footer */}
-          <div style={{ borderTop: "1px solid #e2e8f0", paddingTop: 12, fontSize: 11, color: "#94a3b8", textAlign: "center" }}>
+          <div style={{ borderTop: "1px solid #e2e8f0", paddingTop: 12, marginTop: data.isEmpty ? 0 : undefined, fontSize: 11, color: "#94a3b8", textAlign: "center" }}>
             Relatório gerado em {new Date().toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" })} — SpeakUp English Academy
           </div>
         </div>

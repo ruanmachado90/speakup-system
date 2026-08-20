@@ -154,6 +154,14 @@ export const useLeads = () => {
 };
 
 /**
+ * Selector para professores (apenas array)
+ */
+export const useProfessoresData = () => {
+  const { professores } = useData();
+  return professores;
+};
+
+/**
  * Selector para stats do Dashboard
  */
 export const useDashboardStats = () => {

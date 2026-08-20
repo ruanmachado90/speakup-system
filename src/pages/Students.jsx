@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
+import { useProfessores } from '../hooks/useProfessores';
 import { Search, Edit, X, FileText, CheckSquare, Square, Trash2, ArrowUpDown, School, Printer, UserCheck, UserX, Users, FileCheck, FileClock, FileMinus, GraduationCap, Loader2, RotateCcw, CheckCircle, Clock } from 'lucide-react';
 import { db } from '../firebase';
 import { doc, collection, getDoc, setDoc, getDocs, addDoc, onSnapshot, updateDoc, writeBatch, arrayUnion, query, where } from 'firebase/firestore';
@@ -63,7 +64,7 @@ export const Students = ({
     return unsub;
   }, []);
 
-  const handleConfirmarMatricula = async (preCad, { fee, dueDate, installments }) => {
+  const handleConfirmarMatricula = async (preCad, { fee, dueDate, installments, installmentDates }) => {
     setSavingConfirmar(true);
     try {
       const colStudents = collection(db, 'artifacts', APP_ID, 'public', 'data', 'students');
@@ -81,11 +82,16 @@ export const Students = ({
       });
 
       const batch = writeBatch(db);
-      const start = new Date(dueDate + 'T00:00:00');
       const colPayments = collection(db, 'artifacts', APP_ID, 'public', 'data', 'payments');
+      // installmentDates traz a data (já ajustada manualmente, se for o caso) de
+      // cada parcela; se não vier (chamada legada), cai no cálculo mensal padrão.
       for (let i = 0; i < Number(installments); i++) {
-        const d = new Date(start);
-        d.setMonth(start.getMonth() + i);
+        const dataStr = installmentDates?.[i];
+        const d = dataStr ? new Date(dataStr + 'T00:00:00') : (() => {
+          const start = new Date(dueDate + 'T00:00:00');
+          start.setMonth(start.getMonth() + i);
+          return start;
+        })();
         const iso = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}T00:00:00`;
         batch.set(doc(colPayments), {
           studentId: studentRef.id, studentName: preCad.nome,
@@ -179,7 +185,8 @@ export const Students = ({
         ? Math.round((total1 + total2) / 2)
         : total1 ?? total2 ?? null;
       const win = window.open('', '_blank');
-      win.document.write(buildBoletimHTML({ student, turmaInfo, notas: notasPorSem, total1, total2, totalFinal, anoAtual }));
+      const studentComNomeCanonico = { ...student, teacher: nomeProfessorExibido(student) };
+      win.document.write(buildBoletimHTML({ student: studentComNomeCanonico, turmaInfo, notas: notasPorSem, total1, total2, totalFinal, anoAtual }));
       win.document.close();
     } finally {
       setGeneratingBoletimId(null);
@@ -188,7 +195,7 @@ export const Students = ({
   const [statusFilter, setStatusFilter] = useState('all'); // 'all', 'ativo', 'cancelado', 'sem-turma'
   const [contratoFilter, setContratoFilter] = useState('all'); // 'all', 'assinado', 'pendente'
   const [sortOrder, setSortOrder] = useState('asc'); // 'asc' ou 'desc'
-  const [teacherFilter, setTeacherFilter] = useState('all'); // 'all' ou nome do professor
+  const [teacherFilter, setTeacherFilter] = useState('all'); // 'all' ou professorId
 
   // â”€â”€ Turmas â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const [turmas, setTurmas] = useState([]);
@@ -289,7 +296,7 @@ export const Students = ({
             <div class="stat-label">Alunos Ativos</div>
           </div>
           <div class="stat">
-            <div class="stat-value">${teacherFilter !== 'all' ? `Filtro: ${teacherFilter}` : 'Todos'}</div>
+            <div class="stat-value">${teacherFilter !== 'all' ? `Filtro: ${nomeProfessorFiltro}` : 'Todos'}</div>
             <div class="stat-label">Filtro Aplicado</div>
           </div>
         </div>
@@ -333,11 +340,23 @@ export const Students = ({
   const inactiveStudents = students.filter(s => s.status === 'cancelado').length;
   const pendingCount = preCadastros.length;
 
-  // Lista de professores únicos
+  // Lista de professores — fonte única (coleção `professores`), em vez de
+  // derivar nomes únicos varrendo students.teacher a cada carregamento.
+  const { professores } = useProfessores();
   const teachers = useMemo(() => {
-    const uniqueTeachers = [...new Set(students.map(s => s.teacher).filter(Boolean))];
-    return uniqueTeachers.sort();
-  }, [students]);
+    return professores.filter(p => p.status !== 'inativo');
+  }, [professores]);
+
+  // Mapa id -> professor, pra exibir o nome canônico mesmo quando o texto
+  // livre salvo em s.teacher está com grafia antiga (ex: "VERA" em vez de
+  // "Vera Machado") — students migrados já têm professorId resolvido.
+  const professorPorId = useMemo(() => {
+    const map = new Map();
+    professores.forEach(p => map.set(p.id, p));
+    return map;
+  }, [professores]);
+  const nomeProfessorExibido = (s) => professorPorId.get(s.professorId)?.nome || s.teacher;
+  const nomeProfessorFiltro = teacherFilter === 'all' ? 'Todos' : (professorPorId.get(teacherFilter)?.nome || teacherFilter);
 
   const toggleStudent = (studentId) => {
     setSelectedStudents(prev => 
@@ -429,7 +448,7 @@ export const Students = ({
         if (contratoFilter === 'pendente') return s.status !== 'cancelado' && !contratosAssinados[s.id];
         return true;
       })
-      .filter(s => teacherFilter === 'all' || s.teacher === teacherFilter)
+      .filter(s => teacherFilter === 'all' || s.professorId === teacherFilter)
       .sort((a, b) => {
         const nameA = (a.name || '').toLowerCase();
         const nameB = (b.name || '').toLowerCase();
@@ -474,7 +493,7 @@ export const Students = ({
       if (!student) return;
 
       // Verificar se é do professor filtrado
-      if (student.teacher !== teacherFilter) return;
+      if (student.professorId !== teacherFilter) return;
 
       studentsSet.add(payment.studentId);
       revenue += Number(payment.valuePlanned || 0);
@@ -500,7 +519,7 @@ export const Students = ({
             </div>
             <div className="flex-1">
               <h3 className="text-sm font-semibold text-gray-600 mb-1">Professor(a) - {dashboardRange === 'month' ? 'Mês Atual' : 'Ano Atual'}</h3>
-              <p className="text-2xl font-bold text-[#005DE4] mb-1">{teacherFilter}</p>
+              <p className="text-2xl font-bold text-[#005DE4] mb-1">{nomeProfessorFiltro}</p>
               <div className="flex items-center gap-4 text-sm">
                 <span className="text-gray-700">
                   <strong className="text-[#005DE4] text-xl">{teacherFilteredStats.count}</strong> aluno{teacherFilteredStats.count !== 1 ? 's' : ''} com pagamento{teacherFilteredStats.count !== 1 ? 's' : ''} no período
@@ -611,7 +630,7 @@ export const Students = ({
             >
               <option value="all">Todos</option>
               {teachers.map(teacher => (
-                <option key={teacher} value={teacher}>{teacher}</option>
+                <option key={teacher.id} value={teacher.id}>{teacher.nome}</option>
               ))}
             </select>
           </div>
@@ -757,7 +776,7 @@ export const Students = ({
               )}
             </td>
             <td key="course" className="px-6 py-3 text-xs">{s.course}</td>
-            <td key="teacher" className="px-6 py-3 text-xs">{s.teacher}</td>
+            <td key="teacher" className="px-6 py-3 text-xs">{nomeProfessorExibido(s)}</td>
             <td key="fee" className="px-6 py-3 text-xs">
               {s.status === 'cancelado' ? (
                 <span className="text-red-600 font-bold">INATIVO</span>
@@ -888,7 +907,7 @@ export const Students = ({
     )}
     {boletimAluno && (
       <BoletimModal
-        aluno={boletimAluno}
+        aluno={{ ...boletimAluno, teacher: nomeProfessorExibido(boletimAluno) }}
         boletimData={boletimData}
         setBoletimData={setBoletimData}
         loading={loadingBoletim}

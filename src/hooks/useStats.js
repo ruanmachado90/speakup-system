@@ -120,12 +120,12 @@ export const useStats = (students = [], payments = [], expenses = [], dashboardR
   }, [students, payments, expenses, dashboardRange]);
 };
 
-export const useTeacherStats = (students, payments, dashboardRange) => {
+export const useTeacherStats = (students, payments, dashboardRange, professores = []) => {
   return useMemo(() => {
     const now = new Date();
     const currentMonth = now.getMonth();
     const currentYear = now.getFullYear();
-    
+
     // Criar Map de alunos ativos para lookup rápido
     const activeStudentsMap = new Map();
     students.forEach(s => {
@@ -134,41 +134,49 @@ export const useTeacherStats = (students, payments, dashboardRange) => {
         activeStudentsMap.set(s.id, s);
       }
     });
-    
-    // Agrupar pagamentos por professor baseado no período
+
+    // Nome canônico por professorId — evita que grafias antigas do texto
+    // livre (ex: "VERA" vs "Vera Machado") sejam contadas como professores
+    // diferentes na receita/estatísticas.
+    const nomePorProfessorId = new Map(professores.map(p => [p.id, p.nome]));
+
+    // Agrupar pagamentos por professor (por professorId quando disponível,
+    // com fallback pro texto livre pra alunos ainda não migrados).
     const grouped = {};
-    
+
     payments.forEach(payment => {
       if (!payment.dueDate || !payment.studentId) return;
-      
+
       const dueDate = new Date(payment.dueDate);
       const isInPeriod = dashboardRange === 'month'
         ? dueDate.getFullYear() === currentYear && dueDate.getMonth() === currentMonth
         : dueDate.getFullYear() === currentYear;
-      
+
       if (!isInPeriod) return;
-      
+
       // Buscar aluno e verificar se está ativo
       const student = activeStudentsMap.get(payment.studentId);
       if (!student) return; // Ignorar pagamentos de alunos inativos
-      
-      const teacher = student.teacher || 'Sem professor';
-      if (!grouped[teacher]) {
-        grouped[teacher] = { students: new Set(), revenue: 0 };
+
+      const chave = student.professorId || student.teacher || 'Sem professor';
+      const nomeExibido = (student.professorId && nomePorProfessorId.get(student.professorId))
+        || student.teacher || 'Sem professor';
+      if (!grouped[chave]) {
+        grouped[chave] = { nome: nomeExibido, students: new Set(), revenue: 0 };
       }
-      
-      grouped[teacher].students.add(payment.studentId);
-      grouped[teacher].revenue += Number(payment.valuePlanned || 0);
+
+      grouped[chave].students.add(payment.studentId);
+      grouped[chave].revenue += Number(payment.valuePlanned || 0);
     });
-    
-    return Object.entries(grouped)
-      .map(([teacher, data]) => ({ 
-        teacher, 
-        count: data.students.size, 
-        revenue: data.revenue 
+
+    return Object.values(grouped)
+      .map(data => ({
+        teacher: data.nome,
+        count: data.students.size,
+        revenue: data.revenue
       }))
       .sort((a, b) => b.count - a.count);
-  }, [students, payments, dashboardRange]);
+  }, [students, payments, dashboardRange, professores]);
 };
 
 export const useFilteredExpenses = (expenses, dashboardRange) => {

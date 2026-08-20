@@ -53,9 +53,6 @@ const PixInfoForm = ({ isOpen, onClose, onSave, payment, isSaving = false }) => 
                          pathname.endsWith('.webp') ||
                          pathname.includes('image');
       
-      if (!isImageUrl) {
-        console.warn('URL pode não ser uma imagem válida:', pixQRCode);
-      }
     } catch {
       setError('URL do QR Code inválida. Certifique-se de incluir https://');
       return;
@@ -187,11 +184,8 @@ const PixInfoForm = ({ isOpen, onClose, onSave, payment, isSaving = false }) => 
                           src={pixQRCode} 
                           alt="Preview QR Code" 
                           className="w-48 h-48 object-contain border border-gray-200 rounded"
-                          onLoad={() => {
-                            console.log('Preview carregado com sucesso:', pixQRCode);
-                          }}
+                          onLoad={() => {}}
                           onError={(e) => {
-                            console.error('Erro no preview da imagem:', pixQRCode);
                             setPreviewError(true);
                             setError('Não foi possível carregar a imagem. Verifique se a URL é válida e pública.');
                           }}

@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useMemo } from 'react';
 import { db, auth } from '../firebase';
 import { useAuth } from '../hooks/useAuth';
 import { useFirestore } from '../hooks/useFirestore';
+import { useProfessores } from '../hooks/useProfessores';
 import { 
   useStats, 
   useTeacherStats, 
@@ -16,7 +17,7 @@ import { showToast, APP_ID, EXPENSE_CATEGORIES } from '../utils';
 import { useFilters } from './FilterContext';
 import { useUI } from './UIContext';
 
-const DataContext = createContext();
+export const DataContext = createContext();
 
 export const useData = () => {
   const context = useContext(DataContext);
@@ -46,10 +47,11 @@ export const DataProvider = ({ children }) => {
   const payments = useFirestore(db, APP_ID, "payments", user);
   const expenses = useFirestore(db, APP_ID, "expenses", user);
   const leads = useFirestore(db, APP_ID, "leads", user);
-  
+  const { professores } = useProfessores();
+
   // Calculated Data (Memoized Hooks)
   const stats = useStats(students, payments, expenses, dashboardRange);
-  const teacherStats = useTeacherStats(students, payments, dashboardRange);
+  const teacherStats = useTeacherStats(students, payments, dashboardRange, professores);
   const filteredExpenses = useFilteredExpenses(expenses, dashboardRange);
   const monthlyData = useMonthlyData(payments, expenses);
   const financeStats = useFinanceStats(payments, filterMonth, filterYear);
@@ -80,7 +82,8 @@ export const DataProvider = ({ children }) => {
     payments,
     expenses,
     leads,
-    
+    professores,
+
     // Calculated Data
     stats,
     teacherStats,
@@ -91,7 +94,7 @@ export const DataProvider = ({ children }) => {
     filteredExpensesData,
     expenseEvolutionData,
   }), [
-    user, students, payments, expenses, leads,
+    user, students, payments, expenses, leads, professores,
     stats, teacherStats, filteredExpenses, monthlyData,
     financeStats, filteredPayments, filteredExpensesData, expenseEvolutionData
   ]);

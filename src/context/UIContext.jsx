@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useCallback } from 'react';
 import { showToast } from '../utils';
 
-const UIContext = createContext();
+export const UIContext = createContext();
 
 export const useUI = () => {
   const context = useContext(UIContext);

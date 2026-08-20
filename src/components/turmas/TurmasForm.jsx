@@ -1,6 +1,8 @@
-import React, { useEffect, useRef, useCallback } from 'react';
-import { X, Search, AlertTriangle, Loader2 } from 'lucide-react';
-import { NIVEIS, PROFESSORES, DIAS_DISPONIVEIS, DEFAULT_MAX_ALUNOS, DEFAULT_TOTAL_AULAS } from '../../constants/turmasConfig';
+import React, { useEffect, useRef, useCallback, useMemo } from 'react';
+import { X, Search, AlertTriangle, Loader2, RefreshCw, CalendarClock } from 'lucide-react';
+import { NIVEIS, DIAS_DISPONIVEIS, CURSOS, BOOKS_POR_CURSO, DEFAULT_MAX_ALUNOS, DEFAULT_TOTAL_AULAS } from '../../constants/turmasConfig';
+import { calcularPrevisaoAulas } from '../../utils/calendarioLetivo';
+import { useCalendarioLetivo } from '../../hooks/useCalendarioLetivo';
 
 /**
  * Modal de criação/edição de turma com focus trap e fechar com ESC.
@@ -8,12 +10,14 @@ import { NIVEIS, PROFESSORES, DIAS_DISPONIVEIS, DEFAULT_MAX_ALUNOS, DEFAULT_TOTA
 export default function TurmasForm({
   isOpen,
   editingTurma,
+  professores,
   form,
   formErrors,
   saving,
   selectedAlunos,
   searchAluno,
   alunosFiltrados,
+  nomeSugerido,
   onClose,
   onSave,
   onFormChange,
@@ -23,6 +27,13 @@ export default function TurmasForm({
 }) {
   const firstFocusRef = useRef(null);
   const modalRef = useRef(null);
+
+  const anoAtual = new Date().getFullYear();
+  const { dados: calendarioAno, loading: loadingCalendario } = useCalendarioLetivo(anoAtual);
+  const previsao = useMemo(
+    () => calcularPrevisaoAulas(form.horarios, calendarioAno),
+    [form.horarios, calendarioAno]
+  );
 
   // Foco inicial quando o modal abre
   useEffect(() => {
@@ -116,25 +127,77 @@ export default function TurmasForm({
           </button>
         </div>
 
+        {/* Curso + Book — usados para gerar o nome da turma automaticamente */}
+        <div className="grid grid-cols-2 gap-4 mb-4">
+          <div>
+            <label htmlFor="turma-curso" className="block text-sm font-semibold mb-1.5">
+              Curso
+            </label>
+            <select
+              id="turma-curso"
+              value={form.curso || ''}
+              onChange={(e) => onFormChange({ ...form, curso: e.target.value, book: '' })}
+              className={inputCls('curso')}
+              disabled={saving}
+            >
+              <option value="">Selecione o curso</option>
+              {CURSOS.map((c) => (
+                <option key={c} value={c}>{c}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label htmlFor="turma-book" className="block text-sm font-semibold mb-1.5">
+              Book
+            </label>
+            <select
+              id="turma-book"
+              value={form.book || ''}
+              onChange={(e) => onFormChange({ ...form, book: e.target.value })}
+              className={inputCls('book')}
+              disabled={saving || !form.curso}
+            >
+              <option value="">{form.curso ? 'Selecione o book' : 'Escolha o curso primeiro'}</option>
+              {(BOOKS_POR_CURSO[form.curso] || []).map((b) => (
+                <option key={b} value={b}>{b}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+
         {/* Linha 1: Nome + Nível */}
         <div className="grid grid-cols-2 gap-4 mb-4">
           <div>
             <label htmlFor="turma-nome" className="block text-sm font-semibold mb-1.5">
               Nome da Turma * <FieldError field="nome" />
             </label>
-            <input
-              ref={firstFocusRef}
-              id="turma-nome"
-              type="text"
-              value={form.nome}
-              onChange={(e) => {
-                onFormChange({ ...form, nome: e.target.value });
-                clearFieldError('nome');
-              }}
-              className={inputCls('nome')}
-              placeholder="Ex: Kids Avançado"
-              disabled={saving}
-            />
+            <div className="flex items-center gap-1.5">
+              <input
+                ref={firstFocusRef}
+                id="turma-nome"
+                type="text"
+                value={form.nome}
+                onChange={(e) => {
+                  onFormChange({ ...form, nome: e.target.value });
+                  clearFieldError('nome');
+                }}
+                className={inputCls('nome')}
+                placeholder="Selecione curso e book, ou digite"
+                disabled={saving}
+              />
+              {nomeSugerido && nomeSugerido !== form.nome && (
+                <button
+                  type="button"
+                  onClick={() => { onFormChange({ ...form, nome: nomeSugerido }); clearFieldError('nome'); }}
+                  disabled={saving}
+                  title={`Usar nome sugerido: ${nomeSugerido}`}
+                  className="flex-shrink-0 p-2 text-[#005DE4] hover:bg-blue-50 rounded-lg transition-colors"
+                >
+                  <RefreshCw size={16} />
+                </button>
+              )}
+            </div>
+            <p className="text-xs text-gray-400 mt-1">Gerado automaticamente a partir do curso, book e dia — pode editar se precisar.</p>
           </div>
 
           <div>
@@ -174,8 +237,8 @@ export default function TurmasForm({
               disabled={saving}
             >
               <option value="">Selecione o professor</option>
-              {PROFESSORES.map((p) => (
-                <option key={p} value={p}>{p}</option>
+              {(professores || []).map((p) => (
+                <option key={p.id} value={p.nome}>{p.nome}</option>
               ))}
             </select>
           </div>
@@ -224,24 +287,47 @@ export default function TurmasForm({
             {(form.horarios || []).length > 0 ? (
               <div className="mt-3 pt-3 border-t border-gray-100 space-y-2">
                 {(form.horarios || []).map((entry, idx) => (
-                  <div key={entry.dia} className="flex items-center gap-3">
+                  <div key={entry.dia} className="flex items-center gap-2 flex-wrap">
                     <span className="text-sm font-semibold text-[#005DE4] w-16 flex-shrink-0">{entry.dia}</span>
-                    <input
-                      type="time"
-                      value={entry.horario}
-                      onChange={(e) => {
-                        const novo = form.horarios.map((h, i) =>
-                          i === idx ? { ...h, horario: e.target.value } : h
-                        );
-                        onFormChange({ ...form, horarios: novo });
-                        clearFieldError('horarios');
-                      }}
-                      className={`border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#005DE4] focus:border-[#005DE4] transition-colors ${
-                        !entry.horario && formErrors.horarios ? 'border-red-300' : 'border-gray-300'
-                      }`}
-                      disabled={saving}
-                    />
-                    <span className="text-xs text-gray-400">início da aula</span>
+
+                    {/* Início */}
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-xs text-gray-400 whitespace-nowrap">Início</span>
+                      <input
+                        type="time"
+                        value={entry.horario}
+                        onChange={(e) => {
+                          const novo = form.horarios.map((h, i) =>
+                            i === idx ? { ...h, horario: e.target.value } : h
+                          );
+                          onFormChange({ ...form, horarios: novo });
+                          clearFieldError('horarios');
+                        }}
+                        className={`border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#005DE4] focus:border-[#005DE4] transition-colors ${
+                          !entry.horario && formErrors.horarios ? 'border-red-300' : 'border-gray-300'
+                        }`}
+                        disabled={saving}
+                      />
+                    </div>
+
+                    <span className="text-gray-300">–</span>
+
+                    {/* Término */}
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-xs text-gray-400 whitespace-nowrap">Término</span>
+                      <input
+                        type="time"
+                        value={entry.horarioFim || ''}
+                        onChange={(e) => {
+                          const novo = form.horarios.map((h, i) =>
+                            i === idx ? { ...h, horarioFim: e.target.value } : h
+                          );
+                          onFormChange({ ...form, horarios: novo });
+                        }}
+                        className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#005DE4] focus:border-[#005DE4] transition-colors"
+                        disabled={saving}
+                      />
+                    </div>
                   </div>
                 ))}
               </div>
@@ -249,6 +335,27 @@ export default function TurmasForm({
               <p className="text-xs text-gray-400 text-center mt-3">Selecione ao menos um dia acima</p>
             )}
           </div>
+
+          {/* Previsão de aulas/horas até o fim do ano letivo, cruzando os dias
+              escolhidos acima com o calendário letivo (feriados + recesso). */}
+          {(form.horarios || []).length > 0 && (
+            <div className="mt-2 flex items-center gap-2 text-xs">
+              <CalendarClock size={14} className="text-gray-400 flex-shrink-0" />
+              {loadingCalendario ? (
+                <span className="text-gray-400">Calculando previsão de aulas...</span>
+              ) : previsao === null ? (
+                <span className="text-amber-600">
+                  Calendário letivo de {anoAtual} ainda não cadastrado — cadastre na aba Calendário pra ver a previsão de aulas.
+                </span>
+              ) : (
+                <span className="text-gray-600">
+                  <strong className="text-[#005DE4]">≈ {previsao.aulas} aula{previsao.aulas !== 1 ? 's' : ''}</strong>
+                  {previsao.horas > 0 && <> · <strong className="text-[#005DE4]">{previsao.horas.toFixed(1)}h</strong></>}
+                  {' '}até o fim do ano letivo ({previsao.fimAno.split('-').reverse().join('/')})
+                </span>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Máx + Total Aulas */}

@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { CheckCircle, RotateCcw, FileDown, Eye, Edit2, XCircle, Trash2, BarChart3, Package, ShoppingBag } from 'lucide-react';
+import { CheckCircle, RotateCcw, FileDown, Eye, Edit2, XCircle, Trash2, BarChart3, Package, ShoppingBag, HelpCircle, PlusCircle, MinusCircle, AlertTriangle } from 'lucide-react';
 import { db } from '../firebase';
 import { collection, addDoc, getDocs, updateDoc, deleteDoc, doc, getDoc } from 'firebase/firestore';
-import { livros, categoriasLivros, gerarNumerosLivros, livroImages } from '../constants/vendas';
+import { livros, categoriasLivros, gerarNumerosLivros } from '../constants/vendas';
 import { useUI } from '../context/UIContext';
 import { useConfirm } from '../hooks/useConfirm';
 import ConfirmDialog from '../components/ui/ConfirmDialog';
@@ -63,6 +63,8 @@ function Vendas() {
       return false;
     }
   };
+  const [abaAtiva, setAbaAtiva] = useState('vendas'); // 'vendas' | 'estoque'
+  const [mostrarAjudaEstoque, setMostrarAjudaEstoque] = useState(false);
   const [loading, setLoading] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [showViewModal, setShowViewModal] = useState(false);
@@ -72,7 +74,7 @@ function Vendas() {
   const [filterAluno, setFilterAluno] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
   const [filterMes, setFilterMes] = useState(() => String(new Date().getMonth() + 1).padStart(2, '0'));
-  const [filterAno, setFilterAno] = useState('2026'); // Ano atual
+  const [filterAno, setFilterAno] = useState(String(new Date().getFullYear()));
   
   // Filtros para estoque
   const [filterCategoriaEstoque, setFilterCategoriaEstoque] = useState('');
@@ -85,7 +87,6 @@ function Vendas() {
   // Estados para controlar seções expandidas/recolhidas
   const [expandedSections, setExpandedSections] = useState({
     vendas: true,
-    estoque: true,
     indicadores: true
   });
 
@@ -216,15 +217,16 @@ function Vendas() {
         dataCancelamento: new Date().toISOString()
       });
       
-      setVendas(prev => 
-        prev.map(v => 
-          v.id === venda.id 
+      setVendas(prev =>
+        prev.map(v =>
+          v.id === venda.id
             ? { ...v, status: 'cancelado', dataCancelamento: new Date().toISOString() }
             : v
         )
       );
-      
+
       showToast('Cobrança cancelada com sucesso', 'success');
+      await restaurarEstoqueDaVenda(venda);
     } catch (err) {
       handleError(err, 'cancelar cobrança');
     }
@@ -257,11 +259,12 @@ function Vendas() {
 
       // Deletar do Firebase
       await deleteDoc(doc(db, 'vendas', venda.id));
-      
+
       // Remover do estado local
       setVendas(prev => prev.filter(v => v.id !== venda.id));
-      
+
       showToast('Venda excluída com sucesso!', 'success');
+      await restaurarEstoqueDaVenda(venda);
     } catch (err) {
       handleError(err, 'excluir venda');
     }
@@ -493,6 +496,11 @@ function Vendas() {
   const vendasVencidas = vendasFiltradas.filter(v => v.status === 'pendente' && v.vencimento < hoje);
   const vendasVencendoHoje = vendasFiltradas.filter(v => v.status === 'pendente' && v.vencimento === hoje);
 
+  const estoqueBaixoCount = useMemo(
+    () => estoque.filter(item => parseInt(item.quantidade) <= (item.estoqueMinimo || 5)).length,
+    [estoque]
+  );
+
   // Gerar opções de meses e anos para os dropdowns
   const gerarOpcoesMeses = () => {
     return [
@@ -607,6 +615,11 @@ function Vendas() {
       showToast('Digite um valor válido!', 'error');
       return;
     }
+    // Item do estoque correspondente ao livro vendido (Material Didático baixa 1 unidade na venda).
+    const itemEstoque = form.tipo === 'Material Didático' && form.livro
+      ? estoque.find(item => item.livro === form.livro)
+      : null;
+
     setLoading(true);
     try {
       const totalParcelas = parseInt(form.parcelas.split('/')[0]) || 1;
@@ -623,9 +636,25 @@ function Vendas() {
           parcelas: `${i}/${totalParcelas}`,
           vencimento: dataVencimento.toISOString().slice(0, 10),
           status: 'pendente',
-          createdAt: new Date().toISOString()
+          createdAt: new Date().toISOString(),
+          // Só a 1ª parcela "carrega" a baixa de estoque — parcelas seguintes são
+          // só cobrança, o livro já foi entregue na criação da venda.
+          ...(i === 1 && itemEstoque ? { estoqueBaixado: true, estoqueItemId: itemEstoque.id } : {})
         });
       }
+
+      // Baixa de estoque: desconta 1 unidade do livro vendido (avisa se ficar negativo, mas não bloqueia a venda).
+      if (itemEstoque) {
+        const novaQuantidade = parseInt(itemEstoque.quantidade) - 1;
+        await updateDoc(doc(db, 'estoque', itemEstoque.id), { quantidade: novaQuantidade });
+        setEstoque(prev => prev.map(item => item.id === itemEstoque.id ? { ...item, quantidade: novaQuantidade } : item));
+        if (novaQuantidade < 0) {
+          showToast(`Atenção: estoque de "${form.livro}" ficou negativo (${novaQuantidade}). Reponha o quanto antes!`, 'warning');
+        }
+      } else if (form.tipo === 'Material Didático' && form.livro) {
+        showToast(`"${form.livro}" não está cadastrado no estoque — venda registrada sem baixa de estoque.`, 'warning');
+      }
+
       setShowModal(false);
       showToast(`Venda criada com ${totalParcelas} parcela(s)!`, 'success');
       const vendasRef = collection(db, 'vendas');
@@ -636,6 +665,21 @@ function Vendas() {
       handleError(err, 'criar venda');
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Devolve 1 unidade ao estoque quando uma venda que baixou estoque é cancelada/excluída.
+  const restaurarEstoqueDaVenda = async (venda) => {
+    if (!venda?.estoqueBaixado || !venda?.estoqueItemId) return;
+    try {
+      const item = estoque.find(i => i.id === venda.estoqueItemId);
+      if (!item) return;
+      const novaQuantidade = parseInt(item.quantidade) + 1;
+      await updateDoc(doc(db, 'estoque', item.id), { quantidade: novaQuantidade });
+      setEstoque(prev => prev.map(i => i.id === item.id ? { ...i, quantidade: novaQuantidade } : i));
+      showToast(`Estoque de "${item.livro}" devolvido (+1) após cancelamento.`, 'success');
+    } catch (err) {
+      handleError(err, 'restaurar estoque');
     }
   };
 
@@ -661,8 +705,35 @@ function Vendas() {
   return (
     <div className="min-h-screen bg-gray-50 p-8">
       <div className="max-w-6xl mx-auto">
-        <h1 className="text-3xl font-bold text-gray-800 mb-8">Sistema de Vendas</h1>
+        <h1 className="text-3xl font-bold text-gray-800 mb-6">Sistema de Vendas</h1>
 
+        {/* Abas */}
+        <div className="flex gap-2 mb-6 bg-white p-1.5 rounded-xl shadow-sm border border-gray-100 w-fit">
+          <button
+            onClick={() => setAbaAtiva('vendas')}
+            className={`flex items-center gap-2 px-5 py-2.5 rounded-lg font-semibold text-sm transition-colors ${
+              abaAtiva === 'vendas' ? 'bg-[#005DE4] text-white' : 'text-gray-500 hover:bg-gray-50'
+            }`}
+          >
+            <ShoppingBag size={16} /> Vendas
+          </button>
+          <button
+            onClick={() => setAbaAtiva('estoque')}
+            className={`relative flex items-center gap-2 px-5 py-2.5 rounded-lg font-semibold text-sm transition-colors ${
+              abaAtiva === 'estoque' ? 'bg-[#005DE4] text-white' : 'text-gray-500 hover:bg-gray-50'
+            }`}
+          >
+            <Package size={16} /> Estoque
+            {estoqueBaixoCount > 0 && (
+              <span className="bg-red-500 text-white text-[10px] font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1">
+                {estoqueBaixoCount}
+              </span>
+            )}
+          </button>
+        </div>
+
+        {abaAtiva === 'vendas' && (
+        <>
         {/* Seção de Indicadores Rápidos */}
         <div className="bg-white rounded-xl p-6 mb-6 shadow-sm border border-gray-100">
           <div className="flex items-center justify-between mb-4">
@@ -859,214 +930,210 @@ function Vendas() {
             </div>
           )}
         </div>
+        </>
+        )}
 
+        {abaAtiva === 'estoque' && (
+        <>
         {/* Controle de Estoque */}
         <div className="bg-white rounded-xl p-6 mb-6 shadow-sm border border-gray-100">
           <div className="flex items-center justify-between mb-4">
-            <button 
-              onClick={() => expandirSecao('estoque')} 
-              className="flex items-center gap-2 text-xl font-semibold text-gray-700"
-            >
+            <h2 className="flex items-center gap-2 text-xl font-semibold text-gray-700">
               <Package size={20} className="text-gray-500" />
               Controle de estoque
-              <svg 
-                className={`w-5 h-5 transition-transform ${expandedSections.estoque ? 'rotate-180' : ''}`} 
-                fill="none" 
-                stroke="currentColor" 
-                viewBox="0 0 24 24"
+              <button
+                onClick={() => setMostrarAjudaEstoque(v => !v)}
+                className={`p-1 rounded-full transition-colors ${mostrarAjudaEstoque ? 'bg-blue-100 text-[#005DE4]' : 'text-gray-400 hover:text-[#005DE4] hover:bg-blue-50'}`}
+                title="Como usar essa página"
               >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-              </svg>
-            </button>
-            {expandedSections.estoque && (
-              <button 
-                className="bg-[#005DE4] text-white px-4 py-2 rounded-lg hover:bg-[#0041a8] transition-colors font-medium"
-                onClick={() => setShowEstoqueModal(true)}
-              >
-                + Adicionar ao estoque
+                <HelpCircle size={20} />
               </button>
-            )}
+            </h2>
+            <button
+              className="bg-[#005DE4] text-white px-4 py-2 rounded-lg hover:bg-[#0041a8] transition-colors font-medium"
+              onClick={() => setShowEstoqueModal(true)}
+            >
+              + Adicionar ao estoque
+            </button>
           </div>
 
-          {expandedSections.estoque && (
-            <>
-              {/* Filtros do Estoque */}
-              <div className="flex flex-wrap gap-4 mb-6 p-4 bg-gray-50 rounded-lg">
-                <div className="flex-1 min-w-48">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Filtrar por Categoria</label>
-                  <select
-                    value={filterCategoriaEstoque}
-                    onChange={(e) => setFilterCategoriaEstoque(e.target.value)}
-                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="">Todas as categorias</option>
-                    {categoriasLivros.map(categoria => (
-                      <option key={categoria.valor} value={categoria.valor}>
-                        {categoria.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                
-                <div className="flex-1 min-w-48">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Organizar por</label>
-                  <select
-                    value={ordenacaoEstoque}
-                    onChange={(e) => setOrdenacaoEstoque(e.target.value)}
-                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="categoria">Categoria</option>
-                    <option value="nome">Nome do Livro</option>
-                    <option value="quantidade">Quantidade</option>
-                    <option value="estoqueBaixo">Estoque Baixo</option>
-                  </select>
-                </div>
+          {mostrarAjudaEstoque && (
+            <div className="mb-5 p-4 bg-blue-50 border border-blue-200 rounded-lg text-sm text-gray-700 space-y-3">
+              <p className="font-semibold text-[#005DE4]">Como usar o controle de estoque</p>
+
+              <div className="flex gap-2">
+                <PlusCircle size={16} className="text-emerald-600 flex-shrink-0 mt-0.5" />
+                <p><strong>Chegaram livros novos?</strong> Clique em "+ Adicionar ao estoque" (se o livro já existe, abra "Editar" nele) e aumente a Quantidade.</p>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">
-                {(() => {
-                  // Se não há itens no estoque, mostrar mensagem inicial
-                  if (estoque.length === 0) {
-                    return (
-                      <div className="col-span-full text-center py-8 text-gray-500">
-                        <div className="text-6xl mb-4">📚</div>
-                        <p>Nenhum item no estoque ainda.</p>
-                        <p className="text-sm">Adicione livros para começar o controle de estoque.</p>
-                      </div>
-                    );
-                  }
-                  
-                  // Filtrar estoque por categoria
-                  let estoqueFiltrado = estoque.filter(item => {
-                    if (filterCategoriaEstoque) {
-                      // Extrair categoria do nome do livro
-                      const categoriaItem = item.livro.includes('KIDS') ? 'KIDS' :
-                                           item.livro.includes('Teens') ? 'Teens' :
-                                           item.livro.includes('Adults') ? 'Adults' :
-                                           item.livro.includes('Business') ? 'Business' : '';
-                      return categoriaItem === filterCategoriaEstoque;
-                    }
-                    return true;
-                  });
-                  
-                  // Ordenar estoque
-                  estoqueFiltrado.sort((a, b) => {
-                    if (ordenacaoEstoque === 'categoria') {
-                      const catA = a.livro.includes('KIDS') ? 'KIDS' :
-                                   a.livro.includes('Teens') ? 'Teens' :
-                                   a.livro.includes('Adults') ? 'Adults' :
-                                   a.livro.includes('Business') ? 'Business' : 'ZZZ';
-                      const catB = b.livro.includes('KIDS') ? 'KIDS' :
-                                   b.livro.includes('Teens') ? 'Teens' :
-                                   b.livro.includes('Adults') ? 'Adults' :
-                                   b.livro.includes('Business') ? 'Business' : 'ZZZ';
-                      return catA.localeCompare(catB);
-                    } else if (ordenacaoEstoque === 'nome') {
-                      return a.livro.localeCompare(b.livro);
-                    } else if (ordenacaoEstoque === 'quantidade') {
-                      return parseInt(b.quantidade) - parseInt(a.quantidade);
-                    } else if (ordenacaoEstoque === 'estoqueBaixo') {
-                      const baixoA = a.quantidade <= (a.estoqueMinimo || 5);
-                      const baixoB = b.quantidade <= (b.estoqueMinimo || 5);
-                      return baixoB - baixoA; // Estoque baixo primeiro
-                    }
-                    return 0;
-                  });
-                  
-                  return estoqueFiltrado.length === 0 ? (
-                    <div className="col-span-full text-center py-8 text-gray-500">
-                      <div className="text-6xl mb-4">📚</div>
-                      <p>Nenhum item encontrado.</p>
-                      <p className="text-sm">Tente ajustar os filtros para ver os itens.</p>
-                    </div>
-                  ) : (
-                    estoqueFiltrado.map(item => {
-                      const imagemUrl = livroImages[item.livro] || "https://via.placeholder.com/80x100?text=Livro";
+              <div className="flex gap-2">
+                <MinusCircle size={16} className="text-red-600 flex-shrink-0 mt-0.5" />
+                <p><strong>Vendeu um livro?</strong> Basta registrar a venda normalmente na aba "Vendas" — a Quantidade aqui já desconta 1 unidade sozinha. Se cancelar ou excluir essa venda depois, a unidade volta pro estoque automaticamente.</p>
+              </div>
+
+              <div className="flex gap-2">
+                <AlertTriangle size={16} className="text-amber-500 flex-shrink-0 mt-0.5" />
+                <p><strong>Linha vermelha com "BAIXO"?</strong> A quantidade chegou no (ou abaixo do) "Estoque Mínimo" cadastrado — é a hora de pedir reposição desse livro.</p>
+              </div>
+
+              <p className="text-xs text-gray-500 pt-1 border-t border-blue-200">
+                Use os filtros "Categoria" e "Organizar por" só pra achar um livro mais rápido na lista — eles não alteram o estoque.
+              </p>
+            </div>
+          )}
+
+          {/* Filtros do Estoque */}
+          <div className="flex flex-wrap gap-4 mb-4 p-4 bg-gray-50 rounded-lg">
+            <div className="flex-1 min-w-48">
+              <label className="block text-sm font-medium text-gray-700 mb-1">Filtrar por Categoria</label>
+              <select
+                value={filterCategoriaEstoque}
+                onChange={(e) => setFilterCategoriaEstoque(e.target.value)}
+                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">Todas as categorias</option>
+                {categoriasLivros.map(categoria => (
+                  <option key={categoria.valor} value={categoria.valor}>
+                    {categoria.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="flex-1 min-w-48">
+              <label className="block text-sm font-medium text-gray-700 mb-1">Organizar por</label>
+              <select
+                value={ordenacaoEstoque}
+                onChange={(e) => setOrdenacaoEstoque(e.target.value)}
+                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="categoria">Categoria</option>
+                <option value="nome">Nome do Livro</option>
+                <option value="quantidade">Quantidade</option>
+                <option value="estoqueBaixo">Estoque Baixo</option>
+              </select>
+            </div>
+          </div>
+
+          {(() => {
+            // Se não há itens no estoque, mostrar mensagem inicial
+            if (estoque.length === 0) {
+              return (
+                <div className="text-center py-8 text-gray-500">
+                  <div className="text-6xl mb-4">📚</div>
+                  <p>Nenhum item no estoque ainda.</p>
+                  <p className="text-sm">Adicione livros para começar o controle de estoque.</p>
+                </div>
+              );
+            }
+
+            // Filtrar estoque por categoria
+            let estoqueFiltrado = estoque.filter(item => {
+              if (filterCategoriaEstoque) {
+                // Extrair categoria do nome do livro
+                const categoriaItem = item.livro.includes('KIDS') ? 'KIDS' :
+                                     item.livro.includes('Teens') ? 'Teens' :
+                                     item.livro.includes('Adults') ? 'Adults' :
+                                     item.livro.includes('Business') ? 'Business' : '';
+                return categoriaItem === filterCategoriaEstoque;
+              }
+              return true;
+            });
+
+            // Ordenar estoque
+            estoqueFiltrado.sort((a, b) => {
+              if (ordenacaoEstoque === 'categoria') {
+                const catA = a.livro.includes('KIDS') ? 'KIDS' :
+                             a.livro.includes('Teens') ? 'Teens' :
+                             a.livro.includes('Adults') ? 'Adults' :
+                             a.livro.includes('Business') ? 'Business' : 'ZZZ';
+                const catB = b.livro.includes('KIDS') ? 'KIDS' :
+                             b.livro.includes('Teens') ? 'Teens' :
+                             b.livro.includes('Adults') ? 'Adults' :
+                             b.livro.includes('Business') ? 'Business' : 'ZZZ';
+                return catA.localeCompare(catB);
+              } else if (ordenacaoEstoque === 'nome') {
+                return a.livro.localeCompare(b.livro);
+              } else if (ordenacaoEstoque === 'quantidade') {
+                return parseInt(b.quantidade) - parseInt(a.quantidade);
+              } else if (ordenacaoEstoque === 'estoqueBaixo') {
+                const baixoA = a.quantidade <= (a.estoqueMinimo || 5);
+                const baixoB = b.quantidade <= (b.estoqueMinimo || 5);
+                return baixoB - baixoA; // Estoque baixo primeiro
+              }
+              return 0;
+            });
+
+            return estoqueFiltrado.length === 0 ? (
+              <div className="text-center py-8 text-gray-500">
+                <div className="text-6xl mb-4">📚</div>
+                <p>Nenhum item encontrado.</p>
+                <p className="text-sm">Tente ajustar os filtros para ver os itens.</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-3 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Livro</th>
+                      <th className="px-3 py-2.5 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Qtd</th>
+                      <th className="px-3 py-2.5 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Mín</th>
+                      <th className="px-3 py-2.5 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Custo</th>
+                      <th className="px-3 py-2.5 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Venda</th>
+                      <th className="px-3 py-2.5 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {estoqueFiltrado.map(item => {
                       const isEstoqueBaixo = item.quantidade <= (item.estoqueMinimo || 5);
-                      
                       return (
-                        <div key={item.id} className={`border rounded-lg p-4 ${isEstoqueBaixo ? 'border-red-300 bg-red-50' : 'border-gray-200 bg-white'} transition-all hover:shadow-md`}>
-                          {/* Layout com imagem grande à esquerda */}
-                          <div className="space-y-2">
-                            {/* Título no topo */}
-                            <h3 className="font-bold text-gray-800 text-base text-center">{item.livro}</h3>
-                            
-                            <div className="flex gap-3">
-                              {/* Imagem grande do livro */}
-                              <div className="flex-shrink-0">
-                                <img 
-                                  src={imagemUrl} 
-                                  alt={item.livro}
-                                  className="w-28 h-36 object-cover rounded-lg border border-gray-200 shadow-lg"
-                                  onError={(e) => {
-                                    e.target.src = "https://via.placeholder.com/112x144?text=Livro";
-                                  }}
-                                />
-                              </div>
-                              
-                              {/* Informações à direita */}
-                              <div className="flex-1 space-y-2">
-                                <div className="grid grid-cols-2 gap-y-2 gap-x-1">
-                                  <div>
-                                    <span className="text-gray-600 text-xs block mb-1">Quantidade:</span>
-                                    <span className={`text-xl font-bold ${isEstoqueBaixo ? 'text-red-600' : 'text-green-600'}`}>
-                                      {item.quantidade}
-                                    </span>
-                                  </div>
-                                  
-                                  <div>
-                                    <span className="text-gray-600 text-xs block mb-1">Estoque Mín:</span>
-                                    <span className="text-lg font-semibold text-gray-700">{item.estoqueMinimo || 5}</span>
-                                  </div>
-                                  
-                                  <div>
-                                    <span className="text-gray-600 text-xs block mb-1">Custo:</span>
-                                    <span className="text-sm font-medium text-gray-700">R$ {item.precoCusto || '0.00'}</span>
-                                  </div>
-                                  
-                                  <div>
-                                    <span className="text-gray-600 text-xs block mb-1">Venda:</span>
-                                    <span className="text-sm font-bold text-green-600">R$ {item.precoVenda || '0.00'}</span>
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-                            
+                        <tr key={item.id} className={isEstoqueBaixo ? 'bg-red-50' : 'hover:bg-gray-50'}>
+                          <td className="px-3 py-2.5 font-medium text-gray-800">{item.livro}</td>
+                          <td className="px-3 py-2.5 text-center">
+                            <span className={`font-bold ${isEstoqueBaixo ? 'text-red-600' : 'text-gray-700'}`}>
+                              {item.quantidade}
+                            </span>
                             {isEstoqueBaixo && (
-                              <div className="flex items-center justify-center gap-1 py-1 text-xs text-red-600 bg-red-100 rounded-md">
-                                <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                                  <path d="M12 9v3.75m0 3.75h.007v.008H12V12z"/>
-                                  <path d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                                </svg>
-                                <span className="font-medium">Estoque baixo!</span>
-                              </div>
+                              <span className="ml-1.5 text-[10px] bg-red-100 text-red-600 px-1.5 py-0.5 rounded-full font-semibold align-middle">
+                                BAIXO
+                              </span>
                             )}
-                            
-                            <div className="grid grid-cols-2 gap-2 mt-2">
+                          </td>
+                          <td className="px-3 py-2.5 text-center text-gray-500">{item.estoqueMinimo || 5}</td>
+                          <td className="px-3 py-2.5 text-right text-gray-600">R$ {item.precoCusto || '0.00'}</td>
+                          <td className="px-3 py-2.5 text-right font-semibold text-green-600">R$ {item.precoVenda || '0.00'}</td>
+                          <td className="px-3 py-2.5">
+                            <div className="flex items-center justify-center gap-3">
                               <button
                                 onClick={() => editarEstoque(item)}
-                                className="bg-blue-500 text-white px-3 py-1.5 rounded-lg text-xs hover:bg-blue-600 transition-colors font-medium"
+                                className="text-blue-600 hover:text-blue-800 transition-colors"
+                                title="Editar"
                               >
-                                Editar
+                                <Edit2 size={15} />
                               </button>
                               <button
                                 onClick={() => deletarEstoque(item.id, item.livro)}
-                                className="bg-red-500 text-white px-3 py-1.5 rounded-lg text-xs hover:bg-red-600 transition-colors font-medium"
+                                className="text-red-600 hover:text-red-800 transition-colors"
+                                title="Excluir"
                               >
-                                Excluir
+                                <Trash2 size={15} />
                               </button>
                             </div>
-                          </div>
-                        </div>
+                          </td>
+                        </tr>
                       );
-                    })
-                  );
-                })()}
+                    })}
+                  </tbody>
+                </table>
               </div>
-              </>
-            )}
+            );
+          })()}
         </div>
+        </>
+        )}
 
+        {abaAtiva === 'vendas' && (
+        <>
         {/* Seção de Vendas */}
         <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
           <div className="flex items-center justify-between mb-4">
@@ -1515,6 +1582,8 @@ function Vendas() {
             </div>
           )}
         </div>
+        </>
+        )}
       </div>
 
       {showModal && (

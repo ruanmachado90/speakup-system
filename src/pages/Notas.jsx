@@ -126,267 +126,341 @@ function BoletimModal({ aluno, totalFinal, conceito, medias, turma, semestre, pr
         <div class="mini-res-val ${catConc[i].cls}">${catConc[i].conceito || '—'}</div>
       </div>`).join('');
 
-    const win = window.open('', '_blank');
-    win.document.write(`<!DOCTYPE html>
+    const html = `<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Boletim — ${aluno.name}</title>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <style>
-:root{--B:#0e48fe;--B06:rgba(14,72,254,0.06);--B10:rgba(14,72,254,0.10);--OR:#fc6e1f;--RD:#f30961;--GR:#16a34a;--AM:#d97706;--AM-lt:#fffbeb;--wh:#fff;--dim:#f5f7fb;--bd:rgba(0,0,0,0.07);--t1:#111827;--t2:#6b7280;--th:#9ca3af;--pg:#edf2f8;--f1:'Plus Jakarta Sans',sans-serif;--f2:'Montserrat',sans-serif}
+:root{--B:#0e48fe;--B06:rgba(14,72,254,0.06);--B10:rgba(14,72,254,0.10);--OR:#fc6e1f;--RD:#f30961;--GR:#16a34a;--AM:#d97706;--wh:#fff;--dim:#f4f6fb;--bd:rgba(0,0,0,0.08);--t1:#111827;--t2:#6b7280;--th:#9ca3af;--pg:#e8edf5;--f1:'Plus Jakarta Sans',sans-serif;--f2:'Montserrat',sans-serif}
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-html{background:var(--pg)}
-body{font-family:var(--f2);background:var(--pg);min-height:100vh;display:flex;align-items:flex-start;justify-content:center;padding:20px 16px 28px;-webkit-font-smoothing:antialiased}
-.bol{width:1060px;max-width:100%;background:var(--wh);border-radius:20px;overflow:hidden;box-shadow:0 10px 40px rgba(15,23,42,0.08),0 2px 10px rgba(15,23,42,0.04)}
-.hdr{padding:14px 28px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--bd);position:relative;overflow:hidden}
-.hdr-brand{display:flex;align-items:center;gap:12px;position:relative;z-index:1}
-.brand-logo{height:38px;object-fit:contain}
-.btn-pdf{position:fixed;bottom:22px;right:22px;z-index:100;background:var(--B);color:white;border:none;border-radius:12px;padding:11px 22px;font-family:var(--f1);font-size:13px;font-weight:700;cursor:pointer;box-shadow:0 4px 18px rgba(14,72,254,0.38);display:flex;align-items:center;gap:8px;letter-spacing:.01em}
-.btn-pdf:hover{background:#0041d4}
-.world-deco{position:absolute;top:0;right:160px;width:220px;height:74px;background-image:radial-gradient(circle,rgba(14,72,254,0.45) 1.2px,transparent 1.2px);background-size:10px 10px;opacity:0.13;pointer-events:none}
-.doc-badge{display:flex;align-items:center;gap:7px;background:var(--B06);border:1px solid rgba(14,72,254,0.15);border-radius:999px;padding:7px 16px;position:relative;z-index:1}
-.doc-badge svg{width:11px;height:11px;color:var(--B)}
-.doc-badge span{font-family:var(--f1);font-size:10px;font-weight:700;color:var(--B);letter-spacing:.09em;text-transform:uppercase}
-.bol-body{padding:18px 28px 20px}
-.pg-title{font-family:var(--f1);font-size:44px;font-weight:800;color:var(--t1);letter-spacing:-.04em;line-height:1;text-transform:uppercase}
-.pg-sub{font-size:11px;font-weight:700;color:var(--th);letter-spacing:.14em;text-transform:uppercase;margin-top:5px;margin-bottom:14px;display:flex;align-items:center;gap:9px}
-.pg-sub-dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--B);flex-shrink:0}
-.stud{background:var(--wh);border:1px solid var(--bd);border-radius:14px;padding:11px 18px;display:flex;align-items:center;margin-bottom:12px;box-shadow:0 1px 3px rgba(15,23,42,.03)}
-.stud-av{width:44px;height:44px;border-radius:50%;background:var(--B06);display:flex;align-items:center;justify-content:center;font-family:var(--f1);font-size:15px;font-weight:800;color:var(--B);flex-shrink:0;border:2px solid var(--B10)}
-.stud-info{padding-left:11px;padding-right:16px}
-.stud-name{font-family:var(--f1);font-size:15px;font-weight:700;color:var(--t1);letter-spacing:-.03em}
-.stud-meta{font-size:10px;color:var(--th);margin-top:2px}
-.stud-meta span{color:var(--t2);font-weight:600}
-.div-v{width:1px;height:34px;background:var(--bd);margin:0 16px;flex-shrink:0}
-.ic-col{display:flex;align-items:center;gap:8px}
-.ic-box{width:27px;height:27px;border-radius:7px;background:var(--B06);display:flex;align-items:center;justify-content:center;flex-shrink:0}
-.ic-box svg{width:13px;height:13px;color:var(--B)}
-.ic-lbl{font-size:7.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--th);margin-bottom:1px}
-.ic-val{font-family:var(--f1);font-size:12px;font-weight:700;color:var(--t1)}
-.main-g{display:grid;grid-template-columns:1fr 258px;gap:12px;margin-bottom:12px}
-.tbl-card{background:var(--wh);border:1px solid var(--bd);border-radius:14px;overflow:hidden;box-shadow:0 1px 3px rgba(15,23,42,.03)}
+html,body{background:var(--pg);font-family:var(--f2);-webkit-font-smoothing:antialiased}
+body{display:flex;align-items:flex-start;justify-content:center;padding:16px;min-height:100vh}
+
+/* ── Card principal ── */
+.bol{width:277mm;background:var(--wh);border-radius:14px;overflow:hidden;box-shadow:0 8px 32px rgba(15,23,42,0.1)}
+
+/* ── Header ── */
+.hdr{background:linear-gradient(135deg,#003ba8 0%,#0e48fe 100%);padding:11px 20px;display:flex;align-items:center;justify-content:space-between;position:relative;overflow:hidden}
+.hdr::after{content:'';position:absolute;top:-20px;right:80px;width:180px;height:120px;background:radial-gradient(circle,rgba(255,255,255,0.18) 1px,transparent 1px);background-size:9px 9px;pointer-events:none}
+.hdr-left{display:flex;align-items:center;gap:14px;position:relative;z-index:1}
+.brand-logo{height:30px;object-fit:contain}
+.hdr-sep{width:1px;height:28px;background:rgba(255,255,255,0.25)}
+.hdr-title{color:white;font-family:var(--f1);font-size:15px;font-weight:800;letter-spacing:-.01em;text-transform:uppercase;line-height:1}
+.hdr-sub{color:rgba(255,255,255,0.6);font-size:8.5px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;margin-top:2px}
+.doc-badge{display:flex;align-items:center;gap:6px;background:rgba(255,255,255,0.13);border:1px solid rgba(255,255,255,0.22);border-radius:999px;padding:5px 13px;position:relative;z-index:1}
+.doc-badge svg{width:9px;height:9px;color:rgba(255,255,255,0.85)}
+.doc-badge span{color:rgba(255,255,255,0.9);font-size:8.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase}
+
+/* ── Faixa do aluno ── */
+.stud{display:flex;align-items:center;padding:9px 20px;border-bottom:1px solid var(--bd);background:#fafbff;gap:0}
+.stud-av{width:36px;height:36px;border-radius:50%;background:var(--B06);border:2px solid var(--B10);display:flex;align-items:center;justify-content:center;font-family:var(--f1);font-size:12px;font-weight:800;color:var(--B);flex-shrink:0}
+.stud-info{margin-left:10px}
+.stud-name{font-family:var(--f1);font-size:13px;font-weight:700;color:var(--t1);letter-spacing:-.02em}
+.stud-meta{font-size:8.5px;color:var(--th);margin-top:1px}
+.dv{width:1px;height:26px;background:var(--bd);margin:0 14px;flex-shrink:0}
+.ic-col{display:flex;align-items:center;gap:7px}
+.ic-lbl{font-size:7px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--th);margin-bottom:1px}
+.ic-val{font-size:11px;font-weight:700;color:var(--t1);font-family:var(--f1)}
+
+/* ── Layout principal: 2 colunas ── */
+.main{display:grid;grid-template-columns:1fr 210px;gap:11px;padding:11px 20px 0}
+
+/* ── Coluna esquerda ── */
+.left{}
+
+/* Tabela de notas */
+.tbl-wrap{border:1px solid var(--bd);border-radius:9px;overflow:hidden;margin-bottom:10px}
 .gt{width:100%;border-collapse:collapse}
-.gt th{font-size:9px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--th);padding:10px 14px;text-align:center;border-bottom:1px solid var(--bd)}
-.gt th.th-av{text-align:left;font-size:10px;color:var(--t2);font-weight:700}
-.gt th.th-res{color:var(--B);font-weight:700}
-.gt td{padding:13px 14px;text-align:center;border-bottom:1px solid var(--bd);vertical-align:middle}
-.gt td.td-av{text-align:left;padding-left:12px}
-.test-row{display:flex;align-items:center;gap:9px}
-.test-icon{width:28px;height:28px;border-radius:8px;background:var(--B06);display:flex;align-items:center;justify-content:center;flex-shrink:0}
-.test-icon svg{width:13px;height:13px;color:var(--B)}
-.test-name{font-size:12px;font-weight:600;color:var(--t1)}
-.test-pts{font-size:9px;color:var(--th);margin-top:1px}
-.nota-val{font-family:var(--f1);font-size:15px;font-weight:700;color:var(--t1)}
-.conc{font-family:var(--f1);font-size:13px;font-weight:800}
+.gt thead tr:first-child th{background:#f0f4ff;font-size:7.5px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--th);padding:7px 12px;border-bottom:1px solid var(--bd)}
+.gt thead tr:first-child th.th-av{text-align:left;color:var(--t2)}
+.gt thead tr:first-child th.th-res{color:var(--B)}
+.gt td{padding:9px 12px;text-align:center;border-bottom:1px solid var(--bd);vertical-align:middle}
+.gt td.td-av{text-align:left}
+.gt tbody tr:last-child td{border-bottom:none}
+.test-row{display:flex;align-items:center;gap:8px}
+.test-icon{width:22px;height:22px;border-radius:5px;background:var(--B06);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.test-icon svg{width:10px;height:10px;color:var(--B)}
+.test-name{font-size:11px;font-weight:600;color:var(--t1)}
+.test-pts{font-size:7.5px;color:var(--th);margin-top:1px}
+.nota-val{font-family:var(--f1);font-size:13px;font-weight:700;color:var(--t1)}
+.conc{font-family:var(--f1);font-size:12px;font-weight:800}
 .conc-green{color:#16a34a}.conc-blue{color:#0e48fe}.conc-orange{color:#fc6e1f}.conc-amber{color:#d97706}.conc-red{color:#f30961}
-.total-row td{background:rgba(14,72,254,0.03)!important;border-top:1px solid rgba(14,72,254,0.1);border-bottom:none;padding:12px 14px}
-.res-card{background:var(--wh);border:1px solid var(--bd);border-radius:14px;padding:14px 12px 12px;display:flex;flex-direction:column;align-items:center;box-shadow:0 1px 3px rgba(15,23,42,.03)}
-.res-ttl{font-size:8px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--B);margin-bottom:10px;text-align:center}
-.circ{position:relative;width:160px;height:160px;margin-bottom:6px}
-.circ svg{width:160px;height:160px;transform:rotate(-90deg)}
-.c-bg{fill:none;stroke:rgba(14,72,254,0.08);stroke-width:10}
-.c-prog{fill:none;stroke:var(--B);stroke-width:10;stroke-linecap:round}
-.c-inner{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
-.c-score{font-family:var(--f1);font-size:36px;font-weight:800;color:var(--t1);letter-spacing:-.04em;line-height:1}
-.c-conc{font-family:var(--f1);font-size:17px;font-weight:800;line-height:1.2}
-.res-status{font-size:10px;color:var(--th);margin-bottom:8px}
-.divr{width:100%;height:1px;background:var(--bd);margin:0 0 8px}
-.sc-lbl{font-size:8px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--B);margin-bottom:2px;text-align:center}
-.sc-big{font-family:var(--f1);font-size:16px;font-weight:800;color:var(--t1);text-align:center}
-.sc-big span{color:var(--t2);font-size:10px;font-weight:500}
-.mini-g{display:grid;grid-template-columns:repeat(3,1fr);gap:5px;width:100%;margin-top:7px}
-.mini-res{background:var(--dim);border-radius:8px;padding:6px 4px;text-align:center}
-.mini-res-label{font-size:7px;color:var(--th);font-weight:600;letter-spacing:.05em;text-transform:uppercase;margin-bottom:2px}
-.mini-res-val{font-family:var(--f1);font-size:12px;font-weight:800}
-.bot-g{display:grid;grid-template-columns:1fr 1fr 258px;gap:12px;margin-bottom:14px}
-.bot-card{background:var(--wh);border:1px solid var(--bd);border-radius:14px;padding:13px 16px;box-shadow:0 1px 3px rgba(15,23,42,.03)}
-.bot-ttl{display:flex;align-items:center;gap:6px;font-size:8px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--t2);margin-bottom:8px}
-.bot-ttl svg{width:13px;height:13px;color:var(--B)}
-.cr-item{display:flex;gap:7px;margin-bottom:7px;align-items:flex-start}
+.total-row td{background:rgba(14,72,254,0.03)!important;border-top:1px solid rgba(14,72,254,0.12)!important}
+
+/* Grade de critérios + escala lado a lado */
+.bot-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.bot-card{border:1px solid var(--bd);border-radius:9px;padding:10px 12px}
+.bot-ttl{font-size:7px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--t2);margin-bottom:7px;display:flex;align-items:center;gap:5px}
+.bot-ttl svg{width:10px;height:10px;color:var(--B);flex-shrink:0}
+.cr-item{display:flex;gap:6px;margin-bottom:5px;align-items:flex-start}
 .cr-item:last-child{margin-bottom:0}
-.cr-ico{width:20px;height:20px;border-radius:5px;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px}
-.cr-ico svg{width:10px;height:10px}
+.cr-ico{width:16px;height:16px;border-radius:4px;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px}
+.cr-ico svg{width:8px;height:8px}
 .cr-ico.wr{background:var(--B06)}.cr-ico.wr svg{color:var(--B)}
 .cr-ico.li{background:rgba(252,110,31,0.07)}.cr-ico.li svg{color:var(--OR)}
 .cr-ico.sp{background:rgba(22,163,74,0.07)}.cr-ico.sp svg{color:var(--GR)}
-.cr-txt{font-size:9.5px;color:var(--t2);line-height:1.5}
-.cr-txt strong{color:var(--B);font-weight:600}
-.sc-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:4px}
-.sc-item{display:flex;align-items:center;gap:5px;padding:4px 6px;border-radius:6px;border:1px solid var(--bd)}
-.sc-badge{width:24px;height:18px;border-radius:4px;display:flex;align-items:center;justify-content:center;font-family:var(--f1);font-size:9px;font-weight:800;flex-shrink:0}
-.sc-range{font-size:8.5px;color:var(--t2);font-weight:500;white-space:nowrap}
+.cr-txt{font-size:8px;color:var(--t2);line-height:1.45}
+.cr-txt strong{color:var(--t1);font-weight:600}
+.sc-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:3px}
+.sc-item{display:flex;align-items:center;gap:4px;padding:3px 5px;border-radius:5px;border:1px solid var(--bd)}
+.sc-badge{width:20px;height:15px;border-radius:3px;display:flex;align-items:center;justify-content:center;font-family:var(--f1);font-size:8px;font-weight:800;flex-shrink:0}
+.sc-range{font-size:7.5px;color:var(--t2);white-space:nowrap}
 .bg-ap{background:#f0fdf4;color:#166534}.bg-a{background:#f0fdf4;color:#16a34a}
 .bg-bp{background:#eff6ff;color:#1e40af}.bg-b{background:var(--B06);color:var(--B)}
 .bg-cp{background:rgba(252,110,31,0.07);color:#c2410c}.bg-c{background:rgba(252,110,31,0.07);color:var(--OR)}
-.bg-cm{background:var(--AM-lt);color:#92400e}.bg-d{background:rgba(243,9,97,0.06);color:#9d174d}
+.bg-cm{background:#fffbeb;color:#92400e}.bg-d{background:rgba(243,9,97,0.06);color:#9d174d}
 .bg-f{background:rgba(243,9,97,0.08);color:var(--RD)}
-.sigs{display:grid;grid-template-columns:repeat(3,1fr);border-top:1px solid var(--bd);padding-top:14px;margin-bottom:12px}
-.sig-c{text-align:center;padding:0 12px}
+
+/* ── Coluna direita ── */
+.right{display:flex;flex-direction:column;gap:10px}
+
+/* Card de resultado */
+.res-card{border:1px solid var(--bd);border-radius:9px;padding:11px 10px 10px;display:flex;flex-direction:column;align-items:center}
+.res-ttl{font-size:7px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--B);margin-bottom:8px;text-align:center}
+.circ{position:relative;width:120px;height:120px;margin-bottom:4px}
+.circ svg{width:120px;height:120px;transform:rotate(-90deg)}
+.c-bg{fill:none;stroke:rgba(14,72,254,0.08);stroke-width:9}
+.c-prog{fill:none;stroke:var(--B);stroke-width:9;stroke-linecap:round}
+.c-inner{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.c-score{font-family:var(--f1);font-size:28px;font-weight:800;color:var(--t1);letter-spacing:-.04em;line-height:1}
+.c-conc{font-family:var(--f1);font-size:13px;font-weight:800;line-height:1.2}
+.res-status{font-size:8.5px;color:var(--th);margin-bottom:6px}
+.divr{width:100%;height:1px;background:var(--bd);margin:0 0 6px}
+.pts-lbl{font-size:7px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--B);margin-bottom:1px;text-align:center}
+.pts-val{font-family:var(--f1);font-size:13px;font-weight:800;color:var(--t1);text-align:center}
+.pts-val span{color:var(--t2);font-size:9px;font-weight:500}
+.mini-g{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;width:100%;margin-top:5px}
+.mini-res{background:var(--dim);border-radius:6px;padding:4px 2px;text-align:center}
+.mini-res-label{font-size:6px;color:var(--th);font-weight:600;letter-spacing:.05em;text-transform:uppercase;margin-bottom:1px}
+.mini-res-val{font-family:var(--f1);font-size:10px;font-weight:800}
+
+/* Assinaturas */
+.sigs-card{border:1px solid var(--bd);border-radius:9px;padding:10px;flex:1}
+.sigs{display:grid;grid-template-columns:repeat(3,1fr);height:100%}
+.sig-c{text-align:center;padding:0 6px;display:flex;flex-direction:column;align-items:center;justify-content:center}
 .sig-c+.sig-c{border-left:1px solid var(--bd)}
-.sig-ic{width:22px;height:22px;border-radius:50%;background:var(--B06);display:flex;align-items:center;justify-content:center;margin:0 auto 5px}
-.sig-ic svg{width:10px;height:10px;color:var(--B)}
-.sig-role{font-size:8px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--th);margin-bottom:4px}
-.sig-cur{font-family:'Georgia',serif;font-style:italic;font-size:14px;color:var(--t1);margin-bottom:2px;line-height:1.2}
-.sig-nm{font-size:9px;color:var(--t2);font-weight:500}
-.foot{display:flex;justify-content:space-between;align-items:center;border-top:1px solid var(--bd);padding-top:9px}
-.foot-l{display:flex;align-items:center;gap:7px}
-.foot-l svg{width:13px;height:13px;color:var(--B);opacity:.5}
-.foot-l span,.foot-r{font-size:9px;color:var(--th);font-weight:500}
-@page{size:A4 landscape;margin:8mm}
-@media print{html,body{background:white!important;padding:0!important;display:block!important}.bol{box-shadow:none!important;border-radius:0!important;width:100%!important;max-width:none!important}.bol-body{padding:14px 22px!important}.btn-pdf{display:none!important}}
+.sig-role{font-size:7px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--th);margin-bottom:3px}
+.sig-cur{font-family:'Georgia',serif;font-style:italic;font-size:11px;color:var(--t1);margin-bottom:1px;line-height:1.3}
+.sig-line{color:#d1d5db;font-family:var(--f2);font-style:normal;font-size:10px}
+.sig-nm{font-size:7.5px;color:var(--t2);font-weight:500}
+
+/* ── Footer ── */
+.foot{display:flex;justify-content:space-between;align-items:center;padding:7px 20px;margin-top:11px;border-top:1px solid var(--bd);background:#fafbff}
+.foot-txt{font-size:7.5px;color:var(--th);font-weight:500}
+
+/* ── Botão flutuante ── */
+.btn-pdf{position:fixed;bottom:18px;right:18px;z-index:100;background:var(--B);color:white;border:none;border-radius:10px;padding:10px 20px;font-family:var(--f1);font-size:12px;font-weight:700;cursor:pointer;box-shadow:0 4px 16px rgba(14,72,254,0.35);display:flex;align-items:center;gap:7px;transition:background .15s}
+.btn-pdf:hover{background:#0041d4}
+.btn-png{position:fixed;bottom:18px;right:160px;z-index:100;background:#0f172a;color:white;border:none;border-radius:10px;padding:10px 20px;font-family:var(--f1);font-size:12px;font-weight:700;cursor:pointer;box-shadow:0 4px 16px rgba(15,23,42,0.3);display:flex;align-items:center;gap:7px;transition:background .15s}
+.btn-png:hover{background:#1e293b}
+.btn-png.loading{opacity:.7;cursor:default}
+
+/* ── Impressão ── */
+@page{size:A4 landscape;margin:5mm}
+@media print{
+  html,body{background:white!important;padding:0!important;display:block!important}
+  .bol{box-shadow:none!important;border-radius:0!important;width:100%!important;max-width:none!important}
+  .btn-pdf{display:none!important}
+  .main{padding:8px 14px 0!important}
+  .foot{margin-top:8px!important;padding:5px 14px!important}
+}
 </style>
 </head>
 <body>
 <div class="bol">
+
+  <!-- Header -->
   <div class="hdr">
-    <div class="hdr-brand">
-      <img class="brand-logo" src="https://www.speakupcataguases.com/wp-content/uploads/2026/02/logo-speakup-azul.png" alt="SpeakUp"/>
+    <div class="hdr-left">
+      <img class="brand-logo" src="https://www.speakupcataguases.com/wp-content/uploads/2026/02/logo-speakup-brancal-1.png" alt="SpeakUp"/>
+      <div class="hdr-sep"></div>
+      <div>
+        <div class="hdr-title">Boletim Semestral</div>
+        <div class="hdr-sub">${semestreFmt} &nbsp;·&nbsp; Ano letivo ${ano}</div>
+      </div>
     </div>
-    <div class="world-deco"></div>
     <div class="doc-badge">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
       <span>Documento Oficial</span>
     </div>
   </div>
 
-  <div class="bol-body">
-  <h1 class="pg-title">BOLETIM SEMESTRAL</h1>
-  <div class="pg-sub"><span class="pg-sub-dot"></span>${semestreFmt}</div>
-
+  <!-- Faixa do aluno -->
   <div class="stud">
     <div class="stud-av">${iniciais}</div>
     <div class="stud-info">
       <div class="stud-name">${aluno.name}</div>
-      <div class="stud-meta"><span>Aluno(a)</span> &nbsp;•&nbsp; Ano letivo ${ano}</div>
+      <div class="stud-meta">Aluno(a) &nbsp;·&nbsp; ${semestreFmt}</div>
     </div>
-    <div class="div-v"></div>
+    <div class="dv"></div>
     <div class="ic-col">
-      <div class="ic-box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg></div>
       <div><div class="ic-lbl">Turma</div><div class="ic-val">${turmaDisplay}</div></div>
     </div>
-    <div class="div-v"></div>
+    <div class="dv"></div>
     <div class="ic-col">
-      <div class="ic-box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><polyline points="8 21 12 17 16 21"/></svg></div>
       <div><div class="ic-lbl">Nível</div><div class="ic-val">${nivelDisplay}</div></div>
     </div>
-    <div class="div-v"></div>
+    <div class="dv"></div>
     <div class="ic-col">
-      <div class="ic-box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div>
       <div><div class="ic-lbl">Professor(a)</div><div class="ic-val">${professorDisplay}</div></div>
     </div>
   </div>
 
-  <div class="main-g">
-    <div class="tbl-card">
-      <table class="gt">
-        <thead>
-          <tr>
-            <th class="th-av" style="padding-left:18px;">Avaliação</th>
-            <th style="border-left:1px solid var(--bd)">Nota</th>
-            <th class="th-res">Conceito</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${tableRows}
-          <tr class="total-row">
-            <td class="td-av" style="font-family:var(--f1);font-size:13px;font-weight:700;padding-left:18px;">TOTAL <span style="font-size:11px;color:var(--th);font-weight:500;">/ 100 pts</span></td>
-            <td style="border-left:1px solid rgba(14,72,254,0.12)"><span class="nota-val" style="font-size:20px;">${totalFinal !== null ? totalFinal.toFixed(1) : '—'}</span></td>
-            <td><span class="conc ${ci.cls}" style="font-size:18px;">${conceito || '—'}</span></td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
+  <!-- Main: 2 colunas -->
+  <div class="main">
 
-    <div class="res-card">
-      <div class="res-ttl">Resultado — ${semestreFmt}</div>
-      <div class="circ">
-        <svg viewBox="0 0 180 180">
-          <circle class="c-bg" cx="90" cy="90" r="${r}"/>
-          <circle class="c-prog" cx="90" cy="90" r="${r}" style="stroke-dasharray:${circ};stroke-dashoffset:${off}"/>
-        </svg>
-        <div class="c-inner">
-          <div class="c-score">${totalFinal !== null ? Math.round(totalFinal) : '—'}</div>
-          <div class="c-conc ${ci.cls}">${conceito || '—'}</div>
+    <!-- Esquerda: tabela + critérios + escala -->
+    <div class="left">
+      <div class="tbl-wrap">
+        <table class="gt">
+          <thead>
+            <tr>
+              <th class="th-av" style="padding-left:14px">Avaliação</th>
+              <th style="border-left:1px solid var(--bd)">Nota</th>
+              <th class="th-res">Conceito</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${tableRows}
+            <tr class="total-row">
+              <td class="td-av" style="font-family:var(--f1);font-size:12px;font-weight:700;padding-left:14px">TOTAL <span style="font-size:10px;color:var(--th);font-weight:500">/ 100 pts</span></td>
+              <td style="border-left:1px solid rgba(14,72,254,0.12)"><span class="nota-val" style="font-size:16px">${totalFinal !== null ? totalFinal.toFixed(1) : '—'}</span></td>
+              <td><span class="conc ${ci.cls}" style="font-size:15px">${conceito || '—'}</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="bot-grid">
+        <div class="bot-card">
+          <div class="bot-ttl">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+            Critérios de Avaliação
+          </div>
+          <div class="cr-item"><div class="cr-ico wr">${svgW}</div><div class="cr-txt"><strong>Written (50 pts)</strong> — Vocabulary, Grammar, Reading e Use of English.</div></div>
+          <div class="cr-item"><div class="cr-ico li">${svgL}</div><div class="cr-txt"><strong>Listening (30 pts)</strong> — Compreensão de áudio: diálogos e narrações.</div></div>
+          <div class="cr-item"><div class="cr-ico sp">${svgS}</div><div class="cr-txt"><strong>Speaking (20 pts)</strong> — Avaliação oral em dupla: fluência e desenvoltura.</div></div>
+        </div>
+        <div class="bot-card">
+          <div class="bot-ttl">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+            Tabela de Conceitos
+          </div>
+          <div class="sc-grid">
+            <div class="sc-item"><div class="sc-badge bg-ap">A+</div><span class="sc-range">95–100</span></div>
+            <div class="sc-item"><div class="sc-badge bg-b">B</div><span class="sc-range">80–84</span></div>
+            <div class="sc-item"><div class="sc-badge bg-cm">C–</div><span class="sc-range">60–69</span></div>
+            <div class="sc-item"><div class="sc-badge bg-a">A</div><span class="sc-range">90–94</span></div>
+            <div class="sc-item"><div class="sc-badge bg-cp">C+</div><span class="sc-range">75–79</span></div>
+            <div class="sc-item"><div class="sc-badge bg-d">D</div><span class="sc-range">50–59</span></div>
+            <div class="sc-item"><div class="sc-badge bg-bp">B+</div><span class="sc-range">85–89</span></div>
+            <div class="sc-item"><div class="sc-badge bg-c">C</div><span class="sc-range">70–74</span></div>
+            <div class="sc-item"><div class="sc-badge bg-f">F</div><span class="sc-range">&lt; 50</span></div>
+          </div>
         </div>
       </div>
-      <div class="res-status">${ci.label}</div>
-      <div class="divr"></div>
-      <div class="sc-lbl">Aproveitamento Geral</div>
-      <div class="sc-big">${totalFinal !== null ? totalFinal.toFixed(1) : '—'} <span>/ 100 pts</span></div>
-      <div class="mini-g">${miniRows}</div>
     </div>
+
+    <!-- Direita: resultado + assinaturas -->
+    <div class="right">
+      <div class="res-card">
+        <div class="res-ttl">Resultado Semestral</div>
+        <div class="circ">
+          <svg viewBox="0 0 180 180">
+            <circle class="c-bg" cx="90" cy="90" r="${r}"/>
+            <circle class="c-prog" cx="90" cy="90" r="${r}" style="stroke-dasharray:${circ};stroke-dashoffset:${off}"/>
+          </svg>
+          <div class="c-inner">
+            <div class="c-score">${totalFinal !== null ? Math.round(totalFinal) : '—'}</div>
+            <div class="c-conc ${ci.cls}">${conceito || '—'}</div>
+          </div>
+        </div>
+        <div class="res-status">${ci.label}</div>
+        <div class="divr"></div>
+        <div class="pts-lbl">Aproveitamento Geral</div>
+        <div class="pts-val">${totalFinal !== null ? totalFinal.toFixed(1) : '—'} <span>/ 100 pts</span></div>
+        <div class="mini-g">${miniRows}</div>
+      </div>
+
+      <div class="sigs-card">
+        <div class="sigs">
+          <div class="sig-c">
+            <div class="sig-role">Professor(a)</div>
+            <div class="sig-cur">${professorDisplay}</div>
+            <div class="sig-nm">${professorDisplay}</div>
+          </div>
+          <div class="sig-c">
+            <div class="sig-role">Responsável</div>
+            <div class="sig-line">______________________</div>
+            <div class="sig-nm">Assinatura</div>
+          </div>
+          <div class="sig-c">
+            <div class="sig-role">Coordenação</div>
+            <div class="sig-cur">SpeakUp</div>
+            <div class="sig-nm">SpeakUp Academy</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
   </div>
 
-  <div class="bot-g">
-    <div class="bot-card">
-      <div class="bot-ttl">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
-        Critérios de Avaliação
-      </div>
-      <div class="cr-item"><div class="cr-ico wr">${svgW}</div><div class="cr-txt"><strong>Written Test (50 pts)</strong> — Vocabulary, Grammar, Reading e Use of English. Aplicada ao término de cada unidade.</div></div>
-      <div class="cr-item"><div class="cr-ico li">${svgL}</div><div class="cr-txt"><strong>Listening Test (30 pts)</strong> — Compreensão de áudio: diálogos, apresentações e narrações. Aplicada ao final do semestre.</div></div>
-      <div class="cr-item"><div class="cr-ico sp">${svgS}</div><div class="cr-txt"><strong>Speaking Test (20 pts)</strong> — Avaliação oral em dupla. Critérios: argumentação, organização, espontaneidade e desenvoltura.</div></div>
-    </div>
-    <div class="bot-card">
-      <div class="bot-ttl">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
-        Tabela de Conceitos
-      </div>
-      <div class="sc-grid">
-        <div class="sc-item"><div class="sc-badge bg-ap">A+</div><span class="sc-range">95–100</span></div>
-        <div class="sc-item"><div class="sc-badge bg-b">B</div><span class="sc-range">80–84</span></div>
-        <div class="sc-item"><div class="sc-badge bg-cm">C–</div><span class="sc-range">60–69</span></div>
-        <div class="sc-item"><div class="sc-badge bg-a">A</div><span class="sc-range">90–94</span></div>
-        <div class="sc-item"><div class="sc-badge bg-cp">C+</div><span class="sc-range">75–79</span></div>
-        <div class="sc-item"><div class="sc-badge bg-d">D</div><span class="sc-range">50–59</span></div>
-        <div class="sc-item"><div class="sc-badge bg-bp">B+</div><span class="sc-range">85–89</span></div>
-        <div class="sc-item"><div class="sc-badge bg-c">C</div><span class="sc-range">70–74</span></div>
-        <div class="sc-item"><div class="sc-badge bg-f">F</div><span class="sc-range">&lt; 50</span></div>
-      </div>
-    </div>
-    <div></div>
-  </div>
-
-  <div class="sigs">
-    <div class="sig-c">
-      <div class="sig-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div>
-      <div class="sig-role">Professor(a)</div>
-      <div class="sig-cur">${professorDisplay}</div>
-      <div class="sig-nm">${professorDisplay}</div>
-    </div>
-    <div class="sig-c">
-      <div class="sig-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div>
-      <div class="sig-role">Responsável</div>
-      <div class="sig-cur" style="color:#d1d5db;font-family:'Montserrat',sans-serif;font-style:normal;font-size:12px">______________________</div>
-      <div class="sig-nm">Assinatura do responsável</div>
-    </div>
-    <div class="sig-c">
-      <div class="sig-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div>
-      <div class="sig-role">Coordenação</div>
-      <div class="sig-cur">SpeakUp Academy</div>
-      <div class="sig-nm">SpeakUp English Academy</div>
-    </div>
-  </div>
-
+  <!-- Footer -->
   <footer class="foot">
-    <div class="foot-l">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>
-      <span>SpeakUp English Language Academy &nbsp;•&nbsp; Cataguases, MG</span>
-    </div>
-    <div class="foot-r">Documento oficial — ${new Date().toLocaleDateString('pt-BR')}</div>
+    <span class="foot-txt">SpeakUp English Language Academy &nbsp;·&nbsp; Cataguases, MG</span>
+    <span class="foot-txt">Documento oficial &nbsp;·&nbsp; ${new Date().toLocaleDateString('pt-BR')}</span>
   </footer>
-  </div>
+
 </div>
+<button class="btn-png" id="btnPng" onclick="baixarPng()">
+  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+  Baixar PNG
+</button>
 <button class="btn-pdf" onclick="window.print()">
-  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
   Baixar PDF
 </button>
+<script>
+function baixarPng() {
+  var btn = document.getElementById('btnPng');
+  if (btn.classList.contains('loading')) return;
+  btn.classList.add('loading');
+  btn.textContent = 'Gerando…';
+  var el = document.querySelector('.bol');
+  html2canvas(el, {
+    scale: 2,
+    useCORS: true,
+    backgroundColor: '#ffffff',
+    logging: false,
+  }).then(function(canvas) {
+    var link = document.createElement('a');
+    link.download = 'boletim-${aluno.name.replace(/\\s+/g, '-').toLowerCase()}.png';
+    link.href = canvas.toDataURL('image/png');
+    link.click();
+    btn.classList.remove('loading');
+    btn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg> Baixar PNG';
+  }).catch(function() {
+    btn.classList.remove('loading');
+    btn.textContent = 'Baixar PNG';
+    alert('Erro ao gerar imagem. Tente novamente.');
+  });
+}
+</script>
 </body>
-</html>`);
-    win.document.close();
-    setTimeout(() => win.print(), 600);
+</html>`;
+    const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const win = window.open(url, '_blank');
+    if (!win) {
+      URL.revokeObjectURL(url);
+      alert('Permita popups nesta página para gerar o boletim.');
+      return;
+    }
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
   };
 
   return (
@@ -547,7 +621,7 @@ export function NotasView({ professorSlug, professorNome, turmas, alunosPorTurma
     } finally {
       setSavingCell(null);
     }
-  }, [editingCell, editVal, setScore, setFaltas]);
+  }, [editingCell, editVal, setScore]);
 
   const handleKeyDown = (e) => {
     if (e.key === 'Enter') commitEdit();
@@ -716,7 +790,7 @@ export function NotasView({ professorSlug, professorNome, turmas, alunosPorTurma
                   })}
                   <th rowSpan={3} style={{ ...thBase, background: '#00234b', color: 'white', width: 80, textAlign: 'center', borderLeft: '2px solid rgba(255,255,255,0.2)', borderRight: '1px solid rgba(255,255,255,0.1)' }}>Total<div style={{ fontSize: 10, opacity: 0.7, fontWeight: 400 }}>/100</div></th>
                   <th rowSpan={3} style={{ ...thBase, background: '#00234b', color: 'white', width: 90, textAlign: 'center' }}>Faltas<div style={{ fontSize: 9, opacity: 0.7, fontWeight: 400 }}>de chamadas</div></th>
-                  <th rowSpan={3} style={{ ...thBase, background: '#00234b', color: 'white', width: 50, textAlign: 'center' }}>Card</th>
+                  <th rowSpan={3} style={{ ...thBase, background: '#00234b', color: 'white', width: 70, textAlign: 'center' }}>Boletim</th>
                 </tr>
 
                 {/* Linha 2: labels das provas + "Media" */}
@@ -782,8 +856,9 @@ export function NotasView({ professorSlug, professorNome, turmas, alunosPorTurma
                     calcularMediaCategoria(avsByTipo[cat.tipo] || [], grade.scores, cat.max)
                   );
                   const hasAnyScore = medias.some(m => m !== null);
-                  const totalFinal = hasAnyScore
-                    ? parseFloat(medias.reduce((s, m) => s + (m ?? 0), 0).toFixed(2))
+                  const allScored = medias.every(m => m !== null);
+                  const totalFinal = allScored
+                    ? parseFloat(medias.reduce((s, m) => s + m, 0).toFixed(2))
                     : null;
                   const conceito = totalFinal !== null ? calcularConceito(totalFinal) : null;
                   const rowBg = idx % 2 === 0 ? 'white' : '#f8fafc';
@@ -858,9 +933,9 @@ export function NotasView({ professorSlug, professorNome, turmas, alunosPorTurma
                         })()}
                       </td>
 
-                      {/* Card de Nota */}
+                      {/* Boletim */}
                       <td style={{ ...tdBase, textAlign: 'center', padding: '4px 6px' }}>
-                        {totalFinal !== null && (
+                        {hasAnyScore && (
                           <button
                             onClick={() => setCardAluno({ aluno, totalFinal, conceito, medias })}
                             title="Gerar boletim semestral"
@@ -928,7 +1003,7 @@ export default function Notas() {
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (user) => {
-      if (user) { setAuthReady(true); unsub(); }
+      if (user) { setAuthReady(true); }
       else { signInAnonymously(auth).catch(() => { setAuthReady(true); }); }
     });
     return unsub;
@@ -940,12 +1015,14 @@ export default function Notas() {
       setLoadingData(true);
       setFetchError(null);
       try {
-        const snap = await getDocs(collection(db, 'turmas'));
+        const [snap, alunosSnap] = await Promise.all([
+          getDocs(collection(db, 'turmas')),
+          getDocs(collection(db, 'artifacts', APP_ID, 'public', 'data', 'students')),
+        ]);
         const minhas = snap.docs
           .map(d => ({ id: d.id, ...d.data() }))
           .filter(t => (t.professor || '').toLowerCase().includes(professorPrimeiroNome.toLowerCase()));
         setTurmas(minhas);
-        const alunosSnap = await getDocs(collection(db, 'artifacts', APP_ID, 'public', 'data', 'students'));
         const todos = alunosSnap.docs.map(d => ({ id: d.id, ...d.data() }));
         const mapa = {};
         for (const t of minhas) {

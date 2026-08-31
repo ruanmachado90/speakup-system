@@ -1,7 +1,40 @@
+/* Design system primeiro: @import precisa vir antes de qualquer regra. */
+@import './styles/design-system.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+@layer base {
+  /* Até aqui o app renderizava no sans-serif padrão do sistema (Segoe UI no
+     Windows): as duas fontes carregadas no index.html nunca foram aplicadas. */
+  body {
+    font-family: var(--font-body);
+    color: var(--text-body);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  h1, h2, h3, h4 {
+    font-family: var(--font-display);
+    color: var(--text-strong);
+    letter-spacing: var(--ls-tight);
+  }
+
+  /* Superfícies do navegador que ninguém desenha, e que entregam o sistema. */
+  ::selection {
+    background: var(--su-blue-100);
+    color: var(--ink);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--border-focus);
+    outline-offset: 2px;
+  }
+}
+
+/* LEGADO — superseded pelos tokens do design system acima.
+   Nenhum arquivo .jsx consome estas variáveis (grep: 0 usos de var(--brand-*)).
+   Mantidas só até a migração terminar; então some daqui. */
 :root {
   --brand-blue:        #0e48fe;
   --brand-orange:      #fc6e1f;

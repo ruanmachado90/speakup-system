@@ -1,0 +1,43 @@
+/* ============================================================
+   SpeakUp — Radii, borders, shadows, motion (v2)
+   Sharper, quieter: small radii, hairline borders, subtle elevation.
+   Pill shape is reserved for tags/status only, not buttons.
+
+   FONTE DA VERDADE: Claude Design → "SpeakUp Design System"
+   (tokens/effects.css). Não edite à mão — sincronize.
+   ============================================================ */
+
+:root {
+  --radius-xs:    4px;
+  --radius-sm:    6px;   /* buttons, inputs */
+  --radius-md:    8px;   /* cards */
+  --radius-lg:    10px;  /* panels */
+  --radius-xl:    14px;  /* modals */
+  --radius-pill:  999px; /* tags / status pills only */
+
+  --border-width: 1px;
+  --border-card:  1px solid var(--gr-200);
+
+  /* Quiet, low-contrast elevation — no colored glow */
+  --shadow-xs:   0 1px 2px rgba(16, 18, 20, 0.05);
+  --shadow-sm:   0 1px 2px rgba(16, 18, 20, 0.06), 0 1px 1px rgba(16, 18, 20, 0.04);
+  --shadow-md:   0 4px 10px rgba(16, 18, 20, 0.07);
+  --shadow-lg:   0 10px 24px rgba(16, 18, 20, 0.10);
+  --shadow-xl:   0 20px 40px rgba(16, 18, 20, 0.14);
+
+  --ring-accent:  0 0 0 3px rgba(14, 72, 254, 0.18);
+
+  /* ---- Named use-case shadows (layered, ink-tinted) ---- */
+  --shadow-card:    0 1px 2px var(--ink-04), 0 8px 20px var(--ink-08);
+  --shadow-card-lg: 0 2px 6px var(--ink-08), 0 30px 55px -20px var(--ink-12);
+  --shadow-pop:     0 16px 36px -18px var(--ink-40);
+  --shadow-drawer:  -20px 0 60px -16px var(--ink-12), -1px 0 0 var(--ink-08);
+  --shadow-pill:    0 1px 0 var(--ink-04), 0 6px 18px -12px var(--ink-12);
+  --shadow-btn:     0 10px 22px -12px var(--ink-40);
+
+  --ease-out:      cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
+  --dur-fast:      100ms;
+  --dur-base:      160ms;
+  --dur-slow:      240ms;
+}

@@ -1,0 +1,90 @@
+/* ============================================================
+   SpeakUp — Color tokens (v2: restrained, professional)
+   Brand blue is an ACCENT — used for links, focus, small highlights,
+   and the rare primary action. Ink/graphite carries the UI. Pink,
+   orange and yellow are reserved for sparse category tags only.
+
+   FONTE DA VERDADE: Claude Design → "SpeakUp Design System"
+   (projeto 2d28da60-97e0-4390-9bde-a53b18a84857, tokens/colors.css).
+   Não edite à mão — sincronize com o projeto.
+   ============================================================ */
+
+:root {
+  /* ---- Brand (use sparingly — accent, not surface) ---- */
+  --su-blue:        #0e48fe;
+  --su-yellow:      #ffae1e;
+  --su-pink:        #f30961;
+  --su-orange:      #fc6e1f;
+
+  --su-blue-50:     #eef2ff;
+  --su-blue-100:    #dde6ff;
+  --su-blue-200:    #b9c9ff;
+  --su-blue-300:    #8aa4ff;
+  --su-blue-600:    #0a39d6;
+  --su-blue-700:    #0a2fab;
+
+  --su-pink-100:    #ffd6e4;
+  --su-pink-700:    #9e0640;
+  --su-orange-100:  #ffe6d4;
+  --su-orange-600:  #db5811;
+  --su-yellow-100:  #fff1cf;
+  --su-yellow-600:  #a06e05;
+
+  /* ---- Neutrals: cool graphite (the workhorse scale) ---- */
+  --gr-white:       #ffffff;
+  --gr-50:          #f7f8f9;
+  --gr-100:         #eef0f2;
+  --gr-200:         #dfe3e7;
+  --gr-300:         #c7ccd1;
+  --gr-400:         #9aa1a9;
+  --gr-500:         #6b7280;
+  --gr-600:         #4b5259;
+  --gr-700:         #343a40;
+  --gr-800:         #212529;
+  --gr-900:         #14171a;
+  --ink:            #101214;
+
+  /* ---- Semantic feedback (muted, not candy) ---- */
+  --su-success:     #147a44;
+  --su-success-bg:  #e7f4ec;
+  --su-success-fg:  #146138;
+  --su-warning:     #a5690a;
+  --su-warning-bg:  #faf1e0;
+  --su-warning-fg:  #8a5807;
+  --su-danger:      #b3261e;
+  --su-danger-bg:   #fbebe9;
+  --su-danger-fg:   #942016;
+  --su-info:        var(--su-blue);
+  --su-info-bg:     var(--su-blue-50);
+  --su-info-fg:     var(--su-blue-700);
+
+  /* ============================================================
+     SEMANTIC ALIASES — ink/graphite lead, blue is the accent
+     ============================================================ */
+  --color-ink:            var(--ink);
+  --color-accent:         var(--su-blue);
+  --color-accent-hover:   var(--su-blue-600);
+
+  --text-strong:          var(--ink);
+  --text-body:            var(--gr-700);
+  --text-muted:           var(--gr-500);
+  --text-faint:           var(--gr-400);
+  --text-on-dark:         var(--gr-white);
+
+  --surface-page:         var(--gr-50);
+  --surface-card:         var(--gr-white);
+  --surface-sunken:       var(--gr-100);
+  --surface-inverse:      var(--ink);
+
+  --border-subtle:        var(--gr-200);
+  --border-strong:        var(--gr-300);
+  --border-focus:         var(--su-blue);
+
+  /* ---- Ink alpha tints (borders/overlays/scrims) ---- */
+  --ink-65:  rgba(16, 18, 20, 0.65);
+  --ink-50:  rgba(16, 18, 20, 0.50);
+  --ink-40:  rgba(16, 18, 20, 0.40);
+  --ink-12:  rgba(16, 18, 20, 0.12);
+  --ink-08:  rgba(16, 18, 20, 0.08);
+  --ink-04:  rgba(16, 18, 20, 0.04);
+}

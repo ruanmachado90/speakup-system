@@ -1,0 +1,16 @@
+/* ============================================================
+   SpeakUp Design System — ponto de entrada
+   Espelha o styles.css do projeto no Claude Design.
+   Importe SÓ este arquivo.
+   ============================================================ */
+
+@import url('./tokens/fonts.css');
+@import url('./tokens/colors.css');
+@import url('./tokens/typography.css');
+@import url('./tokens/spacing.css');
+@import url('./tokens/effects.css');
+/* Não vem do _ds/tokens: é a superfície da landing, tokenizada. */
+@import url('./tokens/surface.css');
+
+/* Componentes do sistema. */
+@import url('./components/date-chip.css');

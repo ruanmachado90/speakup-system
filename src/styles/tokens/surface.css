@@ -1,0 +1,39 @@
+/* ============================================================
+   SpeakUp — Superfície da página (padrão de pontinhos)
+
+   Esta é a "cara" do fundo no Claude Design: a landing inteira roda
+   dentro de um .bg-pattern. Não vem dos arquivos de token do _ds —
+   está declarado na própria landing — mas é parte da identidade, então
+   entra aqui com os MESMOS valores, agora tokenizados.
+
+   Grade de 8px, ponto de 0.35px em #a3a3a0 sobre #fafaf9, e um véu
+   branco a 33% por cima para segurar o contraste. O canvas expõe
+   variações (densidade/temperatura/contraste) em
+   templates/background-pattern — os valores abaixo são os que a
+   landing publicada usa.
+
+   Gêmeo de lms-speakup/public/assets/css/speakup-design-system.css.
+   ============================================================ */
+
+:root {
+  --pattern-dot:      #a3a3a0;
+  --pattern-dot-size: 0.35px;
+  --pattern-gap:      8px;
+  --pattern-bg:       #fafaf9;
+  --pattern-veil:     rgba(255, 255, 255, 0.33);
+}
+
+.bg-pattern {
+  background-color: var(--pattern-bg);
+  background-image: radial-gradient(
+    circle,
+    var(--pattern-dot) var(--pattern-dot-size),
+    transparent var(--pattern-dot-size)
+  );
+  background-size: var(--pattern-gap) var(--pattern-gap);
+  /* O véu é um inset gigante, igual à landing. Como box-shadow não se
+     propaga para o canvas do navegador (background sim), quem usar isto
+     no <body> deve manter min-height:100vh — senão sobra pontinho sem
+     véu no overscroll. */
+  box-shadow: inset 0 0 0 9999px var(--pattern-veil);
+}

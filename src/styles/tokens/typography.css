@@ -1,0 +1,46 @@
+/* ============================================================
+   SpeakUp — Typography tokens (v2)
+   Display: Manrope · Body/UI: Source Sans 3
+
+   FONTE DA VERDADE: Claude Design → "SpeakUp Design System"
+   (tokens/typography.css). Não edite à mão — sincronize.
+   ============================================================ */
+
+:root {
+  --font-display: 'Manrope', system-ui, sans-serif;
+  --font-body:    'Source Sans 3', system-ui, -apple-system, sans-serif;
+  --font-mono:    ui-monospace, 'SFMono-Regular', Menlo, monospace;
+
+  --fw-regular:   400;
+  --fw-medium:    500;
+  --fw-semibold:  600;
+  --fw-bold:      700;
+  --fw-extrabold: 800;
+
+  /* Tighter, more editorial scale */
+  --fs-display:   3rem;      /* 48 */
+  --fs-h1:        2.25rem;   /* 36 */
+  --fs-h2:        1.75rem;   /* 28 */
+  --fs-h3:        1.375rem;  /* 22 */
+  --fs-h4:        1.125rem;  /* 18 */
+  --fs-lg:        1.0625rem; /* 17 */
+  --fs-base:      0.9375rem; /* 15 */
+  --fs-sm:        0.8125rem; /* 13 */
+  --fs-xs:        0.75rem;   /* 12 */
+  --fs-2xs:       0.6875rem; /* 11 */
+
+  --lh-tight:     1.1;
+  --lh-snug:      1.3;
+  --lh-normal:    1.5;
+  --lh-relaxed:   1.65;
+
+  --ls-tight:     -0.015em;
+  --ls-normal:    0;
+  --ls-caps:      0.06em;
+  --ls-caps-lg:   0.12em;
+
+  --text-heading-font:   var(--font-display);
+  --text-heading-weight: var(--fw-bold);
+  --text-body-font:      var(--font-body);
+  --text-body-weight:    var(--fw-regular);
+}

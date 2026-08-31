@@ -1,0 +1,14 @@
+/* ============================================================
+   SpeakUp — Webfonts (v2: rigorous, professional pairing)
+     • Display/headings: Manrope
+     • Body/UI:          Source Sans 3
+   Supersede a dupla Poppins/Montserrat. Hurme (a face de headline do
+   manual de identidade) não tem distribuição web gratuita; Manrope é
+   o substituto. Se você tiver os arquivos licenciados da Hurme, é
+   aqui que ela entra.
+
+   FONTE DA VERDADE: Claude Design → "SpeakUp Design System"
+   (tokens/fonts.css). Não edite à mão — sincronize.
+   ============================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Source+Sans+3:wght@400;500;600;700&display=swap');

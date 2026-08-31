@@ -1,0 +1,65 @@
+/* ============================================================
+   SpeakUp — Date chip (folhinha de calendário)
+
+   Componente de data: papel branco, faixa da marca só no topo, mês
+   e dia em ink. A faixa é AZUL — o magenta foi testado e descartado.
+
+   Uso:
+     <div className="su-date-chip">
+       <span className="su-date-chip__month">AUG</span>
+       <span className="su-date-chip__day">25</span>
+     </div>
+
+   Gêmeo de lms-speakup/public/assets/css/speakup-design-system.css.
+   ============================================================ */
+
+.su-date-chip {
+  position: relative;
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  padding-top: 3px; /* compensa a faixa, mantém o texto óptico ao centro */
+
+  background: var(--surface-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  /* Um degrau ABAIXO do card que o contém: o chip é conteúdo dentro
+     do card, não um card. */
+  box-shadow: var(--shadow-xs);
+  overflow: hidden; /* recorta a faixa nos cantos arredondados */
+}
+
+/* A faixa. Só o topo é da marca — o resto do papel é branco. */
+.su-date-chip::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: var(--su-blue);
+}
+
+.su-date-chip__month {
+  font-family: var(--font-display);
+  font-size: 0.5625rem; /* 9px — abaixo de --fs-2xs para caber no chip menor */
+  font-weight: var(--fw-extrabold);
+  letter-spacing: var(--ls-caps);
+  text-transform: uppercase;
+  color: var(--text-strong);
+  line-height: 1;
+}
+
+.su-date-chip__day {
+  font-family: var(--font-display);
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-extrabold);
+  color: var(--text-strong);
+  line-height: 1.05;
+  font-variant-numeric: tabular-nums;
+}

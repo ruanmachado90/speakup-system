@@ -1,11 +1,11 @@
 import { useState } from 'react';
 import { CheckCircle, RotateCcw, X, Loader2, RefreshCw } from 'lucide-react';
+import { addMonthsClamped } from '../../utils/dateMath';
 
 // Data (YYYY-MM-DD) da parcela N, somando N meses à data da 1ª parcela —
 // mesmo dia do mês, salvo quando o usuário sobrescreve individualmente.
 function dataParcelaPadrao(primeiraData, indice) {
-  const d = new Date(primeiraData + 'T00:00:00');
-  d.setMonth(d.getMonth() + indice);
+  const d = addMonthsClamped(new Date(primeiraData + 'T00:00:00'), indice);
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
@@ -78,8 +78,7 @@ export function ConfirmarMatriculaModal({ preCad, onConfirm, onClose, saving }) 
 
   const previewEnd = (() => {
     if (!dueDate || !installments) return null;
-    const d = new Date(dueDate + 'T00:00:00');
-    d.setMonth(d.getMonth() + Number(installments) - 1);
+    const d = addMonthsClamped(new Date(dueDate + 'T00:00:00'), Number(installments) - 1);
     return d.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
   })();
 
@@ -177,8 +176,7 @@ export function ReativarMatriculaModal({ aluno, onConfirm, onClose, saving }) {
 
   const previewEnd = (() => {
     if (!dueDate || !installments) return null;
-    const d = new Date(dueDate + 'T00:00:00');
-    d.setMonth(d.getMonth() + Number(installments) - 1);
+    const d = addMonthsClamped(new Date(dueDate + 'T00:00:00'), Number(installments) - 1);
     return d.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
   })();
 

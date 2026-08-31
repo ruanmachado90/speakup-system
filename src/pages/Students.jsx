@@ -12,6 +12,7 @@ import { useConfirm } from '../hooks/useConfirm';
 import ConfirmDialog from '../components/ui/ConfirmDialog';
 import FrequenciaAlunoModal from '../components/FrequenciaAlunoModal';
 import { buildBoletimHTML } from '../utils/boletim';
+import { addMonthsClamped } from '../utils/dateMath';
 import { ConfirmarMatriculaModal, ReativarMatriculaModal } from '../components/students/MatriculaModals';
 import InserirEmTurmaModal from '../components/students/InserirEmTurmaModal';
 import BoletimModal from '../components/students/BoletimModal';
@@ -87,11 +88,7 @@ export const Students = ({
       // cada parcela; se não vier (chamada legada), cai no cálculo mensal padrão.
       for (let i = 0; i < Number(installments); i++) {
         const dataStr = installmentDates?.[i];
-        const d = dataStr ? new Date(dataStr + 'T00:00:00') : (() => {
-          const start = new Date(dueDate + 'T00:00:00');
-          start.setMonth(start.getMonth() + i);
-          return start;
-        })();
+        const d = dataStr ? new Date(dataStr + 'T00:00:00') : addMonthsClamped(new Date(dueDate + 'T00:00:00'), i);
         const iso = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}T00:00:00`;
         batch.set(doc(colPayments), {
           studentId: studentRef.id, studentName: preCad.nome,
@@ -197,7 +194,7 @@ export const Students = ({
   const [sortOrder, setSortOrder] = useState('asc'); // 'asc' ou 'desc'
   const [teacherFilter, setTeacherFilter] = useState('all'); // 'all' ou professorId
 
-  // â”€â”€ Turmas â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Turmas ──────────────────────────────────────────────────────────────
   const [turmas, setTurmas] = useState([]);
   const [inserirModal, setInserirModal] = useState(null); // aluno selecionado
   const [turmaSelecionada, setTurmaSelecionada] = useState('');

@@ -11,6 +11,7 @@ import {
 } from "firebase/firestore";
 import { db } from "../firebase";
 import { APP_ID } from "./constants";
+import { addMonthsClamped } from "./dateMath";
 
 const appId = APP_ID;
 const col = (name) => collection(db, "artifacts", appId, "public", "data", name);
@@ -69,8 +70,7 @@ export const saveStudent = async (e, user, modal, toastMsg, setModal, setSaving)
           }
 
           if (hasDateChange) {
-            const newDueDate = new Date(newBaseDate);
-            newDueDate.setMonth(newBaseDate.getMonth() + (payment.installmentNum - 1));
+            const newDueDate = addMonthsClamped(newBaseDate, payment.installmentNum - 1);
             updates.dueDate = toLocalISOString(newDueDate);
           }
 
@@ -113,8 +113,7 @@ export const saveStudent = async (e, user, modal, toastMsg, setModal, setSaving)
     const start = new Date(data.dueDate + 'T00:00:00');
 
     for (let i = 0; i < installments; i++) {
-      const d = new Date(start);
-      d.setMonth(start.getMonth() + i);
+      const d = addMonthsClamped(start, i);
 
       batch.set(
         doc(col("payments")),
@@ -187,11 +186,7 @@ export const handleReactivateEnrollment = async (id, { studentName, fee, dueDate
       // cada parcela; se não vier (chamada legada), cai no cálculo mensal padrão.
       for (let i = 0; i < Number(installments); i++) {
         const dataStr = installmentDates?.[i];
-        const d = dataStr ? new Date(dataStr + 'T00:00:00') : (() => {
-          const start = new Date(dueDate + 'T00:00:00');
-          start.setMonth(start.getMonth() + i);
-          return start;
-        })();
+        const d = dataStr ? new Date(dataStr + 'T00:00:00') : addMonthsClamped(new Date(dueDate + 'T00:00:00'), i);
         batch.set(doc(col('payments')), {
           studentId: id,
           studentName,
@@ -591,8 +586,7 @@ export const handleExcelUpload = async (e, toastMsg, setSaving) => {
                 const start = new Date(studentData.dueDate + 'T00:00:00');
 
                 for (let i = 0; i < studentData.installments; i++) {
-                  const d = new Date(start);
-                  d.setMonth(start.getMonth() + i);
+                  const d = addMonthsClamped(start, i);
 
                   const payment = {
                     studentId: ref.id,

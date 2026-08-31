@@ -2,7 +2,7 @@ import React, { useState, useEffect, lazy, Suspense } from "react";
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { signOut } from 'firebase/auth';
 import { auth, db } from './firebase';
-import { collection, query, where, onSnapshot, doc, getDoc, updateDoc } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, doc, getDoc, updateDoc, addDoc, Timestamp } from 'firebase/firestore';
 import { APP_ID } from './utils/constants';
 import { formatDate } from './utils/formatters';
 import { AuthProvider, useAuthContext } from './context/AuthContext';
@@ -226,7 +226,7 @@ function AppContent() {
   const expenses = useExpenses();
   const leads = useLeads();
   const professores = useProfessoresData();
-  const { stats, teacherStats, filteredExpenses, monthlyData } = useDashboardStats();
+  const { stats, teacherStats, filteredExpenses, monthlyData, dataLoading } = useDashboardStats();
   const { financeStats, filteredPayments } = useFinanceData();
   const { filteredExpensesData, expenseEvolutionData } = useExpenseData();
 
@@ -240,7 +240,7 @@ function AppContent() {
 
   /* ================= RENDER ================= */
   return (
-    <div className="flex min-h-screen bg-slate-50 text-slate-900">
+    <div className="bg-pattern flex min-h-screen text-content-strong">
       
       {/* Print Styles */}
       <style>{`
@@ -428,6 +428,7 @@ function AppContent() {
               payments={payments}
               professores={professores}
               role={role}
+              dataLoading={dataLoading}
             />}
 
             {page === "students" && <Students
@@ -873,6 +874,45 @@ function ProfessoresAdmin() {
     setForm(f => ({ ...f, nome, slug }));
   };
 
+  // \u2500\u2500 Diret\u00f3rio de professores (cole\u00e7\u00e3o `professores`) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+  // Fonte usada nos <select> de Turmas e do formul\u00e1rio de aluno \u2014 separado
+  // da conta de acesso (login) acima, que \u00e9 gerenciada por Cloud Function.
+  const diretorio = useProfessoresData();
+  const [diretorioForm, setDiretorioForm] = useState({ nome: '', email: '', telefone: '' });
+  const [diretorioSaving, setDiretorioSaving] = useState(false);
+  const [diretorioError, setDiretorioError] = useState('');
+
+  const handleCreateDiretorio = async (e) => {
+    e.preventDefault();
+    setDiretorioError('');
+    if (!diretorioForm.nome.trim()) { setDiretorioError('Informe o nome do professor.'); return; }
+    setDiretorioSaving(true);
+    try {
+      await addDoc(collection(db, 'professores'), {
+        nome: diretorioForm.nome.trim(),
+        email: diretorioForm.email.trim(),
+        telefone: diretorioForm.telefone.trim(),
+        status: 'ativo',
+        createdAt: Timestamp.now(),
+      });
+      setDiretorioForm({ nome: '', email: '', telefone: '' });
+    } catch (err) {
+      setDiretorioError(err.message || 'Erro ao cadastrar professor.');
+    } finally {
+      setDiretorioSaving(false);
+    }
+  };
+
+  const handleToggleStatusDiretorio = async (professor) => {
+    try {
+      await updateDoc(doc(db, 'professores', professor.id), {
+        status: professor.status === 'inativo' ? 'ativo' : 'inativo',
+      });
+    } catch (err) {
+      setDiretorioError(err.message || 'Erro ao atualizar status.');
+    }
+  };
+
   return (
     <div className="space-y-6 p-1">
       <div className="flex items-center justify-between gap-3 mb-2">
@@ -1046,6 +1086,93 @@ function ProfessoresAdmin() {
             ))}
           </div>
         )}
+      </div>
+
+      {/* ── Diretório de professores — usado nos <select> de Turmas e Alunos ── */}
+      <div className="pt-2 border-t border-slate-200">
+        <div className="flex items-center gap-3 mb-4 mt-2">
+          <Users size={20} className="text-[#005DE4]" />
+          <h2 className="text-lg font-bold text-slate-800">Diretório de Professores</h2>
+        </div>
+        <p className="text-xs text-slate-500 mb-4 -mt-2">
+          Lista usada nos formulários de turma e aluno. Não precisa de senha — é só o cadastro (nome, contato) que aparece nos seletores.
+        </p>
+
+        {diretorioError && <div className="bg-red-50 border border-red-200 text-red-700 rounded-xl px-4 py-3 text-sm mb-4">{diretorioError}</div>}
+
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 mb-4">
+          <form onSubmit={handleCreateDiretorio} className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label className="text-xs font-medium text-slate-600 block mb-1">Nome completo</label>
+              <input
+                value={diretorioForm.nome}
+                onChange={e => setDiretorioForm(f => ({ ...f, nome: e.target.value }))}
+                placeholder="Ex: Cecília Lima"
+                className="w-full border border-slate-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#005DE4]"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-slate-600 block mb-1">E-mail (opcional)</label>
+              <input
+                type="email"
+                value={diretorioForm.email}
+                onChange={e => setDiretorioForm(f => ({ ...f, email: e.target.value }))}
+                placeholder="professor@email.com"
+                className="w-full border border-slate-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#005DE4]"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-slate-600 block mb-1">Telefone (opcional)</label>
+              <input
+                value={diretorioForm.telefone}
+                onChange={e => setDiretorioForm(f => ({ ...f, telefone: e.target.value }))}
+                placeholder="(32) 99999-9999"
+                className="w-full border border-slate-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#005DE4]"
+              />
+            </div>
+            <div className="md:col-span-3 flex justify-end">
+              <button
+                type="submit"
+                disabled={diretorioSaving}
+                className="px-6 py-2.5 bg-[#005DE4] text-white rounded-xl text-sm font-semibold hover:bg-[#0041a8] disabled:opacity-50 transition-colors"
+              >
+                {diretorioSaving ? 'Cadastrando...' : 'Cadastrar no diretório'}
+              </button>
+            </div>
+          </form>
+        </div>
+
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+          <div className="px-6 py-4 border-b border-slate-100">
+            <h3 className="font-semibold text-slate-700">Professores no diretório</h3>
+          </div>
+          {diretorio.length === 0 ? (
+            <div className="py-10 text-center text-slate-400 text-sm">Nenhum professor cadastrado ainda.</div>
+          ) : (
+            <div className="divide-y divide-slate-100">
+              {diretorio.map(p => (
+                <div key={p.id} className="px-6 py-4 flex items-center gap-4">
+                  <div className="w-9 h-9 rounded-full bg-[#005DE4]/10 flex items-center justify-center flex-shrink-0">
+                    <Users size={16} className="text-[#005DE4]" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-slate-800 text-sm">{p.nome}</p>
+                    <p className="text-xs text-slate-400">{[p.email, p.telefone].filter(Boolean).join(' · ') || 'Sem contato cadastrado'}</p>
+                  </div>
+                  <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${p.status === 'inativo' ? 'bg-slate-100 text-slate-500' : 'bg-emerald-50 text-emerald-600'}`}>
+                    {p.status === 'inativo' ? 'Inativo' : 'Ativo'}
+                  </span>
+                  <button
+                    onClick={() => handleToggleStatusDiretorio(p)}
+                    className="px-3 py-1.5 text-xs border border-slate-300 rounded-lg text-slate-600 hover:border-[#005DE4] hover:text-[#005DE4] transition-colors"
+                  >
+                    {p.status === 'inativo' ? 'Ativar' : 'Desativar'}
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

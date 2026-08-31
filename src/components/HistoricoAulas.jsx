@@ -18,6 +18,7 @@ import {
   Save,
 } from 'lucide-react';
 import { baixarRelatorioSemanal } from '../utils/relatorioSemanal';
+import { abrirJanelaImpressao } from '../utils/janelaImpressao';
 import { useConfirm } from '../hooks/useConfirm';
 import ConfirmDialog from './ui/ConfirmDialog';
 
@@ -90,9 +91,17 @@ function AulaCard({ aula, defaultOpen = false, onDelete, onUpdate }) {
 
   return (
     <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
-      <button
+      {/* div com role=button: os botões de editar/excluir vivem aqui dentro e
+          <button> aninhado em <button> é HTML inválido */}
+      <div
+        role="button"
+        tabIndex={0}
+        aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
-        className="w-full flex items-center justify-between p-4 hover:bg-slate-50 transition-all text-left"
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setOpen((v) => !v); }
+        }}
+        className="w-full flex items-center justify-between p-4 hover:bg-slate-50 transition-all text-left cursor-pointer"
       >
         <div className="flex items-center gap-4">
           <div className="bg-[#005DE4] text-white rounded-lg p-2.5">
@@ -149,7 +158,7 @@ function AulaCard({ aula, defaultOpen = false, onDelete, onUpdate }) {
           </div>
           {open ? <ChevronUp size={18} className="text-slate-400" /> : <ChevronDown size={18} className="text-slate-400" />}
         </div>
-      </button>
+      </div>
 
       {open && (
         <div className="border-t border-slate-100 p-4 space-y-4">
@@ -244,7 +253,7 @@ function AulaCard({ aula, defaultOpen = false, onDelete, onUpdate }) {
                   const Icon = statusIcon[c.status] || CheckCircle;
                   return (
                     <div
-                      key={i}
+                      key={c.alunoId || i}
                       className="flex items-center justify-between px-3 py-2 rounded-lg bg-slate-50 border border-slate-100"
                     >
                       <span className="text-sm text-slate-800">{c.alunoNome}</span>
@@ -300,8 +309,8 @@ export default function HistoricoAulas({ aulas, turmas, onClose, onDeleteAula, o
         <div class="aula-card">
           <div class="aula-header">
             <strong>${formatDate(aula.data)}</strong>
-            <span>${aula.turmaNome}</span>
-            <span>${aula.horario}</span>
+            <span>${aula.turmaNome || ''}</span>
+            <span>${aula.horario || ''}</span>
           </div>
           ${aula.conteudo ? `<p class="field"><span>Conteúdo:</span> ${aula.conteudo}</p>` : ''}
           ${aula.homework ? `<p class="field homework"><span>Homework:</span> ${aula.homework}</p>` : ''}
@@ -370,10 +379,7 @@ export default function HistoricoAulas({ aulas, turmas, onClose, onDeleteAula, o
       </html>
     `;
 
-    const win = window.open('', '_blank');
-    win.document.write(html);
-    win.document.close();
-    setTimeout(() => { win.focus(); win.print(); }, 400);
+    abrirJanelaImpressao(html);
   };
 
   return (

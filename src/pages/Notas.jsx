@@ -537,7 +537,7 @@ export function NotasView({ professorSlug, professorNome, turmas, alunosPorTurma
 
   const {
     avaliacoes, gradesMap, loading: loadingGrades,
-    addAvaliacao, deleteAvaliacao, setScore, setFaltas,
+    addAvaliacao, deleteAvaliacao, setScore,
   } = useGrades({ professorSlug, turmaId: selectedTurma || null, semestre });
 
   // Auto-seleciona turma quando há apenas uma
@@ -1080,4 +1080,3 @@ export default function Notas() {
 // ── Styles (apenas para elementos da tabela com cores dinâmicas) ─────────────
 const thBase  = { padding: '8px 10px', fontWeight: 700, borderBottom: '1px solid rgba(255,255,255,0.1)' };
 const tdBase  = { padding: '5px 8px', borderBottom: '1px solid #f1f5f9' };
-const iconBtn = { background: 'none', border: 'none', color: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center' };

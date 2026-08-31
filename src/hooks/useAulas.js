@@ -8,10 +8,18 @@ export function useAulas(professorNome) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  // Troca de professor: zera a lista durante o render (padrão recomendado pelo
+  // React) em vez de chamar setState dentro do effect, que causa render em cascata.
+  const [professorAnterior, setProfessorAnterior] = useState(professorNome);
+  if (professorAnterior !== professorNome) {
+    setProfessorAnterior(professorNome);
+    setAulas([]);
+    setLoading(true);
+  }
+
   // Escuta aulas do professor em tempo real via onSnapshot
   useEffect(() => {
     if (!professorNome) return;
-    setLoading(true);
     const q = query(collection(db, 'aulas'), where('professor', '==', professorNome));
     const unsubscribe = onSnapshot(
       q,

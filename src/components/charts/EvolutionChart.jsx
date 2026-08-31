@@ -18,7 +18,7 @@ const fmt = (v) =>
     ? `R$ ${(v / 1000).toFixed(1).replace('.', ',')}k`
     : `R$ ${Number(v).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
 
-export const EvolutionChart = ({ labels, planned, paid }) => {
+export const EvolutionChart = ({ labels, planned, paid, hidden = false }) => {
   const [hover, setHover] = useState(null); // index
 
   const W = 760, H = 220, PL = 56, PR = 16, PT = 16, PB = 32;
@@ -44,13 +44,13 @@ export const EvolutionChart = ({ labels, planned, paid }) => {
   return (
     <div>
       {/* Legenda */}
-      <div className="flex items-center gap-5 mb-3 text-xs font-semibold" style={{color:'#6b7280',fontFamily:'Montserrat,sans-serif'}}>
+      <div className="flex items-center gap-5 mb-3 text-xs font-semibold" style={{color:'var(--gr-500)',fontFamily:'var(--font-body)'}}>
         <span className="flex items-center gap-1.5">
-          <span className="inline-block rounded" style={{width:12,height:3,background:'#0e48fe'}} />
+          <span className="inline-block rounded" style={{width:12,height:3,background:'var(--su-blue)'}} />
           Realizado
         </span>
         <span className="flex items-center gap-1.5">
-          <svg width="20" height="4"><line x1="0" y1="2" x2="20" y2="2" stroke="#9ca3af" strokeWidth="2" strokeDasharray="4 3" /></svg>
+          <svg width="20" height="4"><line x1="0" y1="2" x2="20" y2="2" stroke="var(--gr-400)" strokeWidth="2" strokeDasharray="4 3" /></svg>
           Previsto
         </span>
       </div>
@@ -62,8 +62,8 @@ export const EvolutionChart = ({ labels, planned, paid }) => {
       >
         <defs>
           <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%"  stopColor="#0e48fe" stopOpacity="0.10" />
-            <stop offset="100%" stopColor="#0e48fe" stopOpacity="0.01" />
+            <stop offset="0%"  stopColor="var(--su-blue)" stopOpacity="0.10" />
+            <stop offset="100%" stopColor="var(--su-blue)" stopOpacity="0.01" />
           </linearGradient>
         </defs>
 
@@ -74,9 +74,9 @@ export const EvolutionChart = ({ labels, planned, paid }) => {
           return (
             <g key={i}>
               <line x1={PL} x2={W - PR} y1={y} y2={y}
-                stroke="rgba(0,0,0,0.04)" strokeWidth={1} />
-              <text x={PL - 6} y={y + 3.5} fontSize={9} textAnchor="end" fill="#9ca3af" fontFamily="Montserrat,sans-serif">
-                {val >= 1000 ? `${(val / 1000).toFixed(0)}k` : val.toFixed(0)}
+                stroke="var(--ink-04)" strokeWidth={1} />
+              <text x={PL - 6} y={y + 3.5} fontSize={9} textAnchor="end" fill="var(--gr-500)" fontFamily="var(--font-body)">
+                {hidden ? '••' : (val >= 1000 ? `${(val / 1000).toFixed(0)}k` : val.toFixed(0))}
               </text>
             </g>
           );
@@ -85,7 +85,7 @@ export const EvolutionChart = ({ labels, planned, paid }) => {
         {/* X-axis labels */}
         {labels.map((lbl, i) => (
           <text key={i} x={xOf(i)} y={H - 6} fontSize={10}
-            textAnchor="middle" fill="#9ca3af" fontFamily="Montserrat,sans-serif">{lbl}</text>
+            textAnchor="middle" fill="var(--gr-500)" fontFamily="var(--font-body)">{lbl}</text>
         ))}
 
         {/* Área preenchida (Realizado) */}
@@ -93,13 +93,13 @@ export const EvolutionChart = ({ labels, planned, paid }) => {
 
         {/* Linha Previsto — tracejada */}
         <path d={planPath} fill="none"
-          stroke="#9ca3af" strokeWidth="1.5"
+          stroke="var(--gr-400)" strokeWidth="1.5"
           strokeDasharray="6 4"
           strokeLinejoin="round" strokeLinecap="round" />
 
         {/* Linha Realizado — sólida */}
         <path d={paidPath} fill="none"
-          stroke="#0e48fe" strokeWidth="2.5"
+          stroke="var(--su-blue)" strokeWidth="2.5"
           strokeLinejoin="round" strokeLinecap="round" />
 
         {/* Hover zones invisíveis */}
@@ -125,26 +125,26 @@ export const EvolutionChart = ({ labels, planned, paid }) => {
             <g>
               {/* Linha vertical */}
               <line x1={x} x2={x} y1={PT} y2={PT + chartH}
-                stroke="#cbd5e1" strokeWidth={1} strokeDasharray="3 3" />
+                stroke="var(--gr-300)" strokeWidth={1} strokeDasharray="3 3" />
 
               {/* Ponto Realizado */}
-              <circle cx={x} cy={yPaid} r={4} fill="#0e48fe" stroke="white" strokeWidth={2} />
+              <circle cx={x} cy={yPaid} r={4} fill="var(--su-blue)" stroke="white" strokeWidth={2} />
               {/* Ponto Previsto */}
-              <circle cx={x} cy={yPlan} r={4} fill="#9ca3af" stroke="white" strokeWidth={2} />
+              <circle cx={x} cy={yPlan} r={4} fill="var(--gr-500)" stroke="white" strokeWidth={2} />
 
               {/* Tooltip */}
               <rect x={ttX} y={ttY} width={ttW} height={ttH}
-                fill="#111827" rx={8} ry={8} />
-              <text x={ttX + 10} y={ttY + 16} fontSize={10} fontWeight="700" fill="#ffffff" fontFamily="Montserrat,sans-serif">
+                fill="var(--ink)" rx={8} ry={8} />
+              <text x={ttX + 10} y={ttY + 16} fontSize={10} fontWeight="700" fill="var(--text-on-dark)" fontFamily="var(--font-body)">
                 {labels[hover]}
               </text>
-              <circle cx={ttX + 10} cy={ttY + 28} r={3} fill="#0e48fe" />
-              <text x={ttX + 17} y={ttY + 32} fontSize={9.5} fill="#d1d5db" fontFamily="Montserrat,sans-serif">
-                Realizado: {fmt(paid[hover] || 0)}
+              <circle cx={ttX + 10} cy={ttY + 28} r={3} fill="var(--su-blue)" />
+              <text x={ttX + 17} y={ttY + 32} fontSize={9.5} fill="var(--gr-300)" fontFamily="var(--font-body)">
+                Realizado: {hidden ? '••••' : fmt(paid[hover] || 0)}
               </text>
-              <circle cx={ttX + 10} cy={ttY + 44} r={3} fill="#9ca3af" />
-              <text x={ttX + 17} y={ttY + 48} fontSize={9.5} fill="#d1d5db" fontFamily="Montserrat,sans-serif">
-                Previsto: {fmt(planned[hover] || 0)}
+              <circle cx={ttX + 10} cy={ttY + 44} r={3} fill="var(--gr-500)" />
+              <text x={ttX + 17} y={ttY + 48} fontSize={9.5} fill="var(--gr-300)" fontFamily="var(--font-body)">
+                Previsto: {hidden ? '••••' : fmt(planned[hover] || 0)}
               </text>
             </g>
           );

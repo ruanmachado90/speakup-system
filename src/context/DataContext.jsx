@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useEffect, useMemo } from 'react';
 import { db, auth } from '../firebase';
 import { useAuth } from '../hooks/useAuth';
-import { useFirestore } from '../hooks/useFirestore';
+import { useFirestore, useFirestoreCollection } from '../hooks/useFirestore';
 import { useProfessores } from '../hooks/useProfessores';
 import { 
   useStats, 
@@ -43,11 +43,15 @@ export const DataProvider = ({ children }) => {
   
   // Auth & Firebase Data
   const user = useAuth(auth, (msg) => showToast(setToast, msg, 4000));
-  const students = useFirestore(db, APP_ID, "students", user);
-  const payments = useFirestore(db, APP_ID, "payments", user);
-  const expenses = useFirestore(db, APP_ID, "expenses", user);
+  const { data: students, isLoading: studentsLoading } = useFirestoreCollection(db, APP_ID, "students", user);
+  const { data: payments, isLoading: paymentsLoading } = useFirestoreCollection(db, APP_ID, "payments", user);
+  const { data: expenses, isLoading: expensesLoading } = useFirestoreCollection(db, APP_ID, "expenses", user);
   const leads = useFirestore(db, APP_ID, "leads", user);
   const { professores } = useProfessores();
+
+  // Enquanto qualquer uma das três coleções que alimentam `stats` não chegou,
+  // os números derivados são zeros de partida — não fatos.
+  const dataLoading = studentsLoading || paymentsLoading || expensesLoading;
 
   // Calculated Data (Memoized Hooks)
   const stats = useStats(students, payments, expenses, dashboardRange);
@@ -83,6 +87,7 @@ export const DataProvider = ({ children }) => {
     expenses,
     leads,
     professores,
+    dataLoading,
 
     // Calculated Data
     stats,
@@ -94,7 +99,7 @@ export const DataProvider = ({ children }) => {
     filteredExpensesData,
     expenseEvolutionData,
   }), [
-    user, students, payments, expenses, leads, professores,
+    user, students, payments, expenses, leads, professores, dataLoading,
     stats, teacherStats, filteredExpenses, monthlyData,
     financeStats, filteredPayments, filteredExpensesData, expenseEvolutionData
   ]);

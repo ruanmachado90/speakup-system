@@ -1,10 +1,37 @@
-import { useState, useMemo } from 'react';
-import { Printer, Plus, Trash2, ListTodo, PhoneCall, UserX, RefreshCw, MessageCircle, AlertTriangle, Eye, EyeOff, CheckCircle } from 'lucide-react';
+import { useState, useMemo, useEffect } from 'react';
+import { Printer, Plus, Trash2, ListTodo, PhoneCall, UserX, RefreshCw, AlertTriangle, AlertCircle, Clock, Eye, EyeOff, CheckCircle } from 'lucide-react';
 import { Card, Table, KPI, EvolutionChart, ProfitChart } from '../components';
 import { formatCurrency, formatDate } from '../utils';
 import { useFaltasHoje, useLembretes, useTodos, useAulasStats } from '../hooks/useDashboardData';
 import RegistrationsModal from '../components/dashboard/RegistrationsModal';
 import CancellationsModal from '../components/dashboard/CancellationsModal';
+import OverduePaymentsModal from '../components/dashboard/OverduePaymentsModal';
+import { PaymentRow } from '../components/dashboard/PaymentRow';
+import { enviarWhatsAppCobranca } from '../components/dashboard/enviarWhatsAppCobranca';
+
+const HIDE_VALUES_KEY = 'speakup:dashboard:hideValues';
+
+const horaCurta = (date) =>
+  date ? date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : null;
+
+/**
+ * Só existe base de comparação para os valores financeiros, e só na visão
+ * mensal — não há série histórica de alunos em lugar nenhum do sistema.
+ */
+const buildDelta = (serie, dashboardRange) => {
+  if (dashboardRange !== 'month' || !serie) return null;
+  const mesAtual = new Date().getMonth();
+  if (mesAtual === 0) return null;
+  const anterior = Number(serie[mesAtual - 1] || 0);
+  const atual = Number(serie[mesAtual] || 0);
+  if (!anterior) return null;
+  const pct = Math.round(((atual - anterior) / anterior) * 100);
+  if (pct === 0) return { direction: 'flat', text: 'igual ao mês anterior' };
+  return {
+    direction: pct > 0 ? 'up' : 'down',
+    text: `${pct > 0 ? '+' : '−'}${Math.abs(pct)}% vs. mês anterior`,
+  };
+};
 
 export const Dashboard = ({
   dashboardRange,
@@ -17,13 +44,37 @@ export const Dashboard = ({
   students,
   payments,
   professores,
-  role
+  role,
+  dataLoading = false
 }) => {
   const [showRegistrationsModal, setShowRegistrationsModal] = useState(false);
   const [showCancellationsModal, setShowCancellationsModal] = useState(false);
-  const [hideValues, setHideValues] = useState(false);
+  const [showOverdueModal, setShowOverdueModal] = useState(false);
+  const [hideValues, setHideValues] = useState(() => {
+    try {
+      return localStorage.getItem(HIDE_VALUES_KEY) === '1';
+    } catch {
+      return false;
+    }
+  });
 
-  const { faltasHoje, faltasLoading, carregarFaltasHoje, marcarContatado: handleMarcarContatado } = useFaltasHoje();
+  useEffect(() => {
+    try {
+      localStorage.setItem(HIDE_VALUES_KEY, hideValues ? '1' : '0');
+    } catch {
+      // Modo privativo ou storage bloqueado: a preferência vale só nesta sessão.
+    }
+  }, [hideValues]);
+
+  const {
+    faltasHoje,
+    faltasLoading,
+    faltasErro,
+    aulasHoje,
+    atualizadoEm,
+    carregarFaltasHoje,
+    marcarContatado: handleMarcarContatado
+  } = useFaltasHoje();
   const { lembretes, addLembrete, deleteLembrete: handleDeleteLembrete } = useLembretes();
   const { todos, addTodo, toggleTodo: handleToggleTodo, deleteTodo: handleDeleteTodo } = useTodos();
   const aulasStats = useAulasStats(dashboardRange);
@@ -138,11 +189,28 @@ export const Dashboard = ({
       .sort((a, b) => (b.cancelDate?.getTime() || 0) - (a.cancelDate?.getTime() || 0));
   }, [students, dashboardRange]);
 
+  // "R$ 4.320" sozinho não diz o que fazer: uma dívida grande e sete pequenas
+  // pedem respostas diferentes.
+  const vencidasSub = useMemo(() => {
+    const n = stats.overdueCount || 0;
+    if (!n) return null;
+    return `${n} cobrança${n !== 1 ? 's' : ''}`;
+  }, [stats.overdueCount]);
+
+  const deltaRecebida = useMemo(
+    () => buildDelta(monthlyData?.paid, dashboardRange),
+    [monthlyData, dashboardRange]
+  );
+  const deltaPrevista = useMemo(
+    () => buildDelta(monthlyData?.planned, dashboardRange),
+    [monthlyData, dashboardRange]
+  );
+
   return (
     <>
       {/* ── Central do Dia ────────────────────────────────────────────── */}
       <div>
-        <h2 className="text-base font-semibold text-slate-700 mb-3">Central do Dia</h2>
+        <h2 className="text-base font-semibold text-content-body mb-3">Central do Dia</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
         {/* ── Vencimentos ─────────────────────────────────────────── */}
         <Card>
@@ -160,65 +228,34 @@ export const Dashboard = ({
               return d > hoje && d <= em5dias;
             }).sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate));
 
-            const enviarWhatsApp = (payment) => {
-              const student = students.find(s => s.id === payment.studentId);
-              const paymentLink = `${window.location.origin}/pagamento/${payment.id}`;
-              const nome = student?.responsibleName || payment.studentName || 'Cliente';
-              const valor = Number(payment.valuePlanned || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-              const dVenc = new Date(payment.dueDate);
-              const dataFmt = dVenc.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
-              const dias = Math.ceil((dVenc - new Date()) / 86400000);
-              const diasTexto = dias === 0 ? 'vence hoje' : `daqui a ${dias} dia${dias !== 1 ? 's' : ''}`;
-              const statusMsg = dias === 0 ? 'Cobranca vence hoje' : 'Lembrete de cobranca';
-              const descricao = payment.description || 'Mensalidade - SpeakUp English School';
-              let pixInfo = '';
-              if (payment.pixCode) pixInfo += `\n\n*PIX Copia e Cola:*\n${payment.pixCode}`;
-              if (payment.pixQRCode) pixInfo += `\n\n*QR Code PIX disponivel no link acima.*`;
-              const msg = `*${statusMsg}*\n\nOla, ${nome}\n\nLembramos que a sua cobranca no valor de *${valor}* ${diasTexto} (${dataFmt}).\n\n*Descricao:* ${descricao}\n\nClique no link abaixo para visualizar a cobranca:\n${paymentLink}${pixInfo}\n\nAtenciosamente,\n*Equipe SpeakUp*`;
-              const tel = (student?.responsiblePhone || student?.phone || '').replace(/\D/g, '');
-              window.open(tel ? `https://wa.me/55${tel}?text=${encodeURIComponent(msg)}` : `https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
-            };
-
-            const RenderItem = ({ p, cor }) => (
-              <div className={`flex items-center gap-3 px-3 py-2.5 rounded-xl border ${cor === 'red' ? 'bg-red-50 border-red-200' : 'bg-amber-50 border-amber-200'}`}>
-                <div className="flex-1 min-w-0">
-                  <p className={`text-sm font-medium truncate ${cor === 'red' ? 'text-red-800' : 'text-amber-900'}`}>{p.studentName}</p>
-                  <p className="text-xs text-slate-500 truncate">
-                    {p.description || 'Mensalidade'} · {Number(p.valuePlanned||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'})}
-                    {cor !== 'red' && <span className="ml-1 text-amber-600 font-medium">· {p.dueDate ? p.dueDate.substring(8,10) + '/' + p.dueDate.substring(5,7) : ''}</span>}
-                  </p>
-                </div>
-                <button
-                  onClick={() => enviarWhatsApp(p)}
-                  className={`flex-shrink-0 flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-lg text-white transition-colors ${cor === 'red' ? 'bg-red-500 hover:bg-red-600' : 'bg-amber-500 hover:bg-amber-600'}`}
-                  title="Enviar aviso por WhatsApp"
-                >
-                  <MessageCircle size={12} /> Avisar
-                </button>
-              </div>
-            );
+            const avisar = (payment) => enviarWhatsAppCobranca(payment, students);
+            const diaMes = (p) => (p.dueDate ? `${p.dueDate.substring(8, 10)}/${p.dueDate.substring(5, 7)}` : '');
 
             return (
               <>
                 <div className="flex items-center gap-2 mb-3">
                   <AlertTriangle size={16} className="text-amber-500" />
                   <h3 className="font-bold">Vencimentos</h3>
-                  <span className="ml-auto text-xs text-slate-400">{vencendoHoje.length + proximosVencimentos.length} cobrança{vencendoHoje.length + proximosVencimentos.length !== 1 ? 's' : ''}</span>
+                  <span className="ml-auto text-xs text-content-muted">{vencendoHoje.length + proximosVencimentos.length} cobrança{vencendoHoje.length + proximosVencimentos.length !== 1 ? 's' : ''}</span>
                 </div>
                 {vencendoHoje.length === 0 && proximosVencimentos.length === 0 ? (
-                  <p className="text-sm text-slate-400 text-center py-4">Nenhum vencimento nos próximos 5 dias</p>
+                  <p className="text-sm text-content-body text-center py-4">Nenhum vencimento nos próximos 5 dias</p>
                 ) : (
                   <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
                     {vencendoHoje.length > 0 && (
                       <>
-                        <p className="text-xs font-semibold text-red-600 uppercase tracking-wide">Vencem hoje</p>
-                        {vencendoHoje.map(p => <RenderItem key={p.id} p={p} cor="red" />)}
+                        <p className="text-xs font-semibold text-red-700 uppercase tracking-wide">Vencem hoje</p>
+                        {vencendoHoje.map(p => (
+                          <PaymentRow key={p.id} payment={p} tone="red" onAvisar={avisar} />
+                        ))}
                       </>
                     )}
                     {proximosVencimentos.length > 0 && (
                       <>
-                        <p className={`text-xs font-semibold text-amber-600 uppercase tracking-wide ${vencendoHoje.length > 0 ? 'mt-3' : ''}`}>Próximos 5 dias</p>
-                        {proximosVencimentos.map(p => <RenderItem key={p.id} p={p} cor="amber" />)}
+                        <p className={`text-xs font-semibold text-amber-700 uppercase tracking-wide ${vencendoHoje.length > 0 ? 'mt-3' : ''}`}>Próximos 5 dias</p>
+                        {proximosVencimentos.map(p => (
+                          <PaymentRow key={p.id} payment={p} tone="amber" meta={diaMes(p)} onAvisar={avisar} />
+                        ))}
                       </>
                     )}
                   </div>
@@ -237,14 +274,16 @@ export const Dashboard = ({
             </h3>
             <div className="flex items-center gap-2">
               {faltasHoje.length > 0 && (
-                <span className="text-xs text-slate-400">
+                <span className="text-xs text-content-body">
                   {faltasHoje.filter(f => f.contatado).length}/{faltasHoje.length} contatados
+                  {aulasHoje.total > 0 && ` · ${aulasHoje.registradas}/${aulasHoje.total} chamadas`}
                 </span>
               )}
               <button
                 onClick={carregarFaltasHoje}
-                className="p-1.5 text-slate-400 hover:text-[#005DE4] hover:bg-slate-100 rounded-lg transition-colors"
+                className="p-1.5 text-content-muted hover:text-accent hover:bg-surface-sunken rounded-su-sm transition-colors focus:outline-none focus-visible:shadow-ring-accent"
                 title="Atualizar"
+                aria-label="Atualizar faltas de hoje"
               >
                 <RefreshCw size={13} />
               </button>
@@ -253,29 +292,58 @@ export const Dashboard = ({
 
           {faltasLoading ? (
             <div className="flex items-center justify-center py-8">
-              <div className="w-5 h-5 border-2 border-[#005DE4] border-t-transparent rounded-full animate-spin" />
+              <div className="w-5 h-5 border-2 border-accent border-t-transparent rounded-full animate-spin" />
+              <span className="sr-only">Carregando faltas de hoje</span>
+            </div>
+          ) : faltasErro ? (
+            <div className="text-center py-6">
+              <AlertCircle size={28} className="text-red-500 mx-auto mb-2" />
+              <p className="text-sm font-medium text-content-strong">Não foi possível carregar as faltas</p>
+              <p className="text-xs text-content-body mt-1">Verifique a conexão e tente de novo.</p>
+              <button
+                onClick={carregarFaltasHoje}
+                className="mt-3 text-su-xs px-3 py-1.5 rounded-su-sm bg-ink text-white hover:bg-gr-800 transition-colors focus:outline-none focus-visible:shadow-ring-accent"
+              >
+                Tentar de novo
+              </button>
             </div>
           ) : faltasHoje.length === 0 ? (
-            <div className="text-center py-6">
-              <CheckCircle size={28} className="text-emerald-400 mx-auto mb-2" />
-              <p className="text-sm text-slate-400">Nenhuma falta registrada hoje</p>
-            </div>
+            aulasHoje.registradas === 0 ? (
+              /* Zero faltas porque ninguém fechou a chamada ainda ≠ zero faltas de verdade */
+              <div className="text-center py-6">
+                <Clock size={28} className="text-content-muted mx-auto mb-2" />
+                <p className="text-sm font-medium text-content-strong">Chamada ainda não registrada</p>
+                <p className="text-xs text-content-body mt-1">
+                  {aulasHoje.total === 0
+                    ? 'Nenhuma aula marcada para hoje'
+                    : `0 de ${aulasHoje.total} aula${aulasHoje.total !== 1 ? 's' : ''} de hoje`}
+                </p>
+              </div>
+            ) : (
+              <div className="text-center py-6">
+                <CheckCircle size={28} className="text-emerald-600 mx-auto mb-2" />
+                <p className="text-sm font-medium text-content-strong">Nenhuma falta hoje</p>
+                <p className="text-xs text-content-body mt-1">
+                  {aulasHoje.registradas} de {aulasHoje.total} aula{aulasHoje.total !== 1 ? 's' : ''} com chamada registrada
+                </p>
+              </div>
+            )
           ) : (
             <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
               {faltasHoje.map(f => (
                 <div
                   key={f.id}
-                  className={`flex items-center gap-3 px-3 py-2.5 rounded-xl border transition-colors ${
+                  className={`flex items-center gap-3 px-3 py-2.5 rounded-su-md border transition-colors ${
                     f.contatado ? 'bg-emerald-50 border-emerald-200' : 'bg-red-50 border-red-200'
                   }`}
                 >
                   <div className="flex-1 min-w-0">
                     <p className={`text-sm font-medium leading-snug ${
-                      f.contatado ? 'text-emerald-700 line-through' : 'text-slate-800'
+                      f.contatado ? 'text-emerald-700 line-through' : 'text-content-strong'
                     }`}>
                       {f.alunoNome}
                     </p>
-                    <p className="text-xs text-slate-400 mt-0.5 truncate">
+                    <p className="text-xs text-content-muted mt-0.5 truncate">
                       {f.turmaNome} · {f.professor}
                     </p>
                   </div>
@@ -286,7 +354,7 @@ export const Dashboard = ({
                   ) : (
                     <button
                       onClick={() => handleMarcarContatado(f)}
-                      className="flex items-center gap-1 text-xs px-2.5 py-1.5 bg-[#005DE4] text-white rounded-lg hover:bg-[#0041a8] transition-colors flex-shrink-0"
+                      className="flex items-center gap-1 text-xs px-2.5 py-1.5 bg-ink text-white rounded-su-sm hover:bg-gr-800 transition-colors flex-shrink-0"
                     >
                       <PhoneCall size={12} /> Contatar
                     </button>
@@ -301,10 +369,10 @@ export const Dashboard = ({
         <Card>
           <div className="flex items-center justify-between mb-3">
             <h3 className="font-bold flex items-center gap-2">
-              <ListTodo size={16} className="text-[#005DE4]" />
+              <ListTodo size={16} className="text-accent" />
               To-Do
             </h3>
-            <span className="text-xs text-slate-400">{todos.filter(t => !t.feito).length} pendente{todos.filter(t => !t.feito).length !== 1 ? 's' : ''}</span>
+            <span className="text-xs text-content-muted">{todos.filter(t => !t.feito).length} pendente{todos.filter(t => !t.feito).length !== 1 ? 's' : ''}</span>
           </div>
 
           <form onSubmit={handleAddTodo} className="flex gap-2 mb-3">
@@ -312,37 +380,37 @@ export const Dashboard = ({
               value={novoTodo}
               onChange={e => setNovoTodo(e.target.value)}
               placeholder="Nova tarefa..."
-              className="flex-1 border border-slate-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#005DE4]"
+              className="flex-1 border border-strong rounded-su-sm px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-accent"
             />
             <button
               type="submit"
               disabled={addingTodo || !novoTodo.trim()}
-              className="px-3 py-1.5 bg-[#005DE4] text-white text-xs rounded-lg hover:bg-[#0041a8] disabled:opacity-50 transition-colors flex items-center gap-1"
+              className="px-3 py-1.5 bg-ink text-white text-su-xs rounded-su-sm hover:bg-gr-800 disabled:opacity-50 transition-colors flex items-center gap-1"
             >
               <Plus size={13} />
             </button>
           </form>
 
           {todos.length === 0 ? (
-            <p className="text-sm text-slate-400 text-center py-4">Nenhuma tarefa</p>
+            <p className="text-sm text-content-muted text-center py-4">Nenhuma tarefa</p>
           ) : (
             <div className="space-y-1.5 max-h-72 overflow-y-auto pr-1">
               {todos.map(t => (
-                <div key={t.id} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl border transition-colors ${t.feito ? 'bg-slate-50 border-slate-200' : 'bg-white border-slate-200 hover:border-[#005DE4]/30'}`}>
+                <div key={t.id} className={`flex items-center gap-3 px-3 py-2.5 rounded-su-md border transition-colors ${t.feito ? 'bg-surface-sunken border-subtle' : 'bg-white border-subtle hover:border-strong'}`}>
                   <button
                     onClick={() => handleToggleTodo(t)}
                     className={`flex-shrink-0 w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${
-                      t.feito ? 'bg-emerald-500 border-emerald-500' : 'border-slate-300 hover:border-[#005DE4]'
+                      t.feito ? 'bg-emerald-500 border-emerald-500' : 'border-strong hover:border-accent'
                     }`}
                   >
                     {t.feito && <CheckCircle size={12} className="text-white" strokeWidth={3} />}
                   </button>
-                  <span className={`flex-1 text-sm leading-snug ${t.feito ? 'line-through text-slate-400' : 'text-slate-800'}`}>
+                  <span className={`flex-1 text-sm leading-snug ${t.feito ? 'line-through text-content-muted' : 'text-content-strong'}`}>
                     {t.texto}
                   </span>
                   <button
                     onClick={() => handleDeleteTodo(t.id)}
-                    className="p-1 rounded-lg text-slate-300 hover:text-red-500 hover:bg-red-50 transition-colors flex-shrink-0"
+                    className="p-1 rounded-su-sm text-content-faint hover:text-red-500 hover:bg-red-50 transition-colors flex-shrink-0"
                     title="Remover"
                   >
                     <Trash2 size={13} />
@@ -360,19 +428,19 @@ export const Dashboard = ({
         <div className="flex gap-2 items-center">
           <button
             onClick={() => setDashboardRange('month')}
-            className={`px-3 py-1 rounded ${dashboardRange === 'month' ? 'bg-[#005DE4] text-white' : 'bg-slate-100 text-slate-700'}`}
+            className={`px-3 py-1 rounded ${dashboardRange === 'month' ? 'bg-ink text-white' : 'bg-surface-sunken text-content-body hover:bg-gr-200'}`}
           >
             Mês atual
           </button>
           <button
             onClick={() => setDashboardRange('year')}
-            className={`px-3 py-1 rounded ${dashboardRange === 'year' ? 'bg-[#005DE4] text-white' : 'bg-slate-100 text-slate-700'}`}
+            className={`px-3 py-1 rounded ${dashboardRange === 'year' ? 'bg-ink text-white' : 'bg-surface-sunken text-content-body hover:bg-gr-200'}`}
           >
             Ano
           </button>
           <button
             onClick={() => setHideValues(v => !v)}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
+            className="p-1.5 rounded-su-sm text-content-muted hover:text-content-body hover:bg-surface-sunken transition-colors"
             title={hideValues ? 'Mostrar valores' : 'Ocultar valores'}
           >
             {hideValues ? <EyeOff size={16} /> : <Eye size={16} />}
@@ -382,50 +450,99 @@ export const Dashboard = ({
         <div className="flex items-center gap-4">
           <button
             onClick={printDashboard}
-            className="px-4 py-2 rounded-full bg-slate-100 flex gap-2 items-center hover:bg-slate-200"
+            className="px-4 py-2 rounded-su-sm border border-strong bg-surface-card flex gap-2 items-center hover:bg-gr-50 focus:outline-none focus-visible:shadow-ring-accent"
           >
             <Printer size={16}/> Imprimir
           </button>
-          <div className="text-xs text-slate-400">Visão: {dashboardRange === 'month' ? 'Mês atual' : 'Ano'}</div>
+          <div className="text-xs text-content-body">
+            Visão: {dashboardRange === 'month' ? 'Mês atual' : 'Ano'}
+            {atualizadoEm && !dataLoading && (
+              <span className="text-content-muted"> · atualizado às {horaCurta(atualizadoEm)}</span>
+            )}
+          </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-4 gap-4">
-        {/* Linha 1: métricas financeiras principais */}
-        <KPI label="Receita prevista" value={stats.planned} accent="blue" hidden={hideValues} />
-        <KPI label="Receita recebida" value={stats.paid} accent="green" hidden={hideValues} />
-        <KPI label="Pendências" value={stats.pending} accent="yellow" hidden={hideValues} />
-        <KPI label="Cobranças vencidas" value={stats.overdue} accent="red" badge={stats.overdue > 0 ? 'Alerta' : undefined} hidden={hideValues} />
-
-        {/* Linha 2: métricas operacionais */}
-        <KPI label="Alunos ativos" value={stats.students} format="number" accent="blue" />
-        <div
+      {/* ── KPIs ──────────────────────────────────────────────────────── */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <KPI
+          label="Receita prevista"
+          value={stats.planned}
+          accent="blue"
+          delta={deltaPrevista}
+          hidden={hideValues}
+          loading={dataLoading}
+        />
+        <KPI
+          label="Receita recebida"
+          value={stats.paid}
+          accent="green"
+          delta={deltaRecebida}
+          hidden={hideValues}
+          loading={dataLoading}
+        />
+        <KPI
+          label="Pendências"
+          value={stats.pending}
+          accent="yellow"
+          hidden={hideValues}
+          loading={dataLoading}
+        />
+        <KPI
+          label="Cobranças vencidas"
+          value={stats.overdue}
+          accent="red"
+          badge={!dataLoading && stats.overdue > 0 ? 'Alerta' : undefined}
+          sub={vencidasSub}
+          hidden={hideValues}
+          loading={dataLoading}
+          onClick={() => setShowOverdueModal(true)}
+          actionLabel="Cobranças vencidas: ver quem está devendo"
+        />
+        <KPI
+          label="Alunos ativos"
+          value={stats.students}
+          format="number"
+          accent="blue"
+          loading={dataLoading}
+        />
+        <KPI
+          label="Matrículas"
+          value={stats.registrations}
+          format="number"
+          accent="green"
+          loading={dataLoading}
           onClick={() => setShowRegistrationsModal(true)}
-          className="cursor-pointer transition-transform hover:scale-[1.02]"
-          title="Clique para ver detalhes das matrículas"
-        >
-          <KPI label="Matrículas" value={stats.registrations} format="number" accent="green" />
-        </div>
-        <div
+          actionLabel="Matrículas: ver detalhes"
+        />
+        <KPI
+          label="Cancelamentos"
+          value={stats.cancellations}
+          format="number"
+          accent="red"
+          loading={dataLoading}
           onClick={() => setShowCancellationsModal(true)}
-          className="cursor-pointer transition-transform hover:scale-[1.02]"
-          title="Clique para ver detalhes dos cancelamentos"
-        >
-          <KPI label="Cancelamentos" value={stats.cancellations} format="number" accent="red" />
-        </div>
-        <KPI label="Inadimplência" value={stats.inadimplenciaPercent} format="percent" accent="yellow" />
+          actionLabel="Cancelamentos: ver detalhes"
+        />
+        <KPI
+          label="Inadimplência"
+          value={stats.inadimplenciaPercent}
+          format="percent"
+          accent="yellow"
+          loading={dataLoading}
+        />
       </div>
 
       <div className="grid grid-cols-1 gap-6">
         <Card>
           <h3 className="font-bold mb-2">Evolução Mensal (Previsto vs Realizado)</h3>
-          <EvolutionChart labels={monthlyData.labels} planned={monthlyData.planned} paid={monthlyData.paid} />
+          <EvolutionChart labels={monthlyData.labels} planned={monthlyData.planned} paid={monthlyData.paid} hidden={hideValues} />
         </Card>
 
         {role === 'admin' && (
           <Card>
             <h3 className="font-bold mb-2">Evolução do Lucro (Mensal)</h3>
-            <ProfitChart labels={monthlyData.labels} profit={monthlyData.profit} />
+            <ProfitChart labels={monthlyData.labels} profit={monthlyData.profit} hidden={hideValues} />
           </Card>
         )}
 
@@ -450,7 +567,8 @@ export const Dashboard = ({
             .map(([label, value]) => ({ label, value }))
             .sort((a, b) => b.value - a.value);
 
-          const COLORS = ['#0e48fe','#fc6e1f','#ffae1e','#f30961','#d1d5db','#9ca3af'];
+          // Paleta de dados = marca + neutros do design system.
+          const COLORS = ['var(--su-blue)','var(--su-orange)','var(--su-yellow)','var(--su-pink)','var(--gr-300)','var(--gr-400)'];
           const maxCount   = Math.max(...(teacherStats || []).map(t => t.count), 1);
           const maxRevenue = Math.max(...(teacherStats || []).map(t => t.revenue), 1);
 
@@ -481,8 +599,8 @@ export const Dashboard = ({
 
               {/* 1. Barra vertical — alunos por professor */}
               <Card>
-                <h3 className="font-bold text-sm text-slate-700 mb-4 flex items-center gap-2">
-                  <span className="w-1 h-4 rounded-full bg-[#0e48fe] inline-block" />
+                <h3 className="font-bold text-sm text-content-body mb-4 flex items-center gap-2">
+                  <span className="w-1 h-4 rounded-pill bg-brand-blue inline-block" />
                   Alunos por professor
                 </h3>
                 {(() => {
@@ -499,7 +617,7 @@ export const Dashboard = ({
                         {[0,1,2,3,4].map(gi => (
                         <line key={gi} x1={VPL} x2={VW-VPR}
                           y1={VPT + (gi/4)*vChartH} y2={VPT + (gi/4)*vChartH}
-                          stroke="rgba(0,0,0,0.04)" strokeWidth={1} />
+                          stroke="var(--ink-04)" strokeWidth={1} />
                       ))}
                       {(teacherStats || []).map((t, i) => {
                         const x   = xV(i);
@@ -509,9 +627,9 @@ export const Dashboard = ({
                         return (
                           <g key={i}>
                             <rect x={x - bW/2} y={barY} width={bW} height={bH}
-                              fill={i === 0 ? '#0e48fe' : i === (teacherStats||[]).length - 1 ? '#d1d5db' : 'rgba(14,72,254,0.45)'} rx={5} />
-                            <text x={x} y={VH - 8} fontSize={9} textAnchor="middle" fill="#9ca3af" fontFamily="Montserrat,sans-serif">{firstName}</text>
-                            <text x={x} y={Math.max(barY - 5, VPT - 4)} fontSize={8.5} textAnchor="middle" fill="#9ca3af" fontFamily="Montserrat,sans-serif">{t.count}</text>
+                              fill={i === 0 ? 'var(--su-blue)' : i === (teacherStats||[]).length - 1 ? 'var(--gr-300)' : 'var(--su-blue-300)'} rx={5} />
+                            <text x={x} y={VH - 8} fontSize={9} textAnchor="middle" fill="var(--gr-500)" fontFamily="var(--font-body)">{firstName}</text>
+                            <text x={x} y={Math.max(barY - 5, VPT - 4)} fontSize={8.5} textAnchor="middle" fill="var(--gr-500)" fontFamily="var(--font-body)">{t.count}</text>
                           </g>
                         );
                       })}
@@ -523,14 +641,14 @@ export const Dashboard = ({
 
               {/* 2. Pizza — receita por professor */}
               <Card>
-                <h3 className="font-bold text-sm text-slate-700 mb-4 flex items-center gap-2">
-                  <span className="w-1 h-4 rounded-full bg-emerald-500 inline-block" />
+                <h3 className="font-bold text-sm text-content-body mb-4 flex items-center gap-2">
+                  <span className="w-1 h-4 rounded-pill bg-success inline-block" />
                   Receita por professor
                 </h3>
                 {(() => {
                   const PCX = 90, PCY = 90, PIE_R = 82;
                   const totalRev = (teacherStats || []).reduce((s, t) => s + t.revenue, 0) || 1;
-                  const fmtRev = (v) => v >= 1000 ? `R$${(v/1000).toFixed(1)}k` : `R$${v.toFixed(0)}`;
+                  const fmtRev = (v) => hideValues ? '••••' : (v >= 1000 ? `R$${(v/1000).toFixed(1)}k` : `R$${v.toFixed(0)}`);
                   let startAngle = -Math.PI / 2;
                   const pieSegs = (teacherStats || []).map((t, i) => {
                     const angle = (t.revenue / totalRev) * 2 * Math.PI;
@@ -549,15 +667,15 @@ export const Dashboard = ({
                     <div className="flex-1 flex items-center justify-between gap-2">
                       <svg viewBox="0 0 180 180" className="w-48 flex-shrink-0">
                         {pieSegs.map((seg, i) => (
-                          <path key={i} d={seg.d} fill={seg.color} stroke="white" strokeWidth={2} />
+                          <path key={i} d={seg.d} fill={seg.color} stroke="var(--surface-card)" strokeWidth={2} />
                         ))}
                       </svg>
                       <div className="flex flex-col gap-2.5 min-w-0">
                         {pieSegs.map((seg, i) => (
                           <div key={i} className="flex items-center gap-2 min-w-0">
                             <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: seg.color }} />
-                            <span className="text-[11px] text-slate-600 font-medium truncate flex-1">{seg.label}</span>
-                            <span className="text-[11px] text-slate-400 font-semibold tabular-nums flex-shrink-0">{fmtRev(seg.revenue)}</span>
+                            <span className="text-[11px] text-content-body font-medium truncate flex-1">{seg.label}</span>
+                            <span className="text-[11px] text-content-muted font-semibold tabular-nums flex-shrink-0">{fmtRev(seg.revenue)}</span>
                           </div>
                         ))}
                       </div>
@@ -568,24 +686,24 @@ export const Dashboard = ({
 
               {/* 3. Doughnut — alunos por curso */}
               <Card>
-                <h3 className="font-bold text-sm text-slate-700 mb-4 flex items-center gap-2">
-                  <span className="w-1 h-4 rounded-full bg-amber-400 inline-block" />
+                <h3 className="font-bold text-sm text-content-body mb-4 flex items-center gap-2">
+                  <span className="w-1 h-4 rounded-pill bg-brand-yellow inline-block" />
                   Alunos por curso
                 </h3>
                 <div className="flex-1 flex items-center justify-between gap-2">
                   <svg viewBox="0 0 180 180" className="w-48 flex-shrink-0">
                     {segments.map((seg, i) => (
-                      <path key={i} d={seg.path} fill={seg.color} stroke="white" strokeWidth={2} />
+                      <path key={i} d={seg.path} fill={seg.color} stroke="var(--surface-card)" strokeWidth={2} />
                     ))}
-                    <text x={DCX} y={DCY - 6} fontSize={18} fontWeight="700" fontFamily="Montserrat,sans-serif" textAnchor="middle" fill="#111827">{total}</text>
-                    <text x={DCX} y={DCY + 12} fontSize={9} fontFamily="Montserrat,sans-serif" textAnchor="middle" fill="#9ca3af">alunos</text>
+                    <text x={DCX} y={DCY - 6} fontSize={18} fontWeight="700" fontFamily="var(--font-display)" textAnchor="middle" fill="var(--ink)">{total}</text>
+                    <text x={DCX} y={DCY + 12} fontSize={9} fontFamily="var(--font-body)" textAnchor="middle" fill="var(--gr-500)">alunos</text>
                   </svg>
                   <div className="flex flex-col gap-2.5 min-w-0">
                     {segments.map((seg, i) => (
                       <div key={i} className="flex items-center gap-2 min-w-0">
                         <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: seg.color }} />
-                        <span className="text-[11px] text-slate-600 font-medium truncate flex-1">{seg.label}</span>
-                        <span className="text-[11px] text-slate-400 font-semibold tabular-nums flex-shrink-0">{seg.value}</span>
+                        <span className="text-[11px] text-content-body font-medium truncate flex-1">{seg.label}</span>
+                        <span className="text-[11px] text-content-muted font-semibold tabular-nums flex-shrink-0">{seg.value}</span>
                       </div>
                     ))}
                   </div>
@@ -609,6 +727,13 @@ export const Dashboard = ({
         onClose={() => setShowCancellationsModal(false)}
         students={cancelledStudents}
         professores={professores}
+        dashboardRange={dashboardRange}
+      />
+      <OverduePaymentsModal
+        isOpen={showOverdueModal}
+        onClose={() => setShowOverdueModal(false)}
+        payments={stats.overduePayments || []}
+        students={students}
         dashboardRange={dashboardRange}
       />
     </>

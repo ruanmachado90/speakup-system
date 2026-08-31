@@ -6,7 +6,7 @@ const fmt = (v) =>
     ? `R$ ${(Math.abs(v) / 1000).toFixed(1).replace('.', ',')}k`
     : `R$ ${Math.abs(Number(v)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`);
 
-export const ProfitChart = ({ labels, profit }) => {
+export const ProfitChart = ({ labels, profit, hidden = false }) => {
   const [hover, setHover] = useState(null);
 
   const W = 760, H = 200, PL = 56, PR = 16, PT = 16, PB = 32;
@@ -37,16 +37,16 @@ export const ProfitChart = ({ labels, profit }) => {
           const val = maxVal - (i / GRID) * range;
           return (
             <g key={i}>
-              <line x1={PL} x2={W - PR} y1={y} y2={y} stroke="#e2e8f0" strokeWidth={1} />
-              <text x={PL - 6} y={y + 3.5} fontSize={9} textAnchor="end" fill="#94a3b8">
-                {Math.abs(val) >= 1000 ? `${(val / 1000).toFixed(0)}k` : val.toFixed(0)}
+              <line x1={PL} x2={W - PR} y1={y} y2={y} stroke="var(--gr-200)" strokeWidth={1} />
+              <text x={PL - 6} y={y + 3.5} fontSize={9} textAnchor="end" fill="var(--gr-500)">
+                {hidden ? '••' : (Math.abs(val) >= 1000 ? `${(val / 1000).toFixed(0)}k` : val.toFixed(0))}
               </text>
             </g>
           );
         })}
 
         {/* Linha zero */}
-        <line x1={PL} x2={W - PR} y1={zeroY} y2={zeroY} stroke="#94a3b8" strokeWidth={1.5} />
+        <line x1={PL} x2={W - PR} y1={zeroY} y2={zeroY} stroke="var(--gr-500)" strokeWidth={1.5} />
 
         {/* Barras */}
         {profit.map((v, i) => {
@@ -59,10 +59,10 @@ export const ProfitChart = ({ labels, profit }) => {
               <rect
                 x={x - barW / 2} y={barY}
                 width={barW} height={barH}
-                fill={hover === i ? '#0041a8' : (isPos ? '#005DE4' : '#ef4444')}
+                fill={hover === i ? 'var(--su-blue-700)' : (isPos ? 'var(--su-blue)' : 'var(--su-danger)')}
                 rx={3}
               />
-              <text x={x} y={H - 6} fontSize={10} textAnchor="middle" fill="#64748b">
+              <text x={x} y={H - 6} fontSize={10} textAnchor="middle" fill="var(--gr-500)">
                 {labels[i]}
               </text>
             </g>
@@ -80,14 +80,14 @@ export const ProfitChart = ({ labels, profit }) => {
           return (
             <g>
               <rect x={ttX} y={ttY} width={ttW} height={ttH}
-                fill="white" rx={6} stroke="#e2e8f0" strokeWidth={1}
+                fill="var(--surface-card)" rx={6} stroke="var(--gr-200)" strokeWidth={1}
                 filter="drop-shadow(0 2px 6px rgba(0,0,0,0.08))" />
-              <text x={ttX + 10} y={ttY + 15} fontSize={10} fontWeight="600" fill="#334155">
+              <text x={ttX + 10} y={ttY + 15} fontSize={10} fontWeight="600" fill="var(--gr-700)">
                 {labels[hover]}
               </text>
-              <circle cx={ttX + 10} cy={ttY + 28} r={3} fill={isPos ? '#005DE4' : '#ef4444'} />
-              <text x={ttX + 17} y={ttY + 32} fontSize={9.5} fill={isPos ? '#334155' : '#ef4444'}>
-                {fmt(v)}
+              <circle cx={ttX + 10} cy={ttY + 28} r={3} fill={isPos ? 'var(--su-blue)' : 'var(--su-danger)'} />
+              <text x={ttX + 17} y={ttY + 32} fontSize={9.5} fill={isPos ? 'var(--gr-700)' : 'var(--su-danger)'}>
+                {hidden ? '••••' : fmt(v)}
               </text>
             </g>
           );

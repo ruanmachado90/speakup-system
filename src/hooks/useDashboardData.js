@@ -6,16 +6,25 @@ export function useFaltasHoje() {
   const [faltasHoje, setFaltasHoje] = useState([]);
   const [faltasLoading, setFaltasLoading] = useState(true);
   const [faltasErro, setFaltasErro] = useState(null);
+  // Aulas do dia x aulas com chamada fechada: sem isso, "nenhuma falta" e
+  // "ninguém registrou a chamada ainda" seriam a mesma tela.
+  const [aulasHoje, setAulasHoje] = useState({ total: 0, registradas: 0 });
+  const [atualizadoEm, setAtualizadoEm] = useState(null);
 
   const carregarFaltasHoje = () => {
     // toLocaleDateString('en-CA') retorna YYYY-MM-DD no fuso local (evita mismatch UTC após 21h)
     const hoje = new Date().toLocaleDateString('en-CA');
     setFaltasLoading(true);
-    getDocs(query(collection(db, 'aulas'), where('data', '==', hoje), where('status', '==', 'realizada')))
+    setFaltasErro(null);
+    getDocs(query(collection(db, 'aulas'), where('data', '==', hoje)))
       .then(snap => {
         const faltas = [];
+        let registradas = 0;
+
         snap.docs.forEach(d => {
           const aula = d.data();
+          if (aula.status !== 'realizada') return;
+          registradas++;
           (aula.chamadas || []).forEach(c => {
             if (c.status === 'falta') {
               faltas.push({
@@ -30,7 +39,10 @@ export function useFaltasHoje() {
             }
           });
         });
+
         setFaltasHoje(faltas);
+        setAulasHoje({ total: snap.docs.length, registradas });
+        setAtualizadoEm(new Date());
       })
       .catch((err) => {
         console.error('[useFaltasHoje] Erro ao carregar faltas:', err);
@@ -42,18 +54,23 @@ export function useFaltasHoje() {
   useEffect(() => { carregarFaltasHoje(); }, []);
 
   const marcarContatado = async (falta) => {
-    const { getDoc } = await import('firebase/firestore');
-    const aulaRef = doc(db, 'aulas', falta.aulaId);
-    const snap = await getDoc(aulaRef);
-    if (!snap.exists()) return;
-    const chamadas = (snap.data().chamadas || []).map(c =>
-      c.alunoId === falta.alunoId ? { ...c, contatado: true } : c
-    );
-    await updateDoc(aulaRef, { chamadas });
-    setFaltasHoje(prev => prev.map(f => f.id === falta.id ? { ...f, contatado: true } : f));
+    try {
+      const { getDoc } = await import('firebase/firestore');
+      const aulaRef = doc(db, 'aulas', falta.aulaId);
+      const snap = await getDoc(aulaRef);
+      if (!snap.exists()) return;
+      const chamadas = (snap.data().chamadas || []).map(c =>
+        c.alunoId === falta.alunoId ? { ...c, contatado: true } : c
+      );
+      await updateDoc(aulaRef, { chamadas });
+      setFaltasHoje(prev => prev.map(f => f.id === falta.id ? { ...f, contatado: true } : f));
+    } catch (err) {
+      console.error('[useFaltasHoje] Erro ao marcar contato:', err);
+      setFaltasErro(err);
+    }
   };
 
-  return { faltasHoje, faltasLoading, faltasErro, carregarFaltasHoje, marcarContatado };
+  return { faltasHoje, faltasLoading, faltasErro, aulasHoje, atualizadoEm, carregarFaltasHoje, marcarContatado };
 }
 
 export function useLembretes() {

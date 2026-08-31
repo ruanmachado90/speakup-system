@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
 import { X, CheckCircle, XCircle, AlertCircle, Download, Calendar } from 'lucide-react';
+import { isAulaRealizada } from '../utils/aulas';
 
 export default function FrequenciaAlunoModal({ aluno, aulas, turma, semestre, onClose }) {
   const nomeAluno = aluno?.nome || aluno?.name || '?';
@@ -9,7 +10,7 @@ export default function FrequenciaAlunoModal({ aluno, aulas, turma, semestre, on
   const aulasT = useMemo(() => {
     if (!turma?.id) return [];
     return (aulas ?? [])
-      .filter(a => a.turmaId === turma.id && a.status === 'realizada')
+      .filter(a => a.turmaId === turma.id && isAulaRealizada(a))
       .sort((a, b) => (a.data || '').localeCompare(b.data || ''));
   }, [aulas, turma]);
 

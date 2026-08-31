@@ -1,10 +1,12 @@
 import React from 'react';
 import { X, Printer } from 'lucide-react';
+import { abrirJanelaImpressao } from '../../utils/janelaImpressao';
+
+const MEDALS = ['🥇', '🥈', '🥉'];
+const MESES = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
 
 export function RankingTarefas({ turma, aulas, alunos, onClose }) {
-  const printRef = React.useRef(null);
-  const medals = ['🥇', '🥈', '🥉'];
-  const meses = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
+  const medals = MEDALS;
 
   const parseAulaDate = (aula) => {
     if (!aula.data) return null;
@@ -33,7 +35,7 @@ export function RankingTarefas({ turma, aulas, alunos, onClose }) {
           xpBlocks.push({
             tarefa: c.tarefa,
             dia: String(d.getDate()).padStart(2, '0'),
-            mes: meses[d.getMonth()],
+            mes: MESES[d.getMonth()],
             dataLabel: d.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: '2-digit' }),
           });
         }
@@ -61,8 +63,7 @@ export function RankingTarefas({ turma, aulas, alunos, onClose }) {
         <span>${b.dia}</span><span>${b.mes}</span>
       </div>`;
     }).join('');
-    const win = window.open('', '_blank');
-    win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"/>
+    abrirJanelaImpressao(`<!DOCTYPE html><html><head><meta charset="utf-8"/>
       <title>Ranking de Tarefas — ${turma.nome}</title>
       <style>
         *{box-sizing:border-box;margin:0;padding:0}
@@ -85,6 +86,7 @@ export function RankingTarefas({ turma, aulas, alunos, onClose }) {
       <p class="sub">${turma.nome}${turma.nivel ? ' • ' + turma.nivel : ''} — ${mesLabel}</p>
       <div class="legend">
         <span><span class="dot" style="background:#10b981"></span>Tarefa feita</span>
+        <span><span class="dot" style="background:#fbbf24"></span>Incompleto</span>
         <span><span class="dot" style="background:#f87171"></span>Não fez</span>
       </div>
       ${ranking.map((a, i) => {
@@ -100,9 +102,7 @@ export function RankingTarefas({ turma, aulas, alunos, onClose }) {
         </div>`;
       }).join('')}
       <p class="footer">SpeakUp English Academy • ${turma.nome} • ${new Date().toLocaleDateString('pt-BR')}</p>
-    </body></html>`);
-    win.document.close();
-    setTimeout(() => win.print(), 300);
+    </body></html>`, { delay: 300 });
   };
 
   return (
@@ -138,7 +138,7 @@ export function RankingTarefas({ turma, aulas, alunos, onClose }) {
         <span className="ml-auto text-slate-400 italic">passe o mouse nos blocos para ver a data</span>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-5 bg-slate-50" ref={printRef}>
+      <div className="flex-1 overflow-y-auto p-5 bg-slate-50">
         {ranking.length === 0 ? (
           <div className="text-center py-14 text-slate-400">
             <div className="text-5xl mb-4">📚</div>

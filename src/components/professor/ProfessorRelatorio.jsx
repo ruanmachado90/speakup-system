@@ -1,5 +1,7 @@
 import React from 'react';
 import { X, Printer } from 'lucide-react';
+import { aulasRealizadas, frequenciaMediaTurma, frequenciaAluno } from '../../utils/aulas';
+import { abrirJanelaImpressao } from '../../utils/janelaImpressao';
 
 export function ProfessorRelatorio({ professor, turmas, aulas, alunosPorTurma, onClose }) {
   const printRef = React.useRef(null);
@@ -20,34 +22,26 @@ export function ProfessorRelatorio({ professor, turmas, aulas, alunosPorTurma, o
     const alunos = alunosPorTurma[turma.id] || [];
     const previstas = turma.totalAulas || 40;
 
-    let freqMedia = null;
-    if (aulasT.length > 0) {
-      const total = aulasT.reduce((acc, a) => {
-        const presentes = (a.chamadas || []).filter(c => c.status === 'presente').length;
-        const tot = (a.chamadas || []).length;
-        return tot > 0 ? acc + (presentes / tot) : acc;
-      }, 0);
-      freqMedia = Math.round((total / aulasT.length) * 100);
-    }
+    const freqMedia = frequenciaMediaTurma(aulasT);
 
     const emRisco = alunos.filter(aluno => {
-      const presencas = aulasT.filter(a =>
-        (a.chamadas || []).find(c => c.alunoId === aluno.id && c.status === 'presente')
-      ).length;
-      return aulasT.length > 0 && Math.round((presencas / aulasT.length) * 100) < 75;
+      const pct = frequenciaAluno(aulasT, aluno.id);
+      return pct !== null && pct < 75;
     });
 
     return {
       id: turma.id, nome: turma.nome, nivel: turma.nivel, dias: turma.dias, horario: turma.horario,
-      totalAlunos: alunos.length, aulasDadas: aulasT.length, aulasMes: aulasTMes.length,
+      totalAlunos: alunos.length,
+      aulasDadas: aulasRealizadas(aulasT).length,
+      aulasMes: aulasRealizadas(aulasTMes).length,
       previstas, freqMedia, emRisco,
     };
   });
 
   const handlePrint = () => {
+    if (!printRef.current) return;
     const content = printRef.current.innerHTML;
-    const win = window.open('', '_blank');
-    win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"/>
+    abrirJanelaImpressao(`<!DOCTYPE html><html><head><meta charset="utf-8"/>
       <title>Relatório — ${professor} — ${mesAtual}/${anoAtual}</title>
       <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -59,8 +53,6 @@ export function ProfessorRelatorio({ professor, turmas, aulas, alunosPorTurma, o
         td { padding: 5px 8px; border-bottom: 1px solid #f1f5f9; }
         .footer { margin-top: 20px; border-top: 1px solid #e2e8f0; padding-top: 10px; font-size: 10px; color: #94a3b8; text-align: center; }
       </style></head><body>${content}</body></html>`);
-    win.document.close();
-    setTimeout(() => win.print(), 400);
   };
 
   const totalAulasMes = statsPorTurma.reduce((s, t) => s + t.aulasMes, 0);
@@ -148,9 +140,7 @@ export function ProfessorRelatorio({ professor, turmas, aulas, alunosPorTurma, o
                 <tbody>
                   {statsPorTurma.flatMap(t =>
                     t.emRisco.map(aluno => {
-                      const aulasT = aulas.filter(a => a.turmaId === t.id);
-                      const presencas = aulasT.filter(a => (a.chamadas||[]).find(c => c.alunoId === aluno.id && c.status === 'presente')).length;
-                      const pct = aulasT.length > 0 ? Math.round(presencas / aulasT.length * 100) : 0;
+                      const pct = frequenciaAluno(aulas.filter(a => a.turmaId === t.id), aluno.id) ?? 0;
                       return (
                         <tr key={`${t.id}-${aluno.id}`} style={{ borderBottom:'1px solid #fee2e2' }}>
                           <td style={{ padding:'8px 10px', fontWeight:600 }}>{aluno.nome || aluno.name}</td>

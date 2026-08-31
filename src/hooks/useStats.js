@@ -20,6 +20,7 @@ export const useStats = (students = [], payments = [], expenses = [], dashboardR
       overdue: 0,
       totalCount: 0,
       overdueCount: 0,
+      overduePayments: [],
     };
 
     payments.forEach(payment => {
@@ -44,6 +45,7 @@ export const useStats = (students = [], payments = [], expenses = [], dashboardR
       } else if (isOverdue) {
         paymentStats.overdue += Number(payment.valuePlanned || 0);
         paymentStats.overdueCount++;
+        paymentStats.overduePayments.push(payment);
       } else {
         paymentStats.pending += Number(payment.valuePlanned || 0);
       }
@@ -111,6 +113,8 @@ export const useStats = (students = [], payments = [], expenses = [], dashboardR
       paid: paymentStats.paid,
       pending: paymentStats.pending,
       overdue: paymentStats.overdue,
+      overdueCount: paymentStats.overdueCount,
+      overduePayments: paymentStats.overduePayments,
       profit: paymentStats.paid - totalExpenses,
       students: studentStats.active,
       registrations: studentStats.registrations,

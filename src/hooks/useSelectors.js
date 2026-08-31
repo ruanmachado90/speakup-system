@@ -165,13 +165,14 @@ export const useProfessoresData = () => {
  * Selector para stats do Dashboard
  */
 export const useDashboardStats = () => {
-  const { stats, teacherStats, filteredExpenses, monthlyData } = useData();
+  const { stats, teacherStats, filteredExpenses, monthlyData, dataLoading } = useData();
   return useMemo(() => ({
     stats,
     teacherStats,
     filteredExpenses,
-    monthlyData
-  }), [stats, teacherStats, filteredExpenses, monthlyData]);
+    monthlyData,
+    dataLoading
+  }), [stats, teacherStats, filteredExpenses, monthlyData, dataLoading]);
 };
 
 /**

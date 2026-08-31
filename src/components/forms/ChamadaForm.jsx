@@ -165,7 +165,7 @@ export default function ChamadaForm({ turma, alunosIniciais, professorNome, onSa
         setCheckingDuplicate(false);
         return;
       }
-    } catch (e) {
+    } catch {
       // Se falhar a verificação, continua salvando
     } finally {
       setCheckingDuplicate(false);
@@ -231,17 +231,20 @@ export default function ChamadaForm({ turma, alunosIniciais, professorNome, onSa
                 { key: 'cancelada', label: 'Cancelada',      Icon: Ban,         active: 'bg-red-500 text-white border-red-500',     inactive: 'border-slate-300 text-slate-600 hover:border-red-400 hover:text-red-500' },
                 { key: 'feriado',   label: 'Feriado',        Icon: Umbrella,    active: 'bg-amber-500 text-white border-amber-500', inactive: 'border-slate-300 text-slate-600 hover:border-amber-400 hover:text-amber-500' },
                 { key: 'recesso',   label: 'Recesso',        Icon: Palmtree,    active: 'bg-emerald-500 text-white border-emerald-500', inactive: 'border-slate-300 text-slate-600 hover:border-emerald-400 hover:text-emerald-500' },
-              ].map(({ key, label, Icon, active, inactive }) => (
-                <button
-                  key={key}
-                  type="button"
-                  onClick={() => setTipoAula(key)}
-                  className={`flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl border-2 text-sm font-semibold transition-all ${tipoAula === key ? active : inactive}`}
-                >
-                  <Icon size={15} />
-                  {label}
-                </button>
-              ))}
+              ].map((opcao) => {
+                const { key, label, Icon, active, inactive } = opcao;
+                return (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => setTipoAula(key)}
+                    className={`flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl border-2 text-sm font-semibold transition-all ${tipoAula === key ? active : inactive}`}
+                  >
+                    <Icon size={15} />
+                    {label}
+                  </button>
+                );
+              })}
             </div>
             {tipoAula !== 'realizada' && (
               <div className={`mt-2 flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium ${

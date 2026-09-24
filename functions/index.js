@@ -16,8 +16,14 @@ const CONFIG = {
   MODEL: "claude-sonnet-4-20250514",
   MAX_TOKENS: 2000,
   
-  // CORS
-  ALLOWED_ORIGINS: "*", // Em produção, pode limitar para seu domínio específico
+  // CORS — domínios padrão do Firebase Hosting deste projeto + ambiente local.
+  // Se houver domínio customizado mapeado no Firebase Hosting, adicione aqui.
+  ALLOWED_ORIGINS: [
+    "https://speakup-system.web.app",
+    "https://speakup-system.firebaseapp.com",
+    "http://localhost:5173",
+    "http://localhost:4173",
+  ],
 };
 
 // ============================================
@@ -66,7 +72,41 @@ async function verifyAdminAuth(req) {
     return { authorized: false, status: 403, error: "Apenas administradores podem usar o assistente de IA." };
   }
 
-  return { authorized: true };
+  return { authorized: true, uid: decoded.uid };
+}
+
+const RATE_LIMIT = {
+  MAX_REQUESTS: 20,
+  WINDOW_MS: 10 * 60 * 1000, // 10 minutos
+};
+
+/**
+ * Limite simples de chamadas por usuário, para conter custo da API paga
+ * em caso de bug de loop no frontend ou uso abusivo por um admin.
+ * @param {string} uid - UID do usuário autenticado
+ * @return {Promise<{allowed: boolean}>}
+ */
+async function checkRateLimit(uid) {
+  const ref = admin.firestore().doc(`rateLimits/${uid}`);
+  const now = Date.now();
+
+  return admin.firestore().runTransaction(async (tx) => {
+    const snap = await tx.get(ref);
+    const data = snap.exists ? snap.data() : null;
+    const windowStart = data?.windowStart?.toMillis?.() ?? 0;
+
+    if (!data || now - windowStart > RATE_LIMIT.WINDOW_MS) {
+      tx.set(ref, { count: 1, windowStart: admin.firestore.Timestamp.fromMillis(now) });
+      return { allowed: true };
+    }
+
+    if (data.count >= RATE_LIMIT.MAX_REQUESTS) {
+      return { allowed: false };
+    }
+
+    tx.update(ref, { count: admin.firestore.FieldValue.increment(1) });
+    return { allowed: true };
+  });
 }
 
 /**
@@ -140,10 +180,13 @@ async function callClaudeAPI(systemPrompt, messages) {
 exports.chatWithAI = functions.https.onRequest(async (req, res) => {
   const startTime = Date.now();
   
-  // Configurar CORS
-  res.set("Access-Control-Allow-Origin", CONFIG.ALLOWED_ORIGINS);
+  // Configurar CORS — ecoa a origem só se estiver na allowlist
+  const requestOrigin = req.headers.origin;
+  if (CONFIG.ALLOWED_ORIGINS.includes(requestOrigin)) {
+    res.set("Access-Control-Allow-Origin", requestOrigin);
+  }
   res.set("Access-Control-Allow-Methods", "POST, OPTIONS");
-  res.set("Access-Control-Allow-Headers", "Content-Type");
+  res.set("Access-Control-Allow-Headers", "Content-Type, Authorization");
 
   // Responder preflight request
   if (req.method === "OPTIONS") {
@@ -167,6 +210,16 @@ exports.chatWithAI = functions.https.onRequest(async (req, res) => {
     res.status(authCheck.status).json({
       error: "Unauthorized",
       message: authCheck.error,
+    });
+    return;
+  }
+
+  // 0.1 Limite de chamadas por usuário — contém custo em caso de abuso/loop.
+  const rateLimit = await checkRateLimit(authCheck.uid);
+  if (!rateLimit.allowed) {
+    res.status(429).json({
+      error: "Too Many Requests",
+      message: `Limite de ${RATE_LIMIT.MAX_REQUESTS} mensagens a cada 10 minutos atingido. Tente novamente em instantes.`,
     });
     return;
   }

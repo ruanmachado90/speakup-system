@@ -6,6 +6,13 @@ import { paraISODia } from './matricula';
 export const CERTIFICADO_BASE_URL = 'https://gestao.speakupcataguases.com';
 export const CERTIFICADO_SITE_VERIFICACAO = 'gestao.speakupcataguases.com/verificar';
 
+// Quem assina o certificado. Com `nome` vazio, o PDF mostra só o cargo sob a
+// linha (assinatura à mão). Preencher com o nome de quem assina de fato.
+export const ASSINATURA_CERTIFICADO = {
+  nome: '',
+  cargo: 'Pedagogical Director',
+};
+
 export const NIVEIS_CERTIFICADO = {
   'A1': 'A1 Beginner English',
   'A2': 'A2 Elementary English',

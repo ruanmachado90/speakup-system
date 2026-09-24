@@ -1,9 +1,16 @@
 /**
- * Gera o certificado de ponta a ponta com a Montserrat e a logo reais.
+ * Gera o certificado de ponta a ponta com as fontes e a logo reais.
  * Com CERT_PDF_OUT=<caminho.pdf> grava o arquivo pra conferir o visual.
  */
+const FONTES_REAIS = [
+  'Montserrat-Regular.ttf', 'Montserrat-ExtraBold.ttf', 'Cinzel-SemiBold.ttf',
+  'PlayfairDisplay-MediumItalic.ttf', 'CormorantGaramond-MediumItalic.ttf',
+];
 jest.mock('../assets/fonts/Montserrat-Regular.ttf', () => 'Montserrat-Regular.ttf', { virtual: true });
 jest.mock('../assets/fonts/Montserrat-ExtraBold.ttf', () => 'Montserrat-ExtraBold.ttf', { virtual: true });
+jest.mock('../assets/fonts/Cinzel-SemiBold.ttf', () => 'Cinzel-SemiBold.ttf', { virtual: true });
+jest.mock('../assets/fonts/PlayfairDisplay-MediumItalic.ttf', () => 'PlayfairDisplay-MediumItalic.ttf', { virtual: true });
+jest.mock('../assets/fonts/CormorantGaramond-MediumItalic.ttf', () => 'CormorantGaramond-MediumItalic.ttf', { virtual: true });
 jest.mock('../assets/logo-speakup-azul.png', () => 'logo-speakup-azul.png', { virtual: true });
 
 const fs = require('fs');
@@ -25,46 +32,43 @@ beforeAll(() => {
   });
 });
 
-const { montarCertificadoPDF } = require('../utils/certificadoPDF');
+const { montarCertificadoPDF, dataPorExtenso } = require('../utils/certificadoPDF');
 
 const cert = {
   codigo: 'SU-2026-K7QX4M',
   nome: 'Maria Eduarda Fernandes de Souza',
   titulo: 'B1 Intermediate English',
+  nivel: 'B1',
   dataEmissao: '2026-09-24',
 };
 
 describe('certificado em PDF', () => {
+  it('fontes do certificado existem no repositório', () => {
+    FONTES_REAIS.forEach((f) => expect(arquivoReal(f).length).toBeGreaterThan(10000));
+  });
+
   it('gera uma página A4 paisagem com nome de arquivo seguro', async () => {
     const { pdf, arquivo } = await montarCertificadoPDF(cert);
     expect(pdf.getNumberOfPages()).toBe(1);
     expect(pdf.internal.pageSize.getWidth()).toBeCloseTo(297, 0);
     expect(arquivo).toBe('certificado-Maria-Eduarda-Fernandes-de-Souza-SU-2026-K7QX4M.pdf');
+    expect(pdf.getFontList()).toEqual(expect.objectContaining({
+      Cinzel: expect.anything(), PlayfairDisplay: expect.anything(), CormorantGaramond: expect.anything(),
+    }));
     if (process.env.CERT_PDF_OUT) fs.writeFileSync(process.env.CERT_PDF_OUT, Buffer.from(pdf.output('arraybuffer')));
   });
 
-  it('nome muito longo e com acentos não quebra', async () => {
-    const { pdf } = await montarCertificadoPDF({ ...cert, nome: 'José Antônio Ribeiro Gonçalves Albuquerque de Vasconcelos Júnior Neto' });
+  it('nome longo com acentos e título livre (sem nível) não quebram', async () => {
+    const { pdf } = await montarCertificadoPDF({
+      ...cert, nivel: null, titulo: 'Conversation Club – Advanced Speaking Skills',
+      nome: 'José Antônio Ribeiro Gonçalves Albuquerque de Vasconcelos Júnior Neto',
+    });
     expect(pdf.getNumberOfPages()).toBe(1);
+    if (process.env.CERT_PDF_OUT) fs.writeFileSync(process.env.CERT_PDF_OUT.replace('.pdf', '-longo.pdf'), Buffer.from(pdf.output('arraybuffer')));
   });
 });
 
-describe('layout: textos cabem nas suas áreas (fonte real)', () => {
-  it('código, data, título e site cabem no selo, na caixa e na página', async () => {
-    const { pdf } = await montarCertificadoPDF(cert);
-    const largura = (peso, tamanho, texto) => {
-      pdf.setFont('Montserrat', peso);
-      pdf.setFontSize(tamanho);
-      return pdf.getTextWidth(texto);
-    };
-    // caixa do ID: 76 mm de largura, painel do QR ocupa 30 → texto tem ~42 mm
-    expect(largura('bold', 10, cert.codigo)).toBeLessThan(40);
-    expect(largura('normal', 5, 'gestao.speakupcataguases.com/verificar')).toBeLessThan(40);
-    // data dentro do círculo interno do selo (diâmetro 28,4 mm)
-    expect(largura('bold', 8.6, '24/09/2026')).toBeLessThan(24);
-    // título do certificado cabe na página com margem
-    expect(largura('bold', 36, 'Certificate of Achievement')).toBeLessThan(260);
-    // "CERTIFICATE OF ACHIEVEMENT" sob o selo não invade a caixa do ID (x=198) nem a assinatura
-    expect(largura('normal', 5.5, 'CERTIFICATE OF ACHIEVEMENT') / 2 + 168).toBeLessThan(198);
-  });
+describe('dataPorExtenso', () => {
+  it('dia antes do mês, em inglês', () => expect(dataPorExtenso('2026-09-04')).toBe('4 September 2026'));
+  it('entrada inválida vira vazio', () => expect(dataPorExtenso('')).toBe(''));
 });

@@ -1,7 +1,5 @@
 import { useState, useEffect } from 'react';
-import { collection, getDocs } from 'firebase/firestore';
-import { db } from '../firebase';
-import { APP_ID } from '../utils/constants';
+import { buscarAlunosPorIds } from '../utils/buscarAlunos';
 
 /**
  * Retorna os alunos de uma turma, buscados pelo campo `alunosIds` da turma.
@@ -22,15 +20,10 @@ export function useTurmaAlunos(turmaObj) {
     async function fetchAlunos() {
       setLoading(true);
       try {
-        const snap = await getDocs(
-          collection(db, 'artifacts', APP_ID, 'public', 'data', 'students')
-        );
+        const docs = await buscarAlunosPorIds(turmaObj.alunosIds);
         if (cancelled) return;
 
-        const ids = new Set(turmaObj.alunosIds);
-        const found = snap.docs
-          .map(d => ({ id: d.id, ...d.data() }))
-          .filter(s => ids.has(s.id))
+        const found = docs
           // Normaliza para { id, nome } independente do campo usado no Firestore
           .map(s => ({ id: s.id, nome: s.name || s.nome || s.id }))
           .sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));

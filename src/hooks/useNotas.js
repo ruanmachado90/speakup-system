@@ -40,9 +40,16 @@ export function conceitoCor(c) {
  * Retorna null se nenhuma prova foi lancada.
  */
 export function calcularMediaCategoria(avsCategoria, scores, categoriaMax) {
-  const scored = avsCategoria.filter(av => scores[av.id] != null);
+  // Só conta prova com pontuação válida (> 0) e nota numérica lançada — nota
+  // em branco ("") não vira zero, e prova sem `pontos` não vira Infinity/NaN.
+  const scored = avsCategoria.filter(av => {
+    const nota = scores?.[av.id];
+    return Number(av.pontos) > 0 && nota != null && nota !== '' && Number.isFinite(Number(nota));
+  });
   if (scored.length === 0) return null;
-  const avgPct = scored.reduce((s, av) => s + (scores[av.id] / av.pontos), 0) / scored.length;
+  // Nota acima do máximo da prova (erro de digitação) conta como 100%, nunca mais.
+  const pct = (av) => Math.min(1, Math.max(0, Number(scores[av.id]) / Number(av.pontos)));
+  const avgPct = scored.reduce((s, av) => s + pct(av), 0) / scored.length;
   return parseFloat((avgPct * categoriaMax).toFixed(2));
 }
 

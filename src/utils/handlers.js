@@ -23,6 +23,7 @@ import {
   alunosIdsCom,
   separarParcelasNoCancelamento,
 } from "./matricula";
+import { montarBaixa } from "./pagamento";
 
 const appId = APP_ID;
 const col = (name) => collection(db, "artifacts", appId, "public", "data", name);
@@ -429,32 +430,20 @@ export const savePayment = async (e, modal, toastMsg, setModal, setPaymentSaving
   if (!modal.data) return;
 
   const form = new FormData(e.target);
-  const valuePaid = Number(form.get('valuePaid') || 0);
-  const paymentDate = form.get('paymentDate');
-  const paymentMethod = form.get('paymentMethod') || 'PIX';
-  const bank = form.get('bank') || 'Asaas';
-
-  if (isNaN(valuePaid) || valuePaid <= 0) {
-    toastMsg('Informe um valor válido');
+  const { erro, dados } = montarBaixa(modal.data, {
+    valuePaid: form.get('valuePaid'),
+    paymentDate: form.get('paymentDate'),
+    paymentMethod: form.get('paymentMethod'),
+    bank: form.get('bank'),
+  });
+  if (erro) {
+    toastMsg(erro);
     return;
   }
 
   try {
     setPaymentSaving(true);
-
-    const updateData = {
-      status: 'Pago',
-      valuePaid: valuePaid,
-      paymentDate: paymentDate || new Date().toISOString().split('T')[0],
-      paymentMethod: paymentMethod,
-      bank: bank
-    };
-
-    if (!modal.data.paidAt) {
-      updateData.paidAt = Date.now();
-    }
-
-    await updateDoc(doc(col('payments'), modal.data.id), updateData);
+    await updateDoc(doc(col('payments'), modal.data.id), dados);
 
     toastMsg(modal.data.status === 'Pago' ? 'Pagamento atualizado' : 'Pagamento registrado');
     setModal({ open: false, type: null, data: null });

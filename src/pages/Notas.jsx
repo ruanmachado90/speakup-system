@@ -5,6 +5,7 @@ import { collection, getDocs, query, where } from 'firebase/firestore';
 import { signInAnonymously, onAuthStateChanged } from 'firebase/auth';
 import { db, auth } from '../firebase';
 import { APP_ID } from '../utils/constants';
+import { buscarAlunosDasTurmas } from '../utils/buscarAlunos';
 import { useGrades, CATEGORIAS, calcularConceito, conceitoCor, calcularMediaCategoria } from '../hooks/useNotas';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -612,7 +613,13 @@ export function NotasView({ professorSlug, professorNome, turmas, alunosPorTurma
     setEditingCell(null);
     setSavingCell({ studentId, key });
     try {
-      const val = editVal === '' ? null : parseFloat(editVal);
+      // Aceita vírgula ("7,5") e recusa nota acima do máximo da prova.
+      const val = editVal.trim() === '' ? null : parseFloat(editVal.replace(',', '.'));
+      const maxProva = Number(avaliacoes.find(av => av.id === key)?.pontos);
+      if (val !== null && maxProva > 0 && val > maxProva) {
+        alert(`Nota ${val} acima do máximo desta prova (${maxProva}). Não foi salva.`);
+        return;
+      }
       if (val === null || (!isNaN(val) && val >= 0)) {
         await setScore(studentId, key, val);
         setSavedIndicator(true);
@@ -621,7 +628,7 @@ export function NotasView({ professorSlug, professorNome, turmas, alunosPorTurma
     } finally {
       setSavingCell(null);
     }
-  }, [editingCell, editVal, setScore]);
+  }, [editingCell, editVal, setScore, avaliacoes]);
 
   const handleKeyDown = (e) => {
     if (e.key === 'Enter') commitEdit();
@@ -1015,23 +1022,13 @@ export default function Notas() {
       setLoadingData(true);
       setFetchError(null);
       try {
-        const [snap, alunosSnap] = await Promise.all([
-          getDocs(collection(db, 'turmas')),
-          getDocs(collection(db, 'artifacts', APP_ID, 'public', 'data', 'students')),
-        ]);
+        const snap = await getDocs(collection(db, 'turmas'));
         const minhas = snap.docs
           .map(d => ({ id: d.id, ...d.data() }))
           .filter(t => (t.professor || '').toLowerCase().includes(professorPrimeiroNome.toLowerCase()));
         setTurmas(minhas);
-        const todos = alunosSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-        const mapa = {};
-        for (const t of minhas) {
-          const ids = t.alunosIds || [];
-          mapa[t.id] = ids.length > 0
-            ? todos.filter(a => ids.includes(a.id))
-            : todos.filter(a => (a.turma || a.turmaId) === t.id);
-        }
-        setAlunosPorTurma(mapa);
+        // Só os alunos das turmas do professor, por id (antes: coleção inteira).
+        setAlunosPorTurma(await buscarAlunosDasTurmas(minhas));
       } catch (e) {
         setFetchError(e.message || 'Erro ao carregar dados.');
       } finally {

@@ -1,5 +1,6 @@
 import React from 'react';
 import { formatDate } from '../../utils/formatters';
+import { paraISODia } from '../../utils/matricula';
 
 export const PaymentForm = ({ modal, paymentSaving, onSubmit, onCancel, isEdit = false }) => {
   return (
@@ -48,7 +49,7 @@ export const PaymentForm = ({ modal, paymentSaving, onSubmit, onCancel, isEdit =
           <input 
             type="date" 
             name="paymentDate" 
-            defaultValue={isEdit ? modal.data?.paymentDate : new Date().toISOString().split('T')[0]}
+            defaultValue={isEdit ? modal.data?.paymentDate : paraISODia(new Date())}
             className="w-full px-4 py-3 rounded-xl border focus:outline-none focus:ring-2 focus:ring-[#0e48fe]" 
           />
         </div>

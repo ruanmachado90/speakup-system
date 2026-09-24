@@ -18,6 +18,7 @@ import {
 import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { APP_ID } from '../../utils/constants';
+import { buscarAlunosPorIds } from '../../utils/buscarAlunos';
 
 const STATUS_OPTIONS = [
   { key: 'presente', label: 'Presente', icon: CheckCircle, color: 'bg-emerald-500 text-white border-emerald-500' },
@@ -82,10 +83,7 @@ export default function ChamadaForm({ turma, alunosIniciais, professorNome, onSa
 
         // Se são IDs string, busca no Firestore
         if (typeof alunosIds[0] === 'string') {
-          const studentsRef = collection(db, 'artifacts', APP_ID, 'public', 'data', 'students');
-          const snapshot = await getDocs(studentsRef);
-          const todos = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
-          const filtrados = todos.filter((s) => alunosIds.includes(s.id));
+          const filtrados = await buscarAlunosPorIds(alunosIds);
           setAlunos(filtrados);
           const initialChamadas = {};
           filtrados.forEach((a) => { initialChamadas[a.id] = 'presente'; });

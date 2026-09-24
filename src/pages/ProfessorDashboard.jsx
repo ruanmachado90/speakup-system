@@ -28,6 +28,7 @@ import {
 import { collection, getDocs, addDoc, onSnapshot, query, where, updateDoc, doc } from 'firebase/firestore';
 import { db, auth } from '../firebase';
 import { APP_ID } from '../utils/constants';
+import { buscarAlunosDasTurmas } from '../utils/buscarAlunos';
 import { normalizeNome } from '../utils/normalizeNome';
 import { dataLocalISO, isAulaRealizada, aulasRealizadas, frequenciaMediaTurma, frequenciaAluno } from '../utils/aulas';
 import { useAulas } from '../hooks/useAulas';
@@ -328,19 +329,8 @@ export default function ProfessorDashboard() {
         
         setTurmas(turmasData);
 
-        // Buscar alunos UMA VEZ para todas as turmas, montar mapa turmaId → alunos
-        const alunosRef = collection(db, 'artifacts', APP_ID, 'public', 'data', 'students');
-        const alunosSnapshot = await getDocs(alunosRef);
-        const todosAlunos = alunosSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-
-        const mapaAlunos = {};
-        for (const turma of turmasData) {
-          const ids = turma.alunosIds || [];
-          mapaAlunos[turma.id] = ids.length > 0
-            ? todosAlunos.filter(a => ids.includes(a.id))
-            : [];
-        }
-        setAlunosPorTurma(mapaAlunos);
+        // Só os alunos das turmas do professor, numa busca por ids
+        setAlunosPorTurma(await buscarAlunosDasTurmas(turmasData));
         
       } catch (error) {
         console.error('Erro ao buscar dados:', error);

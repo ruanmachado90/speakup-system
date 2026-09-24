@@ -40,6 +40,36 @@ function normalizeNome(str) {
 }
 
 /**
+ * Verifica o token Firebase enviado no header Authorization e confirma
+ * que o usuário é admin. Mesma regra aplicada no acesso à tela AIManager
+ * no frontend (src/App.jsx) — replicada aqui porque o endpoint chama a
+ * API paga da Anthropic e não pode ficar aberto sem checagem no servidor.
+ * @param {import('express').Request} req - Requisição HTTP
+ * @return {Promise<{authorized: boolean, status?: number, error?: string}>}
+ */
+async function verifyAdminAuth(req) {
+  const authHeader = req.headers.authorization || "";
+  const match = authHeader.match(/^Bearer (.+)$/);
+  if (!match) {
+    return { authorized: false, status: 401, error: "Token de autenticação ausente." };
+  }
+
+  let decoded;
+  try {
+    decoded = await admin.auth().verifyIdToken(match[1]);
+  } catch (err) {
+    return { authorized: false, status: 401, error: "Token de autenticação inválido." };
+  }
+
+  const callerSnap = await admin.firestore().doc(`users/${decoded.uid}`).get();
+  if (!callerSnap.exists || callerSnap.data().role !== "admin") {
+    return { authorized: false, status: 403, error: "Apenas administradores podem usar o assistente de IA." };
+  }
+
+  return { authorized: true };
+}
+
+/**
  * Valida o payload da requisição
  * @param {Object} body - Corpo da requisição
  * @returns {Object} - { valid: boolean, error?: string }
@@ -142,9 +172,20 @@ exports.chatWithAI = functions.https.onRequest(async (req, res) => {
 
   // Aceitar apenas POST
   if (req.method !== "POST") {
-    res.status(405).json({ 
+    res.status(405).json({
       error: "Method Not Allowed",
       message: "Only POST requests are accepted"
+    });
+    return;
+  }
+
+  // 0. Exigir usuário admin autenticado — sem isso, o endpoint repassa
+  // chamadas para a API paga da Anthropic para qualquer chamador externo.
+  const authCheck = await verifyAdminAuth(req);
+  if (!authCheck.authorized) {
+    res.status(authCheck.status).json({
+      error: "Unauthorized",
+      message: authCheck.error,
     });
     return;
   }

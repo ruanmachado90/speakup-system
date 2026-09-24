@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef, useMemo, useEffect } from 'react';
 import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
-import { db } from '../firebase';
+import { db, auth } from '../firebase';
 import { AI_CONFIG } from '../config/aiConfig';
 import { buildSystemPrompt, extractSuggestions } from '../utils/aiUtils';
 
@@ -126,6 +126,11 @@ export function useAI(appData, { uid } = {}) {
     let assistantIndex = null;
 
     try {
+      if (!auth.currentUser) {
+        throw new Error('Sessão expirada. Faça login novamente para usar o assistente de IA.');
+      }
+      const idToken = await auth.currentUser.getIdToken();
+
       // Filtra a mensagem de boas-vindas pelo tipo, não pelo conteúdo (mais robusto)
       const conversationMessages = [...messagesRef.current, newMessage]
         .filter(m => m.type !== 'welcome')
@@ -133,7 +138,10 @@ export function useAI(appData, { uid } = {}) {
 
       const response = await fetchWithRetry(AI_CONFIG.API_ENDPOINT, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${idToken}`,
+        },
         body: JSON.stringify({ systemPrompt, messages: conversationMessages }),
         signal: abortControllerRef.current.signal,
       });

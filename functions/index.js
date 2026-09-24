@@ -21,6 +21,7 @@ const CONFIG = {
   ALLOWED_ORIGINS: [
     "https://speakup-system.web.app",
     "https://speakup-system.firebaseapp.com",
+    "https://gestao.speakupcataguases.com",
     "http://localhost:5173",
   ],
 };

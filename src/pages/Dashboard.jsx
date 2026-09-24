@@ -1,9 +1,10 @@
 import { useState, useMemo, useEffect, Fragment } from 'react';
-import { Printer, Eye, EyeOff } from 'lucide-react';
+import { Printer, Eye, EyeOff, CheckCircle2, AlertTriangle, AlertOctagon } from 'lucide-react';
 import { Card, KPI, EvolutionChart, ProfitChart } from '../components';
-import { EnrollmentsChart } from '../components/charts';
+import { EnrollmentsChart, RetentionFlowChart } from '../components/charts';
 import { formatCurrency } from '../utils';
-import { churnMensalPct } from '../utils/reportKPIs';
+import { churnMensalPct, noMes } from '../utils/reportKPIs';
+import { useData } from '../context/DataContext';
 import { buildDelta, ehMatriculaReal } from '../utils/dashboardHelpers';
 import RegistrationsModal from '../components/dashboard/RegistrationsModal';
 import CancellationsModal from '../components/dashboard/CancellationsModal';
@@ -155,7 +156,35 @@ const DashboardGestao = ({
     const hoje = new Date();
     return churnMensalPct(students || [], hoje.getMonth(), hoje.getFullYear());
   }, [students]);
-  const churnPctClamped = Math.min(100, Math.max(0, churn.disponivel ? churn.valor : 0));
+
+  // Faixa do churn contra a meta configurada em Parâmetros: verde até a meta,
+  // amarelo até 1,5×, vermelho acima. Cor sempre acompanhada de ícone + texto.
+  const { parametros } = useData();
+  const metaChurn = parametros?.metaChurnPct ?? 5;
+  const churnFaixa = useMemo(() => {
+    if (!churn.disponivel) return { tom: 'neutro', texto: 'Sem base no mês', Icone: null };
+    if (churn.valor <= metaChurn) return { tom: 'success', texto: 'Dentro da meta', Icone: CheckCircle2 };
+    if (churn.valor <= metaChurn * 1.5) return { tom: 'warning', texto: 'Acima da meta', Icone: AlertTriangle };
+    return { tom: 'danger', texto: 'Bem acima da meta', Icone: AlertOctagon };
+  }, [churn, metaChurn]);
+
+  // ── Fluxo de alunos: últimos 6 meses (mesmos campos do useStats, pra o mês
+  // corrente bater com os números de Matrículas/Cancelamentos do card) ─────
+  const flowData = useMemo(() => {
+    const hoje = new Date();
+    const labels = [];
+    const entradas = [];
+    const saidas = [];
+    for (let i = 5; i >= 0; i -= 1) {
+      const d = new Date(hoje.getFullYear(), hoje.getMonth() - i, 1);
+      const m = d.getMonth();
+      const y = d.getFullYear();
+      labels.push(MESES_CURTO[m]);
+      entradas.push((students || []).filter((s) => ehMatriculaReal(s) && noMes(Number(s.createdAt), m, y)).length);
+      saidas.push((students || []).filter((s) => s.status === 'cancelado' && noMes(Number(s.canceledAt), m, y)).length);
+    }
+    return { labels, entradas, saidas };
+  }, [students]);
 
   // ── Alunos por curso (normaliza pro rótulo principal) ──────────────────────
   const courseStats = useMemo(() => {
@@ -324,35 +353,45 @@ const DashboardGestao = ({
               </Card>
 
               <Card className="lg:col-span-2">
-                <h3 className="font-bold text-sm text-content-body mb-3">Retenção</h3>
-                <div className="grid grid-cols-2 gap-2.5 mb-2.5">
+                <h3 className="font-bold text-sm text-content-body mb-1">Retenção</h3>
+                <p className="text-su-sm text-content-muted mb-3">Entradas × saídas, últimos 6 meses</p>
+                <RetentionFlowChart labels={flowData.labels} entradas={flowData.entradas} saidas={flowData.saidas} />
+
+                <div className="grid grid-cols-3 gap-2 mt-3">
                   <button
                     onClick={() => setShowRegistrationsModal(true)}
-                    className="text-left bg-surface-sunken rounded-su-sm p-3 hover:bg-gr-100 transition-colors focus:outline-none focus-visible:shadow-ring-accent"
+                    className="text-left bg-surface-sunken rounded-su-sm p-2.5 hover:bg-gr-100 transition-colors focus:outline-none focus-visible:shadow-ring-accent"
                   >
-                    <p className="text-su-2xs font-bold uppercase tracking-caps text-content-faint mb-1.5">Matrículas</p>
-                    <span className="font-display font-extrabold text-2xl text-content-strong leading-none">{stats.registrations}</span>
+                    <p className="text-su-2xs font-bold uppercase tracking-caps text-content-faint mb-1">Matrículas</p>
+                    <span className="font-display font-extrabold text-xl text-content-strong leading-none">{stats.registrations}</span>
+                    <p className="text-su-2xs text-content-muted mt-1">{dashboardRange === 'month' ? 'no mês' : 'no ano'}</p>
                   </button>
                   <button
                     onClick={() => setShowCancellationsModal(true)}
-                    className="text-left bg-surface-sunken rounded-su-sm p-3 hover:bg-gr-100 transition-colors focus:outline-none focus-visible:shadow-ring-accent"
+                    className="text-left bg-surface-sunken rounded-su-sm p-2.5 hover:bg-gr-100 transition-colors focus:outline-none focus-visible:shadow-ring-accent"
                   >
-                    <p className="text-su-2xs font-bold uppercase tracking-caps text-content-faint mb-1.5">Cancelamentos</p>
-                    <span className="font-display font-extrabold text-2xl text-content-strong leading-none">{stats.cancellations}</span>
+                    <p className="text-su-2xs font-bold uppercase tracking-caps text-content-faint mb-1">Cancel.</p>
+                    <span className="font-display font-extrabold text-xl text-content-strong leading-none">{stats.cancellations}</span>
+                    <p className="text-su-2xs text-content-muted mt-1">{dashboardRange === 'month' ? 'no mês' : 'no ano'}</p>
                   </button>
-                </div>
-                <div className="flex items-center gap-4 bg-danger-bg border border-danger rounded-su-sm p-4">
                   <div
-                    className="relative w-16 h-16 flex-shrink-0 rounded-full"
-                    style={{ background: `conic-gradient(var(--su-danger-fg) 0% ${churnPctClamped}%, var(--gr-200) ${churnPctClamped}% 100%)` }}
+                    className={`rounded-su-sm p-2.5 ${{
+                      success: 'bg-success-bg text-success-fg',
+                      warning: 'bg-warning-bg text-warning-fg',
+                      danger: 'bg-danger-bg text-danger-fg',
+                      neutro: 'bg-surface-sunken text-content-muted',
+                    }[churnFaixa.tom]}`}
+                    title={churn.disponivel ? `${churn.cancelados} de ${churn.base} alunos ativos no início do mês` : undefined}
                   >
-                    <div className="absolute inset-2 bg-surface-card rounded-full" />
-                  </div>
-                  <div>
-                    <p className="text-su-2xs font-bold uppercase tracking-caps text-danger-fg mb-1">Churn do mês</p>
-                    <span className="font-display font-extrabold text-2xl text-danger-fg leading-none">
+                    <p className="text-su-2xs font-bold uppercase tracking-caps mb-1">Churn do mês</p>
+                    <span className="font-display font-extrabold text-xl leading-none">
                       {churn.disponivel ? `${churn.valor.toFixed(1)}%` : '—'}
                     </span>
+                    <p className="text-su-2xs mt-1 flex items-center gap-1">
+                      {churnFaixa.Icone && <churnFaixa.Icone size={11} aria-hidden="true" />}
+                      {churn.disponivel ? `meta ${metaChurn}%` : churnFaixa.texto}
+                    </p>
+                    {churn.disponivel && <span className="sr-only">{churnFaixa.texto}</span>}
                   </div>
                 </div>
               </Card>

@@ -16,8 +16,13 @@ const CONFIG = {
   MODEL: "claude-sonnet-5",
   MAX_TOKENS: 4096,
   
-  // CORS
-  ALLOWED_ORIGINS: "*", // Em produção, pode limitar para seu domínio específico
+  // CORS — só o Hosting do sistema e o dev server local. Domínio próprio
+  // novo no Hosting precisa entrar aqui, senão o navegador bloqueia a IA.
+  ALLOWED_ORIGINS: [
+    "https://speakup-system.web.app",
+    "https://speakup-system.firebaseapp.com",
+    "http://localhost:5173",
+  ],
 };
 
 // ============================================
@@ -159,10 +164,16 @@ async function streamClaudeAPI(systemPrompt, messages, res) {
 exports.chatWithAI = functions.https.onRequest(async (req, res) => {
   const startTime = Date.now();
   
-  // Configurar CORS
-  res.set("Access-Control-Allow-Origin", CONFIG.ALLOWED_ORIGINS);
+  // Configurar CORS — ecoa a origem só se estiver na lista; origem desconhecida
+  // fica sem o header e o navegador barra a resposta.
+  const origin = req.headers.origin;
+  if (origin && CONFIG.ALLOWED_ORIGINS.includes(origin)) {
+    res.set("Access-Control-Allow-Origin", origin);
+    res.set("Vary", "Origin");
+  }
   res.set("Access-Control-Allow-Methods", "POST, OPTIONS");
-  res.set("Access-Control-Allow-Headers", "Content-Type");
+  // Authorization é obrigatório: o frontend manda o ID token do Firebase nele.
+  res.set("Access-Control-Allow-Headers", "Content-Type, Authorization");
 
   // Responder preflight request
   if (req.method === "OPTIONS") {

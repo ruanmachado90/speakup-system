@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useProfessores } from '../hooks/useProfessores';
-import { Search, Edit, X, FileText, CheckSquare, Square, Trash2, ArrowUpDown, School, Printer, UserCheck, UserX, Users, FileCheck, FileClock, FileMinus, GraduationCap, Loader2, RotateCcw, CheckCircle, Clock } from 'lucide-react';
+import { Search, Edit, X, FileText, CheckSquare, Square, Trash2, ArrowUpDown, School, Printer, UserCheck, UserX, Users, FileCheck, FileClock, FileMinus, GraduationCap, Loader2, RotateCcw, CheckCircle, Clock, Award } from 'lucide-react';
 import { db } from '../firebase';
 import { doc, collection, getDoc, setDoc, getDocs, onSnapshot, updateDoc, query, where } from 'firebase/firestore';
 import { Card, Table, KPI } from '../components';
@@ -17,6 +17,7 @@ import { confirmarPreCadastro, descartarPreCadastro, removerCanceladosDasTurmas 
 import { alunosComMesmoCpf, turmasDoAluno, paraISODia } from '../utils/matricula';
 import InserirEmTurmaModal from '../components/students/InserirEmTurmaModal';
 import BoletimModal from '../components/students/BoletimModal';
+import EmitirCertificadoModal from '../components/students/EmitirCertificadoModal';
 
 export const Students = ({
   students,
@@ -185,6 +186,7 @@ export const Students = ({
   // ── Turmas ──────────────────────────────────────────────────────────────
   const [turmas, setTurmas] = useState([]);
   const [inserirModal, setInserirModal] = useState(null); // aluno selecionado
+  const [certificadoAluno, setCertificadoAluno] = useState(null); // { aluno, turma } | null
   const [turmaSelecionada, setTurmaSelecionada] = useState('');
   const [inserindo, setInserindo] = useState(false);
   const [filtroTurmaProf, setFiltroTurmaProf] = useState('');
@@ -898,7 +900,15 @@ export const Students = ({
                 >
                   {generatingBoletimId === s.id ? <Loader2 size={15} className="animate-spin" /> : <School size={15}/>}
                 </button>
-                <button 
+                <button
+                  onClick={() => setCertificadoAluno({ aluno: s, turma: alunoTurmaMap.get(s.id) || null })}
+                  aria-label="Emitir certificado"
+                  title="Emitir certificado"
+                  className="p-1.5 rounded-lg hover:bg-emerald-50 text-emerald-500 hover:text-emerald-700 transition-colors"
+                >
+                  <Award size={15}/>
+                </button>
+                <button
                   onClick={() => setModal({open: true, type: 'student', data: s})}
                   aria-label="Editar aluno"
                   className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition-colors"
@@ -957,6 +967,15 @@ export const Students = ({
       />
     )}
       <ConfirmDialog {...confirmState} onConfirm={handleConfirm} onCancel={handleCancel} />
+
+      {certificadoAluno && (
+        <EmitirCertificadoModal
+          aluno={certificadoAluno.aluno}
+          turma={certificadoAluno.turma}
+          toastMsg={toastMsg}
+          onClose={() => setCertificadoAluno(null)}
+        />
+      )}
 
       {confirmarMatricula && (
         <ConfirmarMatriculaModal

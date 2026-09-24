@@ -179,11 +179,32 @@ service cloud.firestore {
       allow read, update, delete: if isAdminOrSecretaria();
     }
 
+    // ── Certificados (verificação pública) ────────────────────────────────
+    // Quem tem o código (do PDF/QR) consulta um certificado por `get`; a
+    // coleção não pode ser listada por ninguém sem login (o código é aleatório,
+    // então não dá pra enumerar nomes). Só admin/secretaria emitem e revogam.
+    // `create` é só pra documento novo: o código nunca é reaproveitado.
+    match /artifacts/{appId}/public/data/certificados/{codigo} {
+      allow get: if true;
+      allow list: if isAdminOrSecretaria();
+      allow create: if isAdminOrSecretaria()
+        && request.resource.data.codigo == codigo
+        && request.resource.data.status == 'valido'
+        && request.resource.data.nome is string
+        && request.resource.data.nome.size() > 0
+        && request.resource.data.nome.size() <= 200
+        && request.resource.data.titulo is string
+        && request.resource.data.titulo.size() <= 120;
+      allow update: if isAdminOrSecretaria()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'revogadoEm', 'revogadoMotivo']);
+      allow delete: if isAdmin();
+    }
+
     // FIX #4 (companion): regra geral restrita a admin/secretaria para evitar bypass da regra de students acima.
     // `students` fica de fora: senão esta regra geral liberaria o delete que a
     // regra específica acima restringe a admin (regras do Firestore somam).
     match /artifacts/{appId}/public/data/{collection}/{docId} {
-      allow read, write: if isAdminOrSecretaria() && collection != 'students';
+      allow read, write: if isAdminOrSecretaria() && !(collection in ['students', 'certificados']);
     }
 
     // ── Link de pagamento público (acesso por clientes sem login) ─────────

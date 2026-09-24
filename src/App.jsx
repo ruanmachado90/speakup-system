@@ -25,8 +25,10 @@ import {
   EyeOff,
   GraduationCap,
   BookOpen,
-  SlidersHorizontal
+  SlidersHorizontal,
+  Award
 } from "lucide-react";
+import EmitirCertificadoModal from './components/students/EmitirCertificadoModal';
 
 import {
   Modal,
@@ -93,6 +95,7 @@ const ProfessorLoginPage = lazy(() => import('./pages/ProfessorLoginPage'));
 const Recados = lazy(() => import('./pages/Recados').then(m => ({ default: m.Recados })));
 const AulasAdmin = lazy(() => import('./pages/AulasAdmin'));
 const Registro = lazy(() => import('./pages/Registro'));
+const VerificarCertificado = lazy(() => import('./pages/VerificarCertificado'));
 
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 
@@ -156,6 +159,7 @@ function AppContent() {
   const [sidebarMode, setSidebarMode] = useState('open'); // 'open' | 'mini' | 'closed'
   const [recadosNaoLidos, setRecadosNaoLidos] = useState(0);
   const [modalContratoStatus, setModalContratoStatus] = useState(null); // null | 'loading' | { assinado, ... }
+  const [certificadoAluno, setCertificadoAluno] = useState(null); // { aluno, turma } | null
 
   /* ================= CONTEXT (usando hooks seletores para performance) ================= */
   const { page, setPage } = usePage();
@@ -345,7 +349,7 @@ function AppContent() {
               </div>
               <button
                 onClick={() => signOut(auth).then(() => navigate('/login'))}
-                className="w-full text-[11px] text-slate-400 hover:text-red-500 hover:bg-red-50 px-3 py-1.5 rounded-lg transition-colors text-left"
+                className="w-full text-[11px] text-slate-500 hover:text-red-600 hover:bg-red-50 px-3 py-1.5 rounded-lg transition-colors text-left"
               >
                 Sair da conta
               </button>
@@ -759,12 +763,29 @@ function AppContent() {
                 >
                   Gerar contrato
                 </button>
+                {modal.data?.id && (
+                  <button
+                    onClick={() => setCertificadoAluno({ aluno: modal.data, turma: modal.data.turmaInfo || null })}
+                    className="px-4 py-2 rounded bg-emerald-600 text-white hover:bg-emerald-700 inline-flex items-center gap-1.5"
+                  >
+                    <Award size={15} /> Emitir certificado
+                  </button>
+                )}
                 <button onClick={()=>setModal({open:false,type:null,data:null})} className="px-4 py-2 rounded bg-slate-100">Fechar</button>
               </div>
             </div>
           )}
 
         </Modal>
+      )}
+
+      {certificadoAluno && (
+        <EmitirCertificadoModal
+          aluno={certificadoAluno.aluno}
+          turma={certificadoAluno.turma}
+          toastMsg={toastMsg}
+          onClose={() => setCertificadoAluno(null)}
+        />
       )}
 
       {toast && (
@@ -1215,6 +1236,8 @@ export default function App() {
             <Route path="/login" element={<LoginPage />} />
             <Route path="/professor-login" element={<ProfessorLoginPage />} />
             <Route path="/registro" element={<Registro />} />
+            <Route path="/verificar" element={<VerificarCertificado />} />
+            <Route path="/verificar/:codigo" element={<VerificarCertificado />} />
             <Route path="/contrato/:id" element={<ContratoAssinatura />} />
             <Route path="/recibo/:id" element={<Recibo />} />
             <Route path="/pagamento/:paymentId" element={<PaymentLink />} />

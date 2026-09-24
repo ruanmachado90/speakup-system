@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef, useMemo } from 'react';
 import { AI_CONFIG } from '../config/aiConfig';
 import { buildSystemPrompt } from '../utils/aiUtils';
+import { auth } from '../firebase';
 
 // Fora do hook — função pura sem dependências de closure.
 // Evita ser recriada a cada render.
@@ -62,13 +63,21 @@ export function useAI(appData) {
     );
 
     try {
+      if (!auth.currentUser) {
+        throw new Error('Sessão expirada. Faça login novamente para usar o assistente de IA.');
+      }
+      const idToken = await auth.currentUser.getIdToken();
+
       // Filtra a mensagem de boas-vindas pelo tipo, não pelo conteúdo (mais robusto)
       const conversationMessages = [...messagesRef.current, newMessage]
         .filter(m => m.type !== 'welcome');
 
       const response = await fetchWithRetry(AI_CONFIG.API_ENDPOINT, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${idToken}`,
+        },
         body: JSON.stringify({ systemPrompt, messages: conversationMessages }),
         signal: abortControllerRef.current.signal,
       });

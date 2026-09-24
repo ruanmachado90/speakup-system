@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { CheckCircle, RotateCcw, FileDown, Eye, Edit2, XCircle, Trash2, BarChart3, Package, ShoppingBag, HelpCircle, PlusCircle, MinusCircle, AlertTriangle } from 'lucide-react';
 import { db } from '../firebase';
 import { collection, addDoc, getDocs, updateDoc, deleteDoc, doc, getDoc } from 'firebase/firestore';
@@ -11,6 +11,7 @@ import EditarVendaModal from '../components/vendas/EditarVendaModal';
 import EstoqueModal from '../components/vendas/EstoqueModal';
 import PagamentoModal from '../components/vendas/PagamentoModal';
 import VendaDetalhesModal from '../components/vendas/VendaDetalhesModal';
+import { gerarReciboVendaPDF } from '../utils/recibo';
 
 function Vendas() {
   const [vendas, setVendas] = useState([]);
@@ -59,7 +60,7 @@ function Vendas() {
       const docRef = doc(db, collection_name, docId);
       const docSnap = await getDoc(docRef);
       return docSnap.exists();
-    } catch (err) {
+    } catch {
       return false;
     }
   };
@@ -145,54 +146,12 @@ function Vendas() {
     }
   };
 
-  const baixarReciboDoc = (venda) => {
-    const valorPago = parseFloat(venda.valorPago || venda.valor || 0);
-    const hojeStr = new Date().toLocaleDateString('pt-BR');
-    const html = `
-      <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
-      <head><meta charset='utf-8'><title>Recibo ${venda.id}</title>
-      <style>
-        body { font-family: Arial, sans-serif; color: #1e293b; margin: 40px; }
-        h1 { color: #005DE4; text-align: center; }
-        h2 { text-align: center; color: #334155; }
-        .label { font-weight: bold; color: #475569; }
-        .valor { font-size: 20pt; font-weight: bold; color: #005DE4; text-align: center; padding: 12px; background: #f0f6ff; border-radius: 6px; }
-        table { width: 100%; border-collapse: collapse; margin-top: 16px; }
-        td { padding: 7px 4px; border-bottom: 1px solid #e2e8f0; font-size: 11pt; }
-        .rodape { margin-top: 40px; text-align: center; font-size: 9pt; color: #94a3b8; }
-        hr { border: none; border-top: 2px solid #005DE4; margin: 16px 0; }
-        .empresa { text-align: center; font-size: 9pt; color: #64748b; }
-      </style>
-      </head>
-      <body>
-        <h1>SpeakUp English Language Academy</h1>
-        <h2>Recibo de Pagamento</h2>
-        <p class="empresa">
-          CNPJ: 28.649.636/0001-88<br/>
-          Praça Governador Valadares, 119 - Centro - Cataguases/MG
-        </p>
-        <hr/>
-        <p class="valor">R$ ${valorPago.toLocaleString('pt-BR', {minimumFractionDigits:2})}</p>
-        <hr/>
-        <table>
-          <tr><td class="label">Aluno(a):</td><td>${venda.aluno || '-'}</td></tr>
-          <tr><td class="label">Serviço:</td><td>${venda.tipo || '-'}</td></tr>
-          ${venda.livro ? `<tr><td class="label">Material:</td><td>${venda.livro}</td></tr>` : ''}
-          <tr><td class="label">Parcelas:</td><td>${venda.parcelas || '-'}</td></tr>
-          <tr><td class="label">Vencimento:</td><td>${venda.vencimento ? new Date(venda.vencimento).toLocaleDateString('pt-BR') : '-'}</td></tr>
-          <tr><td class="label">Forma de Pagamento:</td><td>${venda.pagamento || '-'}</td></tr>
-          <tr><td class="label">Data do Pagamento:</td><td>${venda.dataPagamento ? new Date(venda.dataPagamento).toLocaleDateString('pt-BR') : 'Pendente'}</td></tr>
-          <tr><td class="label">Status:</td><td>${venda.status === 'pago' ? 'PAGO' : 'PENDENTE'}</td></tr>
-        </table>
-        <div class="rodape">Recibo gerado em ${hojeStr} — SpeakUp English Language Academy</div>
-      </body></html>`;
-    const blob = new Blob(['\ufeff', html], { type: 'application/msword' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `Recibo-${venda.aluno || venda.id}.doc`;
-    a.click();
-    URL.revokeObjectURL(url);
+  const baixarReciboDoc = async (venda) => {
+    try {
+      await gerarReciboVendaPDF(venda);
+    } catch (err) {
+      showToast('Erro ao gerar o recibo: ' + (err?.message || 'tente novamente'), 'error');
+    }
   };
 
   const abrirDetalhesVenda = (venda) => {
@@ -346,28 +305,6 @@ function Vendas() {
     carregarDados();
   }, []);
 
-  const deletarCobranca = async (cobrancaId, cobrancaInfo) => {
-    if (!cobrancaId) return;
-
-    const confirmou = await showConfirm({
-      title: 'Deletar Venda',
-      message: `Tem certeza que deseja deletar a venda de ${cobrancaInfo.aluno}?`,
-      type: 'danger',
-      confirmText: 'Deletar',
-      cancelText: 'Cancelar'
-    });
-    
-    if (!confirmou) return;
-
-    try {
-      await deleteDoc(doc(db, 'vendas', cobrancaId));
-      setVendas(prev => prev.filter(v => v.id !== cobrancaId));
-      showToast('Venda deletada com sucesso!', 'success');
-    } catch (err) {
-      handleError(err, 'deletar venda');
-    }
-  };
-
   const abrirEdicaoCobranca = (cobranca) => {
     setCobrancaView(cobranca);
     setShowViewModal(true);
@@ -491,10 +428,6 @@ function Vendas() {
       return filtroData;
     });
   }, [vendas, filterMes, filterAno]);
-
-  const hoje = new Date().toISOString().slice(0, 10);
-  const vendasVencidas = vendasFiltradas.filter(v => v.status === 'pendente' && v.vencimento < hoje);
-  const vendasVencendoHoje = vendasFiltradas.filter(v => v.status === 'pendente' && v.vencimento === hoje);
 
   const estoqueBaixoCount = useMemo(
     () => estoque.filter(item => parseInt(item.quantidade) <= (item.estoqueMinimo || 5)).length,
@@ -712,7 +645,7 @@ function Vendas() {
           <button
             onClick={() => setAbaAtiva('vendas')}
             className={`flex items-center gap-2 px-5 py-2.5 rounded-lg font-semibold text-sm transition-colors ${
-              abaAtiva === 'vendas' ? 'bg-[#005DE4] text-white' : 'text-gray-500 hover:bg-gray-50'
+              abaAtiva === 'vendas' ? 'bg-[#0e48fe] text-white' : 'text-gray-500 hover:bg-gray-50'
             }`}
           >
             <ShoppingBag size={16} /> Vendas
@@ -720,7 +653,7 @@ function Vendas() {
           <button
             onClick={() => setAbaAtiva('estoque')}
             className={`relative flex items-center gap-2 px-5 py-2.5 rounded-lg font-semibold text-sm transition-colors ${
-              abaAtiva === 'estoque' ? 'bg-[#005DE4] text-white' : 'text-gray-500 hover:bg-gray-50'
+              abaAtiva === 'estoque' ? 'bg-[#0e48fe] text-white' : 'text-gray-500 hover:bg-gray-50'
             }`}
           >
             <Package size={16} /> Estoque
@@ -759,7 +692,7 @@ function Vendas() {
                 <select
                   value={filterMes}
                   onChange={(e) => setFilterMes(e.target.value)}
-                  className="border rounded-lg px-3 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-[#005DE4]"
+                  className="border rounded-lg px-3 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-[#0e48fe]"
                 >
                   <option value="">Todos os meses</option>
                   {gerarOpcoesMeses().map(({ valor, label }) => (
@@ -771,7 +704,7 @@ function Vendas() {
                 <select
                   value={filterAno}
                   onChange={(e) => setFilterAno(e.target.value)}
-                  className="border rounded-lg px-3 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-[#005DE4]"
+                  className="border rounded-lg px-3 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-[#0e48fe]"
                 >
                   <option value="">Todos os anos</option>
                   {gerarOpcoesAnos().map(({ valor, label }) => (
@@ -805,8 +738,6 @@ function Vendas() {
                 const valorPago = vendasNaoCanceladas.filter(v => v.status === 'pago').reduce((acc, v) => acc + parseFloat(v.valor || 0), 0);
                 const valorPendente = vendasNaoCanceladas.filter(v => v.status === 'pendente').reduce((acc, v) => acc + parseFloat(v.valor || 0), 0);
                 const cobrancasAtrasadas = vendasNaoCanceladas.filter(v => v.status === 'pendente' && v.vencimento < hoje).length;
-                const vendasCanceladas = vendasComFiltroAluno.filter(v => v.status === 'cancelado').length;
-                const valorCancelado = vendasComFiltroAluno.filter(v => v.status === 'cancelado').reduce((acc, v) => acc + parseFloat(v.valor || 0), 0);
 
                 // Calcular percentuais para as barras de progresso
                 const totalGeralVendas = vendasNaoCanceladas.length;
@@ -943,14 +874,14 @@ function Vendas() {
               Controle de estoque
               <button
                 onClick={() => setMostrarAjudaEstoque(v => !v)}
-                className={`p-1 rounded-full transition-colors ${mostrarAjudaEstoque ? 'bg-blue-100 text-[#005DE4]' : 'text-gray-400 hover:text-[#005DE4] hover:bg-blue-50'}`}
+                className={`p-1 rounded-full transition-colors ${mostrarAjudaEstoque ? 'bg-blue-100 text-[#0e48fe]' : 'text-blue-300 hover:text-[#0e48fe] hover:bg-blue-50'}`}
                 title="Como usar essa página"
               >
                 <HelpCircle size={20} />
               </button>
             </h2>
             <button
-              className="bg-[#005DE4] text-white px-4 py-2 rounded-lg hover:bg-[#0041a8] transition-colors font-medium"
+              className="bg-[#0e48fe] text-white px-4 py-2 rounded-lg hover:bg-[#0b3ad4] transition-colors font-medium"
               onClick={() => setShowEstoqueModal(true)}
             >
               + Adicionar ao estoque
@@ -958,8 +889,8 @@ function Vendas() {
           </div>
 
           {mostrarAjudaEstoque && (
-            <div className="mb-5 p-4 bg-blue-50 border border-blue-200 rounded-lg text-sm text-gray-700 space-y-3">
-              <p className="font-semibold text-[#005DE4]">Como usar o controle de estoque</p>
+            <div className="mb-5 p-4 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-900 space-y-3">
+              <p className="font-semibold text-[#0e48fe]">Como usar o controle de estoque</p>
 
               <div className="flex gap-2">
                 <PlusCircle size={16} className="text-emerald-600 flex-shrink-0 mt-0.5" />
@@ -1185,7 +1116,7 @@ function Vendas() {
             </div>
             {expandedSections.vendas && (
               <button 
-                className="bg-[#005DE4] text-white px-4 py-2 rounded-lg hover:bg-[#004BB8] transition-colors font-medium"
+                className="bg-[#0e48fe] text-white px-4 py-2 rounded-lg hover:bg-[#0b3ad4] transition-colors font-medium"
                 onClick={() => setShowModal(true)}
               >
                 + Nova Venda
@@ -1202,12 +1133,12 @@ function Vendas() {
                   placeholder="Filtrar por aluno..."
                   value={filterAluno}
                   onChange={(e) => setFilterAluno(e.target.value)}
-                  className="border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-[#005DE4]"
+                  className="border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-[#0e48fe]"
                 />
                 <select
                   value={filterStatus}
                   onChange={(e) => setFilterStatus(e.target.value)}
-                  className="border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-[#005DE4]"
+                  className="border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-[#0e48fe]"
                 >
                   <option value="">Todos os status</option>
                   <option value="pendente">Pendente</option>
@@ -1217,7 +1148,7 @@ function Vendas() {
                 <select
                   value={filterMes}
                   onChange={(e) => setFilterMes(e.target.value)}
-                  className="border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-[#005DE4]"
+                  className="border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-[#0e48fe]"
                 >
                   <option value="">Todos os meses</option>
                   {gerarOpcoesMeses().map(({ valor, label }) => (
@@ -1229,7 +1160,7 @@ function Vendas() {
                 <select
                   value={filterAno}
                   onChange={(e) => setFilterAno(e.target.value)}
-                  className="border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-[#005DE4]"
+                  className="border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-[#0e48fe]"
                 >
                   <option value="">Todos os anos</option>
                   {gerarOpcoesAnos().map(({ valor, label }) => (
@@ -1401,11 +1332,11 @@ function Vendas() {
                                     </button>
                                   )}
                                   
-                                  {/* Baixar Recibo .doc */}
+                                  {/* Baixar recibo em PDF */}
                                   <button
                                     onClick={() => baixarReciboDoc(venda)}
                                     className="p-2 rounded-lg hover:bg-emerald-50 text-emerald-600 hover:text-emerald-800 transition-colors"
-                                    title="Baixar Recibo (.doc)"
+                                    title="Baixar recibo em PDF"
                                   >
                                     <FileDown size={16} />
                                   </button>

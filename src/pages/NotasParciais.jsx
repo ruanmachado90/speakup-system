@@ -40,11 +40,11 @@ function isInvalido(val, max) {
 
 function DropSelect({ label, value, options, onChange }) {
   return (
-    <div className="relative bg-white border-2 border-[#005DE4] rounded-xl px-4 py-3">
-      <label className="block text-xs font-semibold text-[#005DE4] mb-0.5">{label}</label>
+    <div className="relative bg-white border-2 border-[#0e48fe] rounded-xl px-4 py-3">
+      <label className="block text-xs font-semibold text-[#0e48fe] mb-0.5">{label}</label>
       <div className="flex items-center justify-between">
-        <span className="text-base font-bold text-[#005DE4] truncate pr-2">{value}</span>
-        <ChevronDown size={20} className="text-[#005DE4] flex-shrink-0" />
+        <span className="text-base font-bold text-[#0e48fe] truncate pr-2">{value}</span>
+        <ChevronDown size={20} className="text-[#0e48fe] flex-shrink-0" />
       </div>
       <select value={value} onChange={e => onChange(e.target.value)} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer">
         {options.map(o => <option key={o} value={o}>{o}</option>)}
@@ -55,8 +55,8 @@ function DropSelect({ label, value, options, onChange }) {
 
 function Avatar({ nome }) {
   return (
-    <div className="w-11 h-11 rounded-full bg-[#005DE4]/10 border-2 border-[#005DE4]/20 flex items-center justify-center flex-shrink-0">
-      <span className="text-[#005DE4] font-bold text-base">{nome?.[0] ?? '?'}</span>
+    <div className="w-11 h-11 rounded-full bg-[#0e48fe]/10 border-2 border-[#0e48fe]/20 flex items-center justify-center flex-shrink-0">
+      <span className="text-[#0e48fe] font-bold text-base">{nome?.[0] ?? '?'}</span>
     </div>
   );
 }
@@ -359,19 +359,19 @@ export default function NotasParciais() {
 
         <div className="grid grid-cols-2 gap-2">
           <DropSelect label="Tipo" value={tipo} options={TIPOS} onChange={setTipo} />
-          <div className="bg-white border-2 border-[#005DE4] rounded-xl px-4 py-3">
-            <label className="block text-xs font-semibold text-[#005DE4] mb-0.5">Pontos</label>
-            <p className="text-base font-bold text-[#005DE4] text-right">{pontos.toFixed(2).replace('.', ',')}</p>
+          <div className="bg-white border-2 border-[#0e48fe] rounded-xl px-4 py-3">
+            <label className="block text-xs font-semibold text-[#0e48fe] mb-0.5">Pontos</label>
+            <p className="text-base font-bold text-[#0e48fe] text-right">{pontos.toFixed(2).replace('.', ',')}</p>
           </div>
         </div>
 
-        <div className="relative bg-white border-2 border-[#005DE4] rounded-xl px-4 py-3">
-          <label className="block text-xs font-semibold text-[#005DE4] mb-0.5">Avaliação</label>
+        <div className="relative bg-white border-2 border-[#0e48fe] rounded-xl px-4 py-3">
+          <label className="block text-xs font-semibold text-[#0e48fe] mb-0.5">Avaliação</label>
           <div className="flex items-center justify-between">
-            <span className="text-base font-bold text-[#005DE4] truncate pr-2">
+            <span className="text-base font-bold text-[#0e48fe] truncate pr-2">
               {loadingAvaliacoes ? 'Carregando…' : opcaoAtual}
             </span>
-            <ChevronDown size={20} className="text-[#005DE4] flex-shrink-0" />
+            <ChevronDown size={20} className="text-[#0e48fe] flex-shrink-0" />
           </div>
           <select
             value={testIndex}
@@ -404,7 +404,7 @@ export default function NotasParciais() {
         <button
           onClick={() => setBoletimAlvo({ tipo: 'lote' })}
           disabled={generatingLote || alunos.length === 0}
-          className="w-full flex items-center justify-center gap-2 bg-white border-2 border-[#005DE4] text-[#005DE4] font-bold py-2.5 rounded-xl text-sm active:scale-95 transition-all disabled:opacity-50"
+          className="w-full flex items-center justify-center gap-2 bg-white border-2 border-[#0e48fe] text-[#0e48fe] font-bold py-2.5 rounded-xl text-sm active:scale-95 transition-all disabled:opacity-50"
         >
           {generatingLote ? <Loader2 size={16} className="animate-spin" /> : <FileStack size={16} />}
           Gerar boletins da turma (PDF)
@@ -414,7 +414,7 @@ export default function NotasParciais() {
       {/* Lista de alunos */}
       {loadingAlunos || loadingAvaliacoes ? (
         <div className="mx-3 mb-3 bg-white rounded-2xl p-6 text-center shadow-sm">
-          <div className="w-6 h-6 border-2 border-[#005DE4] border-t-transparent rounded-full animate-spin mx-auto" />
+          <div className="w-6 h-6 border-2 border-[#0e48fe] border-t-transparent rounded-full animate-spin mx-auto" />
           <p className="text-xs text-slate-400 mt-2">Carregando…</p>
         </div>
       ) : (
@@ -437,7 +437,7 @@ export default function NotasParciais() {
                     onChange={e => handleNotaChange(aluno.id, e.target.value)}
                     placeholder="—"
                     className={`w-16 text-right text-base font-bold border-b-2 focus:outline-none bg-transparent pb-0.5 transition-colors ${
-                      erro ? 'border-red-400 text-red-500 focus:border-red-500' : `border-slate-300 focus:border-[#005DE4] ${notaColor(val, pontos)}`
+                      erro ? 'border-red-400 text-red-500 focus:border-red-500' : `border-slate-300 focus:border-[#0e48fe] ${notaColor(val, pontos)}`
                     }`}
                   />
                   {erro && <span className="text-[9px] text-red-400 mt-0.5">0 – {pontos}</span>}
@@ -447,7 +447,7 @@ export default function NotasParciais() {
                   disabled={generatingBoletimId === aluno.id}
                   aria-label={`Gerar boletim de ${aluno.nome}`}
                   title="Gerar boletim"
-                  className="p-1.5 rounded-lg hover:bg-blue-50 text-[#005DE4] flex-shrink-0 disabled:opacity-50"
+                  className="p-1.5 rounded-lg hover:bg-blue-50 text-[#0e48fe] flex-shrink-0 disabled:opacity-50"
                 >
                   {generatingBoletimId === aluno.id ? <Loader2 size={17} className="animate-spin" /> : <School size={17} />}
                 </button>
@@ -460,7 +460,7 @@ export default function NotasParciais() {
       {/* Botão salvar */}
       <div className="px-3 pb-6">
         <button onClick={handleSalvar} disabled={temErros}
-          className={`w-full font-bold py-4 rounded-2xl text-base shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed ${salvo ? 'bg-emerald-500' : 'bg-[#005DE4]'} text-white`}>
+          className={`w-full font-bold py-4 rounded-2xl text-base shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed ${salvo ? 'bg-emerald-500' : 'bg-[#0e48fe]'} text-white`}>
           {salvo ? <><Check size={20} /> Salvo!</> : 'Salvar notas'}
         </button>
       </div>

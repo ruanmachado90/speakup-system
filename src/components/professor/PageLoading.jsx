@@ -9,7 +9,7 @@ const LOGO_URL =
 // + logo, mantendo a mesma linguagem visual da Home em todas as telas internas.
 export function ProfessorPageHeader({ onBack, title, subtitle, accent = '#FFC738', rightSlot, children }) {
   return (
-    <div className="relative overflow-hidden bg-[#005DE4] px-4 pt-5 pb-4 flex-shrink-0 border-b-[3px] border-slate-900">
+    <div className="relative overflow-hidden bg-[#0e48fe] px-4 pt-5 pb-4 flex-shrink-0 border-b-[3px] border-slate-900">
       <div className="absolute -top-6 -right-6 w-20 h-20 rounded-full pointer-events-none" style={{ backgroundColor: accent }} />
 
       <div className="relative flex items-center gap-2">
@@ -83,7 +83,7 @@ export function SkeletonLinhaNota({ cols = 6 }) {
 export function PageLoading({ titulo }) {
   return (
     <div className="min-h-screen bg-slate-100 flex flex-col">
-      <div className="bg-gradient-to-r from-[#005DE4] to-[#0041a8] px-4 pt-5 pb-4 flex items-start gap-3">
+      <div className="bg-gradient-to-r from-[#0e48fe] to-[#0b3ad4] px-4 pt-5 pb-4 flex items-start gap-3">
         <Skeleton className="w-8 h-8 rounded-full flex-shrink-0 bg-white/20 mt-0.5" />
         <div className="flex-1 space-y-2 pt-0.5">
           <Skeleton className="h-5 bg-white/30 rounded-lg w-40" />
@@ -98,7 +98,7 @@ export function PageLoading({ titulo }) {
       </div>
       <div className="flex-1 flex items-center justify-center">
         <div className="text-center">
-          <div className="w-8 h-8 border-2 border-[#005DE4] border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+          <div className="w-8 h-8 border-2 border-[#0e48fe] border-t-transparent rounded-full animate-spin mx-auto mb-3" />
           <p className="text-slate-500 text-sm font-medium">{titulo || 'Carregando…'}</p>
         </div>
       </div>
@@ -118,7 +118,7 @@ export function SemTurmas({ onVoltar }) {
         {onVoltar && (
           <button
             onClick={onVoltar}
-            className="mt-5 px-5 py-2.5 bg-[#005DE4] text-white rounded-xl text-sm font-semibold"
+            className="mt-5 px-5 py-2.5 bg-[#0e48fe] text-white rounded-xl text-sm font-semibold"
           >
             Voltar ao início
           </button>

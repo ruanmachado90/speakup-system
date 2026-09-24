@@ -1,4 +1,4 @@
-export const BRAND_COLOR = "#005DE4";
+export const BRAND_COLOR = "#0e48fe";
 export const APP_ID = "speakup-manager";
 
 export const EXPENSE_CATEGORIES = [

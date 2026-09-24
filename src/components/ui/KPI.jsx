@@ -23,8 +23,6 @@ const ACCENT_RULE = {
 export const KPI = ({
   label,
   value,
-  positive,
-  warn,
   format = 'currency',
   accent,
   size = 'normal',
@@ -85,12 +83,12 @@ export const KPI = ({
         </div>
       ) : (
         <>
-          <div className="flex items-baseline gap-2.5 mt-2.5">
+          <div className="mt-2.5">
             <h3 className={`font-display font-extrabold leading-su-tight tabular-nums text-content-strong ${valueSize}`}>
               {formatted}
             </h3>
             {delta && !hidden && (
-              <span className={`text-su-xs font-bold ${deltaTone}`}>
+              <span className={`block mt-1 text-su-xs font-bold ${deltaTone}`}>
                 {deltaArrow}{delta.text}
               </span>
             )}

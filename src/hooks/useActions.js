@@ -13,10 +13,9 @@ import {
   handleExcelUpload as excelUploadHandler,
   saveLead as saveLeadHandler
 } from '../utils';
-import { 
-  printDashboard as printDashboardFn, 
-  printFicha as printFichaFn, 
-  generateContract as generateContractFn 
+import {
+  printDashboard as printDashboardFn,
+  printFicha as printFichaFn,
 } from '../utils/print';
 
 export const useStudentActions = (user, modal, toastMsg, setModal, setSaving) => {
@@ -79,7 +78,6 @@ export const usePrintActions = (dashboardRange, stats, monthlyData, teacherStats
   };
 
   const printFicha = () => printFichaFn(resolveStudentTeacher(modal.data), payments);
-  const generateContract = () => generateContractFn(resolveStudentTeacher(modal.data), payments);
 
-  return { printDashboard, printFicha, generateContract };
+  return { printDashboard, printFicha };
 };

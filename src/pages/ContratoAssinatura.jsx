@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import ReCAPTCHA from 'react-google-recaptcha';
 import { enviarContratoPorEmail } from '../utils/email';
+import { gerarContratoPDF } from '../utils/contrato';
 import { useParams } from 'react-router-dom';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from '../firebase';
@@ -36,16 +37,16 @@ const contratoHtml = (aluno, aceitou, assinatura) => {
   const alunoTeacher = escapeHtml(aluno?.teacher || '-');
   const vencimento = aluno?.dueDate ? new Date(aluno.dueDate).getDate() : '-';
   const carimbo = assinatura && assinatura.timestamp
-    ? `<div style=\"margin-top:8px;font-size:11px;color:#64748b;\">Assinado digitalmente por: <b>${escapeHtml(assinatura.nome)}</b> (CPF: ${escapeHtml(assinatura.cpf)})<br>Data e hora: ${escapeHtml(assinatura.timestamp)}${assinatura.ip ? `<br>IP: ${escapeHtml(assinatura.ip)}` : ''}</div>`
+    ? `<div style="margin-top:8px;font-size:11px;color:#64748b;">Assinado digitalmente por: <b>${escapeHtml(assinatura.nome)}</b> (CPF: ${escapeHtml(assinatura.cpf)})<br>Data e hora: ${escapeHtml(assinatura.timestamp)}${assinatura.ip ? `<br>IP: ${escapeHtml(assinatura.ip)}` : ''}</div>`
     : '';
   return `
-  <div style="font-family: Arial, Helvetica, sans-serif; color: #0f172a; font-size: 12px; line-height: 1.3; padding: 20px 32px; background: #fff;">
+  <div style="font-family: 'Source Sans 3', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #0f172a; font-size: 12px; line-height: 1.3; padding: 20px 32px; background: #fff;">
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
       <div>
         <h1 style="font-size: 18px; margin-bottom: 3px;">CONTRATO DE PRESTAÇÃO DE SERVIÇOS EDUCACIONAIS</h1>
         <p style="font-size: 10px; color: #94a3b8;">Emitido em: ${(new Date()).toLocaleDateString('pt-BR')}</p>
       </div>
-      <div><img style="width: 120px; filter: brightness(0);" src="https://www.speakupcataguases.com/wp-content/uploads/2025/11/logo-speakup-brancal-1.png" alt="Logo"/></div>
+      <div><img style="width: 120px;" src="https://www.speakupcataguases.com/wp-content/uploads/2026/02/logo-speakup-azul.png" alt="SpeakUp"/></div>
     </div>
     <div style="border: 1px solid #e5e7eb; padding: 8px; border-radius: 4px; margin-bottom: 10px; background: #f8fafc;">
       <h2 style="font-size: 13px; margin-bottom: 4px;">Quadro Resumo</h2>
@@ -242,17 +243,13 @@ export default function ContratoAssinatura() {
     }
   };
 
-  // Dispara download do contrato quando assinatura for registrada (sem setTimeout)
+  // Dispara download do contrato em PDF quando a assinatura for registrada
   useEffect(() => {
     if (!assinatura || jaAssinado) return;
-    const html = contratoHtml(aluno, true, assinatura);
-    const blob = new Blob([html], { type: 'text/html' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `contrato-assinado-${aluno?.name?.replace(/\s+/g, '_') || 'aluno'}.html`;
-    a.click();
-    URL.revokeObjectURL(url);
+    gerarContratoPDF(aluno, { assinatura }).catch((err) => {
+      console.error('[Contrato] Erro ao gerar PDF:', err);
+      setErro('Contrato assinado, mas houve um erro ao gerar o PDF. Peça uma cópia à secretaria.');
+    });
   }, [assinatura]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (loadingAluno) {
@@ -296,16 +293,26 @@ export default function ContratoAssinatura() {
           </button>
         </form>
       )}
-      {assinado && jaAssinado && (
-        <div style={{ color: '#2563eb', fontSize: 15, marginTop: 24, textAlign: 'center', background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 6, padding: 16 }}>
-          Este contrato já foi assinado anteriormente.<br/>
-          <span style={{ color: '#64748b', fontSize: 13 }}>Assinado em: {assinatura?.timestamp} por {assinatura?.nome}</span>
-        </div>
-      )}
-      {assinado && !jaAssinado && (
-        <div style={{ color: '#059669', fontSize: 15, marginTop: 24, textAlign: 'center' }}>
-          Assinatura registrada com sucesso! O download do contrato foi iniciado.<br/>
-          <span style={{ color: '#64748b', fontSize: 13 }}>Você pode fechar esta página.</span>
+      {assinado && (
+        <div style={{ marginTop: 24, textAlign: 'center' }}>
+          {jaAssinado ? (
+            <div style={{ color: '#2563eb', fontSize: 15, background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 6, padding: 16 }}>
+              Este contrato já foi assinado anteriormente.<br/>
+              <span style={{ color: '#64748b', fontSize: 13 }}>Assinado em: {assinatura?.timestamp} por {assinatura?.nome}</span>
+            </div>
+          ) : (
+            <div style={{ color: '#059669', fontSize: 15 }}>
+              Assinatura registrada com sucesso! O download do contrato em PDF foi iniciado.<br/>
+              <span style={{ color: '#64748b', fontSize: 13 }}>Você pode fechar esta página.</span>
+            </div>
+          )}
+          <button
+            type="button"
+            onClick={() => gerarContratoPDF(aluno, { assinatura }).catch(() => setErro('Erro ao gerar o PDF. Tente novamente.'))}
+            style={{ marginTop: 14, background: '#0e48fe', color: '#fff', border: 'none', borderRadius: 4, padding: '10px 24px', fontSize: 15, cursor: 'pointer' }}
+          >
+            Baixar contrato (PDF)
+          </button>
         </div>
       )}
     </div>

@@ -23,7 +23,7 @@ export default function InserirEmTurmaModal({
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
         <div className="flex items-center justify-between mb-4">
           <h3 className="font-bold text-slate-800 flex items-center gap-2">
-            <Users size={18} className="text-[#005DE4]" />
+            <Users size={18} className="text-[#0e48fe]" />
             Inserir em turma
           </h3>
           <button onClick={onClose} className="p-1 rounded-lg hover:bg-slate-100">
@@ -41,7 +41,7 @@ export default function InserirEmTurmaModal({
             <select
               value={filtroProf}
               onChange={e => { setFiltroProf(e.target.value); setTurmaSelecionada(''); }}
-              className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-[#005DE4]"
+              className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-[#0e48fe]"
             >
               <option value="">Todos</option>
               {[...new Set(turmas.map(t => t.professor).filter(Boolean))].sort().map(p => (
@@ -54,7 +54,7 @@ export default function InserirEmTurmaModal({
             <select
               value={filtroDia}
               onChange={e => { setFiltroDia(e.target.value); setTurmaSelecionada(''); }}
-              className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-[#005DE4]"
+              className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-[#0e48fe]"
             >
               <option value="">Todos</option>
               {['Segunda','Terça','Quarta','Quinta','Sexta','Sábado'].map(d => (
@@ -76,7 +76,7 @@ export default function InserirEmTurmaModal({
                     key={t.id}
                     className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-colors ${
                       turmaSelecionada === t.id
-                        ? 'border-[#005DE4] bg-blue-50'
+                        ? 'border-[#0e48fe] bg-blue-50'
                         : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50'
                     }`}
                   >
@@ -117,7 +117,7 @@ export default function InserirEmTurmaModal({
           <button
             onClick={onConfirm}
             disabled={inserindo || !turmaSelecionada}
-            className="px-5 py-2 bg-[#005DE4] text-white text-sm font-medium rounded-lg hover:bg-[#0041a8] disabled:opacity-50 transition-colors"
+            className="px-5 py-2 bg-[#0e48fe] text-white text-sm font-medium rounded-lg hover:bg-[#0b3ad4] disabled:opacity-50 transition-colors"
           >
             {inserindo ? 'Inserindo...' : 'Inserir'}
           </button>

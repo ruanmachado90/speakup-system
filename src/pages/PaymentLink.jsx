@@ -46,9 +46,14 @@ const PaymentLink = () => {
           nome,
           descricao,
         });
+        if (!payload) {
+          setError('Não foi possível gerar o código de pagamento PIX. Entre em contato com a escola.');
+          setLoading(false);
+          return;
+        }
         setPixCode(payload);
         setLoading(false);
-      } catch (err) {
+      } catch {
         setError('Erro ao carregar informações de pagamento');
         setLoading(false);
       }

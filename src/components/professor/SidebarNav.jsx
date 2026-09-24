@@ -9,11 +9,11 @@ export function SidebarNav({ icon, label, active, onClick, collapsed, badge }) {
         collapsed ? 'justify-center py-3' : 'gap-3 px-3 py-2.5'
       } ${
         active
-          ? 'bg-[#005DE4]/10 font-semibold text-[#005DE4]'
+          ? 'bg-[#0e48fe]/10 font-semibold text-[#0e48fe]'
           : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
       }`}
     >
-      <span className={`flex-shrink-0 ${active ? 'text-[#005DE4]' : 'text-slate-400'}`}>
+      <span className={`flex-shrink-0 ${active ? 'text-[#0e48fe]' : 'text-slate-400'}`}>
         {icon}
       </span>
       {!collapsed && <span className="truncate flex-1 text-left">{label}</span>}

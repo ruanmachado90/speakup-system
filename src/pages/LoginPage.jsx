@@ -54,7 +54,7 @@ export default function LoginPage() {
     <div className="min-h-screen bg-gradient-to-br from-[#EEF4FF] via-slate-50 to-[#E8F0FE] flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden text-center">
         {/* Faixa azul com logo */}
-        <div className="bg-gradient-to-r from-[#005DE4] to-[#0041a8] px-8 py-6">
+        <div className="bg-gradient-to-r from-[#0e48fe] to-[#0b3ad4] px-8 py-6">
           <img
             src={SPEAKUP_LOGO_URL}
             alt="SpeakUp"
@@ -74,10 +74,10 @@ export default function LoginPage() {
         <button
           onClick={handleGoogle}
           disabled={loading}
-          className="w-full flex items-center justify-center gap-3 px-4 py-3 border-2 border-slate-200 rounded-xl text-slate-700 font-semibold hover:border-[#005DE4] hover:bg-blue-50 transition-all disabled:opacity-50"
+          className="w-full flex items-center justify-center gap-3 px-4 py-3 border-2 border-slate-200 rounded-xl text-slate-700 font-semibold hover:border-[#0e48fe] hover:bg-blue-50 transition-all disabled:opacity-50"
         >
           {loading ? (
-            <div className="w-5 h-5 border-2 border-slate-300 border-t-[#005DE4] rounded-full animate-spin" />
+            <div className="w-5 h-5 border-2 border-slate-300 border-t-[#0e48fe] rounded-full animate-spin" />
           ) : (
             <GoogleIcon />
           )}
@@ -92,7 +92,7 @@ export default function LoginPage() {
 
         <p className="mt-6 text-xs text-slate-400">
           É professor?{' '}
-          <Link to="/professor-login" className="text-[#005DE4] hover:underline">
+          <Link to="/professor-login" className="text-[#0e48fe] hover:underline">
             Entrar com link de acesso
           </Link>
         </p>

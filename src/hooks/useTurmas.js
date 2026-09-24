@@ -25,6 +25,7 @@ export function useTurmas() {
     dias: normalizarDias(data.dias ?? ''),
     maxAlunos: Math.max(1, Number(data.maxAlunos) || DEFAULT_MAX_ALUNOS),
     totalAulas: Math.max(1, Number(data.totalAulas) || DEFAULT_TOTAL_AULAS),
+    horasMensais: Math.max(0, Number(data.horasMensais) || 4),
     alunosIds: Array.isArray(data.alunosIds) ? data.alunosIds : [],
     alunosCount: Number(data.alunosCount) || (Array.isArray(data.alunosIds) ? data.alunosIds.length : 0),
     createdAt: data.createdAt ?? null,

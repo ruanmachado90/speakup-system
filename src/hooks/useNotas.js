@@ -8,7 +8,7 @@ import { db } from '../firebase';
 // ── 3 categorias fixas ────────────────────────────────────────────────────────
 // Written = 50pts, Listening = 30pts, Speaking = 20pts → total 100pts
 export const CATEGORIAS = [
-  { tipo: 'written',   label: 'Written',   labelPt: 'Escrita', max: 50, prefix: 'W', bg: '#005DE4', bgMedia: '#0041a8' },
+  { tipo: 'written',   label: 'Written',   labelPt: 'Escrita', max: 50, prefix: 'W', bg: '#0e48fe', bgMedia: '#0b3ad4' },
   { tipo: 'listening', label: 'Listening', labelPt: 'Áudio',   max: 30, prefix: 'L', bg: '#0284c7', bgMedia: '#0369a1' },
   { tipo: 'speaking',  label: 'Speaking',  labelPt: 'Oral',    max: 20, prefix: 'S', bg: '#6366f1', bgMedia: '#4f46e5' },
 ];

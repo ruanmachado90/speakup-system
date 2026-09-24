@@ -85,11 +85,11 @@ const STATUS_STYLE = {
 
 function DropSelect({ label, value, options, onChange }) {
   return (
-    <div className="relative bg-white border-2 border-[#005DE4] rounded-xl px-4 py-3">
-      <label className="block text-xs font-semibold text-[#005DE4] mb-0.5">{label}</label>
+    <div className="relative bg-white border-2 border-[#0e48fe] rounded-xl px-4 py-3">
+      <label className="block text-xs font-semibold text-[#0e48fe] mb-0.5">{label}</label>
       <div className="flex items-center justify-between">
-        <span className="text-base font-bold text-[#005DE4] truncate pr-2">{value}</span>
-        <ChevronDown size={20} className="text-[#005DE4] flex-shrink-0" />
+        <span className="text-base font-bold text-[#0e48fe] truncate pr-2">{value}</span>
+        <ChevronDown size={20} className="text-[#0e48fe] flex-shrink-0" />
       </div>
       <select
         value={value}
@@ -104,8 +104,8 @@ function DropSelect({ label, value, options, onChange }) {
 
 function Avatar({ nome }) {
   return (
-    <div className="w-11 h-11 rounded-full bg-[#005DE4]/10 border-2 border-[#005DE4]/20 flex items-center justify-center flex-shrink-0">
-      <span className="text-[#005DE4] font-bold text-base">{nome?.[0] ?? '?'}</span>
+    <div className="w-11 h-11 rounded-full bg-[#0e48fe]/10 border-2 border-[#0e48fe]/20 flex items-center justify-center flex-shrink-0">
+      <span className="text-[#0e48fe] font-bold text-base">{nome?.[0] ?? '?'}</span>
     </div>
   );
 }
@@ -140,7 +140,7 @@ function ModalConfirmacao({ contagem, turma, data, onConfirmar, onCancelar }) {
           )}
         </div>
         <div className="space-y-2">
-          <button onClick={onConfirmar} className="w-full bg-[#005DE4] text-white font-bold py-4 rounded-2xl text-base active:scale-95 transition-all">
+          <button onClick={onConfirmar} className="w-full bg-[#0e48fe] text-white font-bold py-4 rounded-2xl text-base active:scale-95 transition-all">
             Confirmar e salvar
           </button>
           <button onClick={onCancelar} className="w-full bg-slate-100 text-slate-600 font-semibold py-3 rounded-2xl text-sm active:scale-95 transition-all">
@@ -240,7 +240,7 @@ export default function ConteudoFrequenciaPage() {
 
   const handleConfirmar = async () => {
     try {
-      const aulaId = `${turmaObj.id}__${etapa}__${data}`.replace(/[\s/\.#[\]]/g, '_');
+      const aulaId = `${turmaObj.id}__${etapa}__${data}`.replace(/[\s/.#[\]]/g, '_');
       const aula = {
         id: aulaId,
         data, etapa, conteudo, devercasa, presenca, obs,
@@ -285,13 +285,13 @@ export default function ConteudoFrequenciaPage() {
           <DropSelect label="Data"  value={data}  options={datas}  onChange={setData}  />
         </div>
 
-        <div className="bg-white border-2 border-[#005DE4] rounded-xl px-4 py-3">
-          <label className="block text-xs font-semibold text-[#005DE4] mb-1">Conteúdo Lecionado</label>
+        <div className="bg-white border-2 border-[#0e48fe] rounded-xl px-4 py-3">
+          <label className="block text-xs font-semibold text-[#0e48fe] mb-1">Conteúdo Lecionado</label>
           <textarea value={conteudo} onChange={e => setConteudo(e.target.value)} placeholder="Descreva o conteúdo dado na aula..." rows={3} className="w-full text-sm text-slate-800 placeholder-slate-400 resize-none focus:outline-none" />
         </div>
 
-        <div className="bg-white border-2 border-[#005DE4] rounded-xl px-4 py-3">
-          <label className="block text-xs font-semibold text-[#005DE4] mb-1">Dever de Casa</label>
+        <div className="bg-white border-2 border-[#0e48fe] rounded-xl px-4 py-3">
+          <label className="block text-xs font-semibold text-[#0e48fe] mb-1">Dever de Casa</label>
           <textarea value={devercasa} onChange={e => setDevercasa(e.target.value)} placeholder="Ex: Workbook p. 45, exercícios 1 a 5..." rows={2} className="w-full text-sm text-slate-800 placeholder-slate-400 resize-none focus:outline-none" />
         </div>
       </div>
@@ -319,7 +319,7 @@ export default function ConteudoFrequenciaPage() {
       {/* Lista de alunos */}
       {loadingAlunos ? (
         <div className="mx-3 mb-3 bg-white rounded-2xl p-6 text-center shadow-sm">
-          <div className="w-6 h-6 border-2 border-[#005DE4] border-t-transparent rounded-full animate-spin mx-auto" />
+          <div className="w-6 h-6 border-2 border-[#0e48fe] border-t-transparent rounded-full animate-spin mx-auto" />
           <p className="text-xs text-slate-400 mt-2">Carregando alunos…</p>
         </div>
       ) : (
@@ -339,7 +339,7 @@ export default function ConteudoFrequenciaPage() {
                     status === 'falta' ? 'text-red-400' :
                     status === 'justificada' ? 'text-amber-500' : 'text-slate-800'
                   }`}>{aluno.nome}</span>
-                  <button onClick={() => toggleObs(aluno.id)} className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 transition-colors ${obsAluno ? 'bg-[#005DE4]/10 text-[#005DE4]' : 'text-slate-300 hover:text-slate-400'}`} title="Observação">
+                  <button onClick={() => toggleObs(aluno.id)} className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 transition-colors ${obsAluno ? 'bg-[#0e48fe]/10 text-[#0e48fe]' : 'text-slate-300 hover:text-slate-400'}`} title="Observação">
                     <MessageSquare size={15} />
                   </button>
                   <button onClick={() => avancarStatus(aluno.id)} className={`w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 shadow-md transition-all active:scale-90 ${bg}`}>
@@ -348,8 +348,8 @@ export default function ConteudoFrequenciaPage() {
                 </div>
                 {obsAtiva && (
                   <div className="px-4 pb-3 flex items-center gap-2">
-                    <input autoFocus type="text" value={obsAluno} onChange={e => setObs(o => ({ ...o, [aluno.id]: e.target.value }))} placeholder="Ex: chegou atrasado, trouxe material..." className="flex-1 text-xs border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#005DE4] bg-slate-50" />
-                    <button onClick={() => setObsAberta(null)} className="text-xs text-[#005DE4] font-semibold px-2">Ok</button>
+                    <input autoFocus type="text" value={obsAluno} onChange={e => setObs(o => ({ ...o, [aluno.id]: e.target.value }))} placeholder="Ex: chegou atrasado, trouxe material..." className="flex-1 text-xs border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#0e48fe] bg-slate-50" />
+                    <button onClick={() => setObsAberta(null)} className="text-xs text-[#0e48fe] font-semibold px-2">Ok</button>
                   </div>
                 )}
               </div>
@@ -360,7 +360,7 @@ export default function ConteudoFrequenciaPage() {
 
       {/* Botão salvar */}
       <div className="px-3 pb-6">
-        <button onClick={() => setConfirmando(true)} className="w-full bg-[#005DE4] text-white font-bold py-4 rounded-2xl text-base shadow-lg active:scale-95 transition-all">
+        <button onClick={() => setConfirmando(true)} className="w-full bg-[#0e48fe] text-white font-bold py-4 rounded-2xl text-base shadow-lg active:scale-95 transition-all">
           Salvar lançamento
         </button>
       </div>

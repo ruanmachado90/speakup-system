@@ -22,11 +22,11 @@ const STATUS_CONFIG = {
 // ── Sub-componentes ───────────────────────────────────────────────────────────
 function DropSelect({ label, value, options, onChange }) {
   return (
-    <div className="relative bg-white border-2 border-[#005DE4] rounded-xl px-4 py-3">
-      <label className="block text-xs font-semibold text-[#005DE4] mb-0.5">{label}</label>
+    <div className="relative bg-white border-2 border-[#0e48fe] rounded-xl px-4 py-3">
+      <label className="block text-xs font-semibold text-[#0e48fe] mb-0.5">{label}</label>
       <div className="flex items-center justify-between">
-        <span className="text-base font-bold text-[#005DE4] truncate pr-2">{value}</span>
-        <ChevronDown size={20} className="text-[#005DE4] flex-shrink-0" />
+        <span className="text-base font-bold text-[#0e48fe] truncate pr-2">{value}</span>
+        <ChevronDown size={20} className="text-[#0e48fe] flex-shrink-0" />
       </div>
       <select
         value={value}
@@ -41,8 +41,8 @@ function DropSelect({ label, value, options, onChange }) {
 
 function Avatar({ nome }) {
   return (
-    <div className="w-11 h-11 rounded-full bg-[#005DE4]/10 border-2 border-[#005DE4]/20 flex items-center justify-center flex-shrink-0">
-      <span className="text-[#005DE4] font-bold text-base">{nome?.[0] ?? '?'}</span>
+    <div className="w-11 h-11 rounded-full bg-[#0e48fe]/10 border-2 border-[#0e48fe]/20 flex items-center justify-center flex-shrink-0">
+      <span className="text-[#0e48fe] font-bold text-base">{nome?.[0] ?? '?'}</span>
     </div>
   );
 }
@@ -73,7 +73,7 @@ export default function TarefasPage() {
 
   // ── Estado ────────────────────────────────────────────────────────────────
   const [etapa, setEtapa] = useState(etapaAtual());
-  const { aulas, loading: loadingAulas }   = useAulasDiario(turmaObj?.id, etapa);
+  const { aulas } = useAulasDiario(turmaObj?.id, etapa);
   const [aulaRef, setAulaRef] = useState(null);
   const [aulaIdx, setAulaIdx] = useState(0);
   const [tarefas, setTarefas] = useState({});
@@ -153,13 +153,13 @@ export default function TarefasPage() {
 
           {/* Seletor de qual aula verificar */}
           {aulasComDever.length > 0 ? (
-            <div className="relative bg-white border-2 border-[#005DE4] rounded-xl px-4 py-3">
-              <label className="block text-xs font-semibold text-[#005DE4] mb-0.5">Aula</label>
+            <div className="relative bg-white border-2 border-[#0e48fe] rounded-xl px-4 py-3">
+              <label className="block text-xs font-semibold text-[#0e48fe] mb-0.5">Aula</label>
               <div className="flex items-center justify-between">
-                <span className="text-base font-bold text-[#005DE4] truncate pr-2">
+                <span className="text-base font-bold text-[#0e48fe] truncate pr-2">
                   {aulaRef?.data ?? '—'}
                 </span>
-                <ChevronDown size={20} className="text-[#005DE4] flex-shrink-0" />
+                <ChevronDown size={20} className="text-[#0e48fe] flex-shrink-0" />
               </div>
               <select
                 value={aulaIdx}
@@ -181,10 +181,10 @@ export default function TarefasPage() {
 
       {/* Card do dever de casa (auto-carregado da aula anterior) */}
       {aulaRef ? (
-        <div className="mx-3 mt-3 bg-white border-2 border-[#005DE4] rounded-xl px-4 py-3 flex-shrink-0">
+        <div className="mx-3 mt-3 bg-white border-2 border-[#0e48fe] rounded-xl px-4 py-3 flex-shrink-0">
           <div className="flex items-center gap-2 mb-1">
-            <BookOpen size={14} className="text-[#005DE4]" />
-            <span className="text-xs font-semibold text-[#005DE4]">
+            <BookOpen size={14} className="text-[#0e48fe]" />
+            <span className="text-xs font-semibold text-[#0e48fe]">
               Dever da aula de {aulaRef.data}
             </span>
           </div>
@@ -201,7 +201,7 @@ export default function TarefasPage() {
           </p>
           <button
             onClick={() => navigate(`/professor/${professorSlug}/frequencia`)}
-            className="mt-2 text-xs text-[#005DE4] font-semibold underline underline-offset-2"
+            className="mt-2 text-xs text-[#0e48fe] font-semibold underline underline-offset-2"
           >
             Ir para Conteúdo e Frequência →
           </button>
@@ -274,7 +274,7 @@ export default function TarefasPage() {
           <button
             onClick={handleSalvar}
             className={`w-full font-bold py-4 rounded-2xl text-base shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2 ${
-              salvo ? 'bg-emerald-500' : 'bg-[#005DE4]'
+              salvo ? 'bg-emerald-500' : 'bg-[#0e48fe]'
             } text-white`}
           >
             {salvo ? <><Check size={20} /> Salvo!</> : 'Salvar verificação'}

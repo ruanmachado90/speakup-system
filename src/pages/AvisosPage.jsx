@@ -40,7 +40,7 @@ function TipoBadge({ tipo }) {
 }
 
 // ── Card de mensagem recebida ─────────────────────────────────────────────────
-function CardRecebido({ msg, professorNome, onMarcarLido, onResponder, onDeletar }) {
+function CardRecebido({ msg, onMarcarLido, onResponder, onDeletar }) {
   const [aberto, setAberto] = useState(false);
   const [resposta, setResposta] = useState('');
   const [enviando, setEnviando] = useState(false);
@@ -65,7 +65,7 @@ function CardRecebido({ msg, professorNome, onMarcarLido, onResponder, onDeletar
       {/* Cabeçalho clicável */}
       <button className="w-full text-left px-4 py-3.5 flex items-start gap-3" onClick={handleAbrir}>
         {/* Avatar secretaria */}
-        <div className="w-9 h-9 rounded-full bg-[#005DE4] flex items-center justify-center flex-shrink-0 mt-0.5">
+        <div className="w-9 h-9 rounded-full bg-[#0e48fe] flex items-center justify-center flex-shrink-0 mt-0.5">
           <span className="text-white text-sm font-bold">S</span>
         </div>
 
@@ -80,7 +80,7 @@ function CardRecebido({ msg, professorNome, onMarcarLido, onResponder, onDeletar
           <div className="flex items-center gap-2 mt-1.5">
             <TipoBadge tipo={msg.tipo} />
             {!msg.lido && (
-              <span className="w-2 h-2 rounded-full bg-[#005DE4] inline-block" />
+              <span className="w-2 h-2 rounded-full bg-[#0e48fe] inline-block" />
             )}
             {msg.resposta && (
               <span className="text-[10px] text-emerald-600 font-semibold flex items-center gap-1">
@@ -104,7 +104,7 @@ function CardRecebido({ msg, professorNome, onMarcarLido, onResponder, onDeletar
             {!msg.lido && (
               <button
                 onClick={() => onMarcarLido(msg.id)}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-[#005DE4] border border-[#005DE4]/30 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors"
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-[#0e48fe] border border-[#0e48fe]/30 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors"
               >
                 <CheckCheck size={13} /> Marcar como lido
               </button>
@@ -154,12 +154,12 @@ function CardRecebido({ msg, professorNome, onMarcarLido, onResponder, onDeletar
                 onChange={e => setResposta(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && handleResponder()}
                 placeholder="Responder à secretaria..."
-                className="flex-1 text-sm border border-slate-300 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#005DE4] bg-slate-50"
+                className="flex-1 text-sm border border-slate-300 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#0e48fe] bg-slate-50"
               />
               <button
                 onClick={handleResponder}
                 disabled={!resposta.trim() || enviando}
-                className="w-10 h-10 bg-[#005DE4] text-white rounded-xl flex items-center justify-center disabled:opacity-40 flex-shrink-0"
+                className="w-10 h-10 bg-[#0e48fe] text-white rounded-xl flex items-center justify-center disabled:opacity-40 flex-shrink-0"
               >
                 <Send size={15} />
               </button>
@@ -192,7 +192,7 @@ function CardEnviado({ msg, onDeletar }) {
             <TipoBadge tipo={msg.tipo} />
             <span className="text-[10px] text-slate-400 flex items-center gap-1">
               {msg.lido
-                ? <><CheckCheck size={11} className="text-[#005DE4]" /> Lido</>
+                ? <><CheckCheck size={11} className="text-[#0e48fe]" /> Lido</>
                 : <><Clock size={11} /> Enviado</>}
             </span>
           </div>
@@ -303,13 +303,13 @@ function ModalNovoAviso({ professorNome, professorSlug, onClose, onEnviado }) {
           onChange={e => setTexto(e.target.value)}
           placeholder="Escreva sua mensagem para a secretaria..."
           rows={4}
-          className="w-full border-2 border-slate-200 focus:border-[#005DE4] rounded-2xl px-4 py-3 text-sm text-slate-800 placeholder-slate-400 resize-none focus:outline-none transition-colors"
+          className="w-full border-2 border-slate-200 focus:border-[#0e48fe] rounded-2xl px-4 py-3 text-sm text-slate-800 placeholder-slate-400 resize-none focus:outline-none transition-colors"
         />
 
         <button
           onClick={handleEnviar}
           disabled={!texto.trim() || enviando}
-          className="mt-3 w-full bg-[#005DE4] text-white font-bold py-3.5 rounded-2xl text-base disabled:opacity-40 flex items-center justify-center gap-2 active:scale-95 transition-all"
+          className="mt-3 w-full bg-[#0e48fe] text-white font-bold py-3.5 rounded-2xl text-base disabled:opacity-40 flex items-center justify-center gap-2 active:scale-95 transition-all"
         >
           <Send size={18} />
           {enviando ? 'Enviando...' : 'Enviar'}
@@ -473,7 +473,7 @@ export default function AvisosPage() {
           </div>
         ) : loading ? (
           <div className="flex flex-col items-center justify-center py-20 text-slate-400">
-            <div className="w-8 h-8 border-2 border-[#005DE4]/20 border-t-[#005DE4] rounded-full animate-spin mb-3" />
+            <div className="w-8 h-8 border-2 border-[#0e48fe]/20 border-t-[#0e48fe] rounded-full animate-spin mb-3" />
             <p className="text-sm">Carregando...</p>
           </div>
         ) : lista.length === 0 ? (
@@ -485,7 +485,7 @@ export default function AvisosPage() {
             {aba === 'enviados' && (
               <button
                 onClick={() => setShowCompose(true)}
-                className="mt-4 px-5 py-2 bg-[#005DE4] text-white rounded-xl text-sm font-semibold"
+                className="mt-4 px-5 py-2 bg-[#0e48fe] text-white rounded-xl text-sm font-semibold"
               >
                 Enviar mensagem
               </button>
@@ -497,7 +497,6 @@ export default function AvisosPage() {
               <CardRecebido
                 key={msg.id}
                 msg={msg}
-                professorNome={professorNome}
                 onMarcarLido={marcarLido}
                 onResponder={responder}
                 onDeletar={deletar}
@@ -512,7 +511,7 @@ export default function AvisosPage() {
       {/* FAB — compor nova mensagem */}
       <button
         onClick={() => setShowCompose(true)}
-        className="fixed bottom-6 right-5 w-14 h-14 bg-[#005DE4] text-white rounded-full shadow-xl flex items-center justify-center active:scale-90 transition-all z-40"
+        className="fixed bottom-6 right-5 w-14 h-14 bg-[#0e48fe] text-white rounded-full shadow-xl flex items-center justify-center active:scale-90 transition-all z-40"
       >
         <Plus size={26} />
       </button>

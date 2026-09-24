@@ -88,11 +88,11 @@ function mesclarComLegado(aulasDiario, aulasLegadoRaw) {
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function DropSelect({ label, value, options, onChange }) {
   return (
-    <div className="relative bg-white border-2 border-[#005DE4] rounded-xl px-4 py-3">
-      <label className="block text-xs font-semibold text-[#005DE4] mb-0.5">{label}</label>
+    <div className="relative bg-white border-2 border-[#0e48fe] rounded-xl px-4 py-3">
+      <label className="block text-xs font-semibold text-[#0e48fe] mb-0.5">{label}</label>
       <div className="flex items-center justify-between">
-        <span className="text-base font-bold text-[#005DE4] truncate pr-2">{value}</span>
-        <ChevronDown size={20} className="text-[#005DE4] flex-shrink-0" />
+        <span className="text-base font-bold text-[#0e48fe] truncate pr-2">{value}</span>
+        <ChevronDown size={20} className="text-[#0e48fe] flex-shrink-0" />
       </div>
       <select
         value={value}
@@ -134,7 +134,7 @@ function DiarioTurmaCard({ grupo, periodoTitulo, periodoValor }) {
         </div>
         <div className="info-cell px-4 py-2.5 border-r border-slate-200 flex gap-1.5">
           <span className="info-label font-semibold text-slate-500">Professor:</span>
-          <span className="text-[#005DE4] font-semibold">{grupo.professor || '—'}</span>
+          <span className="text-[#0e48fe] font-semibold">{grupo.professor || '—'}</span>
         </div>
         <div className="info-cell px-4 py-2.5 flex gap-1.5">
           <span className="info-label font-semibold text-slate-500">Horário:</span>
@@ -390,7 +390,7 @@ export default function HistoricoPage() {
               <button
                 onClick={() => setModo('turma')}
                 className={`py-2 rounded-lg text-sm font-bold transition-all ${
-                  modo === 'turma' ? 'bg-white text-[#005DE4] shadow-sm' : 'text-slate-500'
+                  modo === 'turma' ? 'bg-white text-[#0e48fe] shadow-sm' : 'text-slate-500'
                 }`}
               >
                 Por turma
@@ -398,7 +398,7 @@ export default function HistoricoPage() {
               <button
                 onClick={() => setModo('mes')}
                 className={`py-2 rounded-lg text-sm font-bold transition-all ${
-                  modo === 'mes' ? 'bg-white text-[#005DE4] shadow-sm' : 'text-slate-500'
+                  modo === 'mes' ? 'bg-white text-[#0e48fe] shadow-sm' : 'text-slate-500'
                 }`}
               >
                 Diário do mês
@@ -426,8 +426,8 @@ export default function HistoricoPage() {
                       onClick={() => setEtapa(e)}
                       className={`py-2.5 rounded-xl text-sm font-bold transition-all border-2 ${
                         etapa === e
-                          ? 'bg-[#005DE4] border-[#005DE4] text-white'
-                          : 'bg-white border-[#005DE4] text-[#005DE4]'
+                          ? 'bg-[#0e48fe] border-[#0e48fe] text-white'
+                          : 'bg-white border-[#0e48fe] text-[#0e48fe]'
                       }`}
                     >
                       {e}
@@ -458,7 +458,7 @@ export default function HistoricoPage() {
                     </p>
                     <button
                       onClick={() => navigate(`/professor/${professorSlug}/frequencia`)}
-                      className="mt-4 px-5 py-2 bg-[#005DE4] text-white rounded-xl text-sm font-semibold"
+                      className="mt-4 px-5 py-2 bg-[#0e48fe] text-white rounded-xl text-sm font-semibold"
                     >
                       Registrar aula
                     </button>

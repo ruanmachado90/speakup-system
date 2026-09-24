@@ -56,7 +56,7 @@ export default function EstoqueModal({ editingItem, onClose, onSave, categoriasL
                     const livro = calcularLivro(categoria, form.numeroLivro);
                     setForm(f => ({ ...f, categoria, numeroLivro: '', livro }));
                   }}
-                  className="w-full border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-[#005DE4]"
+                  className="w-full border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-[#0e48fe]"
                   required
                 >
                   <option value="">Selecione a categoria</option>
@@ -75,7 +75,7 @@ export default function EstoqueModal({ editingItem, onClose, onSave, categoriasL
                       const livro = calcularLivro(form.categoria, numero);
                       setForm(f => ({ ...f, numeroLivro: numero, livro }));
                     }}
-                    className="w-full border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-[#005DE4]"
+                    className="w-full border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-[#0e48fe]"
                     required
                   >
                     <option value="">Selecione o número</option>
@@ -98,7 +98,7 @@ export default function EstoqueModal({ editingItem, onClose, onSave, categoriasL
               type="number"
               value={form.quantidade || ''}
               onChange={e => setForm(f => ({ ...f, quantidade: e.target.value }))}
-              className="w-full border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-[#005DE4]"
+              className="w-full border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-[#0e48fe]"
               placeholder="0"
               min="0"
               required
@@ -110,7 +110,7 @@ export default function EstoqueModal({ editingItem, onClose, onSave, categoriasL
               type="number"
               value={form.estoqueMinimo || '5'}
               onChange={e => setForm(f => ({ ...f, estoqueMinimo: e.target.value }))}
-              className="w-full border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-[#005DE4]"
+              className="w-full border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-[#0e48fe]"
               placeholder="5"
               min="0"
             />
@@ -121,7 +121,7 @@ export default function EstoqueModal({ editingItem, onClose, onSave, categoriasL
               type="number"
               value={form.precoCusto || ''}
               onChange={e => setForm(f => ({ ...f, precoCusto: e.target.value }))}
-              className="w-full border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-[#005DE4]"
+              className="w-full border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-[#0e48fe]"
               placeholder="R$ 0,00"
               min="0"
               step="0.01"
@@ -133,7 +133,7 @@ export default function EstoqueModal({ editingItem, onClose, onSave, categoriasL
               type="number"
               value={form.precoVenda || ''}
               onChange={e => setForm(f => ({ ...f, precoVenda: e.target.value }))}
-              className="w-full border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-[#005DE4]"
+              className="w-full border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-[#0e48fe]"
               placeholder="R$ 0,00"
               min="0"
               step="0.01"
@@ -149,7 +149,7 @@ export default function EstoqueModal({ editingItem, onClose, onSave, categoriasL
             </button>
             <button
               type="submit"
-              className="px-6 py-2 rounded-lg bg-[#005DE4] text-white font-bold hover:bg-[#004BB8] transition-colors"
+              className="px-6 py-2 rounded-lg bg-[#0e48fe] text-white font-bold hover:bg-[#0b3ad4] transition-colors"
             >
               {editingItem ? 'Salvar Alterações' : 'Adicionar ao Estoque'}
             </button>

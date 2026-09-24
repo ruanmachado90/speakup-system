@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Form } from '../ui';
-import { useModal } from '../../context/selectors';
-import { useGeneralLoading } from '../../context/selectors';
+import { useUI } from '../../context/UIContext';
+import { useLoading } from '../../context/LoadingContext';
 import { useProfessores } from '../../hooks/useProfessores';
 
 const formatCPF = (value) => {
@@ -51,7 +51,7 @@ const MaskedInput = ({ label, name, defaultValue, mask, required }) => {
         value={value}
         onChange={handleChange}
         required={required}
-        className="border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#005DE4]"
+        className="border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#0e48fe]"
       />
     </div>
   );
@@ -73,7 +73,7 @@ const TeacherSelect = ({ defaultValue, defaultProfessorId, required }) => {
           const selecionado = professoresAtivos.find((p) => p.nome === e.target.value);
           setProfessorId(selecionado ? selecionado.id : '');
         }}
-        className="border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#005DE4]"
+        className="border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#0e48fe]"
       >
         <option value="">Selecione o professor</option>
         {professoresAtivos.map((p) => (
@@ -86,11 +86,11 @@ const TeacherSelect = ({ defaultValue, defaultProfessorId, required }) => {
 };
 
 export const StudentForm = ({ onSubmit }) => {
-  const { modal, closeModal } = useModal();
-  const [saving] = useGeneralLoading();
+  const { modal, closeModal } = useUI();
+  const { saving } = useLoading();
   return (
     <form onSubmit={onSubmit} className="space-y-6">
-      <h3 className="text-2xl font-black text-[#00234b]">
+      <h3 className="text-2xl font-black text-[#0a2540]">
         {modal.data?.id ? "Editar Aluno" : "Novo Aluno"}
       </h3>
 
@@ -132,7 +132,7 @@ export const StudentForm = ({ onSubmit }) => {
         <button 
           type="submit" 
           disabled={saving} 
-          className={`w-full py-3 rounded-xl font-bold ${saving?"bg-slate-300 text-slate-600":"bg-[#005DE4] text-white"}`}
+          className={`w-full py-3 rounded-xl font-bold ${saving?"bg-slate-300 text-slate-600":"bg-[#0e48fe] text-white"}`}
         >
           {saving?"Salvando...":"Salvar"}
         </button>

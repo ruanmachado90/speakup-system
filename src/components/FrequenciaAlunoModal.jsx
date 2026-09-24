@@ -209,7 +209,7 @@ tr:last-child td{border-bottom:none}
       <div style={{ background: 'white', borderRadius: 20, overflow: 'hidden', width: '100%', maxWidth: 600, maxHeight: '90vh', display: 'flex', flexDirection: 'column', boxShadow: '0 24px 64px rgba(0,0,0,0.25)' }}>
 
         {/* Header */}
-        <div style={{ background: 'linear-gradient(135deg,#0e48fe,#0041a8)', padding: '16px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
+        <div style={{ background: 'linear-gradient(135deg,#0e48fe,#0b3ad4)', padding: '16px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
           <div>
             <div style={{ color: 'white', fontWeight: 700, fontSize: 15 }}>Relatório de Frequência</div>
             <div style={{ color: 'rgba(255,255,255,0.75)', fontSize: 12, marginTop: 2 }}>

@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { Eye } from 'lucide-react';
 
 export default function VendaDetalhesModal({ venda, onClose, onDownloadRecibo }) {
@@ -45,7 +44,7 @@ export default function VendaDetalhesModal({ venda, onClose, onDownloadRecibo })
               onClick={() => { onDownloadRecibo(venda); onClose(); }}
               className="flex-1 bg-emerald-600 text-white px-4 py-2 rounded-lg hover:bg-emerald-700 transition-colors font-medium"
             >
-              ⬇️ Baixar Recibo (.doc)
+              Baixar recibo (PDF)
             </button>
             <button
               onClick={onClose}

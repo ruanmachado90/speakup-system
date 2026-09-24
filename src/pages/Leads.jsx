@@ -70,10 +70,10 @@ export const Leads = ({ setModal, leads = [] }) => {
   return (
     <div className="w-full max-w-6xl mx-auto px-2">
       <div className="flex items-center justify-between mb-6">
-        <h2 className="text-3xl font-black text-[#00234b]">Leads</h2>
+        <h2 className="text-3xl font-black text-[#0a2540]">Leads</h2>
         <button
           onClick={() => setModal({ open: true, type: 'lead', data: null })}
-          className="px-6 py-3 rounded-full bg-[#005DE4] text-white font-bold hover:bg-[#004BB8]"
+          className="px-6 py-3 rounded-full bg-[#0e48fe] text-white font-bold hover:bg-[#0b3ad4]"
         >
           + Novo Lead
         </button>

@@ -2,12 +2,14 @@ import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useUI } from '../context/UIContext';
 import { Search, Edit, X, Printer, Trash2, ChevronUp, ChevronDown, Link, Check, Settings, CheckCircle, DollarSign, AlertCircle, User, Clock, XCircle, Mail, FileText, Info, Download, FileDown, MessageCircle, CalendarClock, Plus } from 'lucide-react';
 import { Card, KPI, PaymentMethodChart } from '../components';
-import { printReceipt } from '../utils/print';
 import { exportPaymentsToCSV, exportPaymentsToExcel, printPayments } from '../utils/export';
+import { gerarReciboMensalidadePDF } from '../utils/recibo';
+import RelatoriosGerenciais from '../components/RelatoriosGerenciais';
+import SaldoCaixaWidget from '../components/SaldoCaixaWidget';
 import { formatCurrency, formatDate } from '../utils';
 import { ConfirmDialog } from '../components/ui/Toast';
 import PixInfoForm from '../components/forms/PixInfoForm';
-import { doc, setDoc, writeBatch } from 'firebase/firestore';
+import { doc, writeBatch } from 'firebase/firestore';
 import { db } from '../firebase';
 import { usePaymentActions } from '../hooks/useActions';
 import { APP_ID } from '../utils/constants';
@@ -27,21 +29,8 @@ const STATUS_OPTIONS = [
 
 // Helper functions
 const isPaymentOverdue = (payment, today) => {
-  return payment.status !== 'Pago' && payment.dueDate && 
+  return payment.status !== 'Pago' && payment.status !== 'cancelada' && payment.dueDate &&
     new Date(payment.dueDate).setHours(0,0,0,0) < today;
-};
-
-const getPaymentStatus = (payment) => {
-  if (payment.status === 'Pago') {
-    return { text: 'Pago', classes: 'bg-emerald-100 text-emerald-800' };
-  }
-  
-  const isOverdue = payment.dueDate && 
-    new Date(payment.dueDate).setHours(0,0,0,0) < new Date().setHours(0,0,0,0);
-  
-  return isOverdue 
-    ? { text: 'VENCIDO', classes: 'bg-red-100 text-red-800' }
-    : { text: payment.status, classes: 'bg-yellow-100 text-yellow-800' };
 };
 
 const getStudentInfo = (payment, students) => {
@@ -98,10 +87,8 @@ const Finance = ({
   setFilterYear,
   filterStatus,
   setFilterStatus,
-  financeStats,
   filteredPayments,
   setModal,
-  handleUndoPayment
 }) => {
   const { toastMsg } = useUI();
   const { handleDeletePayment } = usePaymentActions({}, toastMsg);
@@ -112,7 +99,6 @@ const Finance = ({
   const [sortDirection, setSortDirection] = useState('asc');
   const [pixModalOpen, setPixModalOpen] = useState(false);
   const [selectedPayment, setSelectedPayment] = useState(null);
-  const [copiedLinkId, setCopiedLinkId] = useState(null);
   const [savingPix, setSavingPix] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(50); // Paginação: 50 itens por página
@@ -138,8 +124,9 @@ const Finance = ({
       
       // Buscar todos os pagamentos futuros do mesmo aluno (incluindo o atual)
       const currentDueDate = new Date(selectedPayment.dueDate);
-      const futurePayments = payments.filter(p => 
-        p.studentId === selectedPayment.studentId && 
+      const futurePayments = payments.filter(p =>
+        p.studentId === selectedPayment.studentId &&
+        p.status !== 'cancelada' &&
         new Date(p.dueDate) >= currentDueDate
       );
       
@@ -161,9 +148,7 @@ const Finance = ({
       // Auto-copy payment link after saving
       const paymentLink = `${window.location.origin}/pagamento/${selectedPayment.id}`;
       await navigator.clipboard.writeText(paymentLink);
-      setCopiedLinkId(selectedPayment.id);
-      setTimeout(() => setCopiedLinkId(null), 2000);
-      
+
       setPixModalOpen(false);
       setSelectedPayment(null);
       toastMsg(`Link de pagamento salvo em ${futurePayments.length} cobrança(s) e copiado!`);
@@ -173,18 +158,6 @@ const Finance = ({
       setSavingPix(false);
     }
   }, [selectedPayment, students, payments, savingPix]);
-
-  const handleCopyPaymentLink = useCallback(async (payment) => {
-    const paymentLink = `${window.location.origin}/pagamento/${payment.id}`;
-    try {
-      await navigator.clipboard.writeText(paymentLink);
-      setCopiedLinkId(payment.id);
-      setTimeout(() => setCopiedLinkId(null), 2000);
-      toastMsg('Link de pagamento copiado!');
-    } catch (error) {
-      toastMsg('Erro ao copiar link. Tente novamente.');
-    }
-  }, []);
 
   const handleSendWhatsApp = useCallback((payment, student) => {
     const paymentLink = `${window.location.origin}/pagamento/${payment.id}`;
@@ -621,60 +594,19 @@ const Finance = ({
               <CalendarClock size={18} />
             </button>
 
-            {/* Baixar Recibo .doc (only if paid) */}
+            {/* Baixar Recibo em PDF com papel timbrado (apenas se pago) */}
             {payment.status === 'Pago' && (
               <button
-                onClick={() => {
-                  const aluno = student?.name || payment.studentName || '-';
-                  const valor = parseFloat(payment.amount || 0);
-                  const hojeStr = new Date().toLocaleDateString('pt-BR');
-                  const html = `
-                    <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
-                    <head><meta charset='utf-8'><title>Recibo ${aluno}</title>
-                    <style>
-                      body { font-family: Arial, sans-serif; color: #1e293b; margin: 40px; }
-                      h1 { color: #005DE4; text-align: center; }
-                      h2 { text-align: center; color: #334155; }
-                      .label { font-weight: bold; color: #475569; }
-                      .valor { font-size: 20pt; font-weight: bold; color: #005DE4; text-align: center; padding: 12px; background: #f0f6ff; border-radius: 6px; }
-                      table { width: 100%; border-collapse: collapse; margin-top: 16px; }
-                      td { padding: 7px 4px; border-bottom: 1px solid #e2e8f0; font-size: 11pt; }
-                      .rodape { margin-top: 40px; text-align: center; font-size: 9pt; color: #94a3b8; }
-                      hr { border: none; border-top: 2px solid #005DE4; margin: 16px 0; }
-                      .empresa { text-align: center; font-size: 9pt; color: #64748b; }
-                    </style>
-                    </head>
-                    <body>
-                      <h1>SpeakUp English Language Academy</h1>
-                      <h2>Recibo de Pagamento de Mensalidade</h2>
-                      <p class="empresa">
-                        CNPJ: 28.649.636/0001-88<br/>
-                        Praça Governador Valadares, 119 - Centro - Cataguases/MG
-                      </p>
-                      <hr/>
-                      <p class="valor">R$ ${valor.toLocaleString('pt-BR', {minimumFractionDigits:2})}</p>
-                      <hr/>
-                      <table>
-                        <tr><td class="label">Aluno(a):</td><td>${aluno}</td></tr>
-                        <tr><td class="label">Mês de Referência:</td><td>${payment.month || '-'}/${payment.year || '-'}</td></tr>
-                        <tr><td class="label">Vencimento:</td><td>${payment.dueDate ? formatDate(payment.dueDate) : '-'}</td></tr>
-                        <tr><td class="label">Data do Pagamento:</td><td>${payment.paidAt ? new Date(payment.paidAt).toLocaleDateString('pt-BR') : hojeStr}</td></tr>
-                        <tr><td class="label">Forma de Pagamento:</td><td>${payment.paymentMethod || '-'}</td></tr>
-                        <tr><td class="label">Status:</td><td>PAGO</td></tr>
-                      </table>
-                      <div class="rodape">Recibo gerado em ${hojeStr} — SpeakUp English Language Academy</div>
-                    </body></html>`;
-                  const blob = new Blob(['\ufeff', html], { type: 'application/msword' });
-                  const url = URL.createObjectURL(blob);
-                  const a = document.createElement('a');
-                  a.href = url;
-                  a.download = `Recibo-${aluno}.doc`;
-                  a.click();
-                  URL.revokeObjectURL(url);
+                onClick={async () => {
+                  try {
+                    await gerarReciboMensalidadePDF(payment, student);
+                  } catch (err) {
+                    toastMsg('Erro ao gerar o recibo: ' + (err?.message || 'tente novamente'));
+                  }
                 }}
                 className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-all"
-                title="Baixar Recibo (.doc)"
-                aria-label="Baixar recibo"
+                title="Baixar recibo em PDF"
+                aria-label="Baixar recibo em PDF"
               >
                 <FileDown size={18} />
               </button>
@@ -732,7 +664,7 @@ const Finance = ({
                 id="filter-month"
                 value={filterMonth} 
                 onChange={e => setFilterMonth(Number(e.target.value))} 
-                className="border px-3 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#005DE4] transition-all w-full sm:w-auto"
+                className="border px-3 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0e48fe] transition-all w-full sm:w-auto"
               >
                 {MONTHS.map(month => (
                   <option key={month.value} value={month.value}>
@@ -751,7 +683,7 @@ const Finance = ({
                 type="number" 
                 value={filterYear} 
                 onChange={e => setFilterYear(Number(e.target.value))} 
-                className="border px-3 py-2 rounded-lg w-full sm:w-28 focus:outline-none focus:ring-2 focus:ring-[#005DE4] transition-all" 
+                className="border px-3 py-2 rounded-lg w-full sm:w-28 focus:outline-none focus:ring-2 focus:ring-[#0e48fe] transition-all" 
                 min="2020"
                 max="2100"
               />
@@ -765,7 +697,7 @@ const Finance = ({
                 id="filter-status"
                 value={filterStatus} 
                 onChange={e => setFilterStatus(e.target.value)} 
-                className="border px-3 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#005DE4] transition-all w-full sm:w-auto"
+                className="border px-3 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0e48fe] transition-all w-full sm:w-auto"
               >
                 {STATUS_OPTIONS.map(option => (
                   <option key={option.value} value={option.value}>
@@ -781,7 +713,7 @@ const Finance = ({
         <div className="flex flex-wrap gap-2 mb-6">
           <button
             onClick={() => setModal({ open: true, type: 'new-charge', data: null })}
-            className="flex items-center gap-2 px-4 py-2 bg-[#005DE4] text-white rounded-lg hover:bg-[#0041a8] transition-colors font-semibold"
+            className="flex items-center gap-2 px-4 py-2 bg-[#0e48fe] text-white rounded-lg hover:bg-[#0b3ad4] transition-colors font-semibold"
             title="Criar cobrança avulsa pra um aluno já ativo"
           >
             <Plus size={16} />
@@ -809,12 +741,18 @@ const Finance = ({
           <button
             onClick={handlePrintReport}
             className="flex items-center gap-2 px-4 py-2 border border-slate-300 text-slate-600 rounded-lg hover:bg-slate-100 transition-colors"
-            title="Imprimir relatório"
+            title="Imprimir a lista de pagadores"
           >
             <Printer size={16} />
-            <span className="text-sm font-medium">Imprimir</span>
+            <span className="text-sm font-medium">Imprimir lista</span>
           </button>
+
+          <div className="w-px bg-slate-200 mx-1 self-stretch" />
+
+          <RelatoriosGerenciais />
         </div>
+
+        <SaldoCaixaWidget filterMonth={filterMonth} filterYear={filterYear} />
 
         {/* Enhanced KPI Cards */}
         <div className="mb-6">
@@ -886,7 +824,7 @@ const Finance = ({
           <input
             type="text"
             placeholder="Buscar por aluno ou responsável..."
-            className="w-full pl-10 pr-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-[#005DE4] transition-all"
+            className="w-full pl-10 pr-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0e48fe] transition-all"
             value={searchTerm}
             onChange={e => setSearchTerm(e.target.value)}
           />

@@ -29,7 +29,7 @@ export default function NovaVendaModal({ onClose, onSubmit, loading, categoriasL
               type="text"
               value={form.aluno || ''}
               onChange={e => setForm(f => ({ ...f, aluno: e.target.value }))}
-              className="w-full border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-[#005DE4]"
+              className="w-full border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-[#0e48fe]"
               placeholder="Nome completo"
               required
             />
@@ -39,7 +39,7 @@ export default function NovaVendaModal({ onClose, onSubmit, loading, categoriasL
             <select
               value={form.tipo || ''}
               onChange={e => setForm(f => ({ ...f, tipo: e.target.value, livro: '' }))}
-              className="w-full border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-[#005DE4]"
+              className="w-full border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-[#0e48fe]"
               required
             >
               <option value="">Selecione o tipo</option>
@@ -59,7 +59,7 @@ export default function NovaVendaModal({ onClose, onSubmit, loading, categoriasL
                     const livro = calcularLivro(categoria, form.numeroLivro);
                     setForm(f => ({ ...f, categoria, numeroLivro: '', livro }));
                   }}
-                  className="w-full border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-[#005DE4]"
+                  className="w-full border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-[#0e48fe]"
                   required
                 >
                   <option value="">Selecione a categoria</option>
@@ -78,7 +78,7 @@ export default function NovaVendaModal({ onClose, onSubmit, loading, categoriasL
                       const livro = calcularLivro(form.categoria, numero);
                       setForm(f => ({ ...f, numeroLivro: numero, livro }));
                     }}
-                    className="w-full border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-[#005DE4]"
+                    className="w-full border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-[#0e48fe]"
                     required
                   >
                     <option value="">Selecione o número</option>
@@ -101,7 +101,7 @@ export default function NovaVendaModal({ onClose, onSubmit, loading, categoriasL
               type="number"
               value={form.valor || ''}
               onChange={e => setForm(f => ({ ...f, valor: e.target.value }))}
-              className="w-full border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-[#005DE4]"
+              className="w-full border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-[#0e48fe]"
               placeholder="R$ 0,00"
               min="0"
               step="0.01"
@@ -113,7 +113,7 @@ export default function NovaVendaModal({ onClose, onSubmit, loading, categoriasL
             <select
               value={form.pagamento || ''}
               onChange={e => setForm(f => ({ ...f, pagamento: e.target.value }))}
-              className="w-full border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-[#005DE4]"
+              className="w-full border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-[#0e48fe]"
               required
             >
               <option value="">Selecione a forma</option>
@@ -128,7 +128,7 @@ export default function NovaVendaModal({ onClose, onSubmit, loading, categoriasL
             <select
               value={form.parcelas || '1/1'}
               onChange={e => setForm(f => ({ ...f, parcelas: e.target.value }))}
-              className="w-full border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-[#005DE4]"
+              className="w-full border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-[#0e48fe]"
             >
               {[1, 2, 3, 4, 5, 6].map(num => (
                 <option key={num} value={`${num}/${num}`}>{num}x</option>
@@ -141,7 +141,7 @@ export default function NovaVendaModal({ onClose, onSubmit, loading, categoriasL
               type="date"
               value={form.vencimento || ''}
               onChange={e => setForm(f => ({ ...f, vencimento: e.target.value }))}
-              className="w-full border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-[#005DE4]"
+              className="w-full border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-[#0e48fe]"
               required
             />
           </div>
@@ -155,7 +155,7 @@ export default function NovaVendaModal({ onClose, onSubmit, loading, categoriasL
             </button>
             <button
               type="submit"
-              className="px-6 py-2 rounded-lg bg-[#005DE4] text-white font-bold hover:bg-[#004BB8] transition-colors"
+              className="px-6 py-2 rounded-lg bg-[#0e48fe] text-white font-bold hover:bg-[#0b3ad4] transition-colors"
               disabled={loading}
             >
               {loading ? 'Criando...' : 'Criar Venda'}

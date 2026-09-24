@@ -104,7 +104,7 @@ function AulaCard({ aula, defaultOpen = false, onDelete, onUpdate }) {
         className="w-full flex items-center justify-between p-4 hover:bg-slate-50 transition-all text-left cursor-pointer"
       >
         <div className="flex items-center gap-4">
-          <div className="bg-[#005DE4] text-white rounded-lg p-2.5">
+          <div className="bg-[#0e48fe] text-white rounded-lg p-2.5">
             <BookOpen size={18} />
           </div>
           <div>
@@ -142,7 +142,7 @@ function AulaCard({ aula, defaultOpen = false, onDelete, onUpdate }) {
           <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
             <button
               onClick={() => { setEditing(e => !e); setOpen(true); }}
-              className="p-1.5 rounded text-slate-400 hover:text-[#005DE4] hover:bg-blue-50 transition-colors"
+              className="p-1.5 rounded text-slate-400 hover:text-[#0e48fe] hover:bg-blue-50 transition-colors"
               title="Editar aula"
             >
               <Edit size={14} />
@@ -172,7 +172,7 @@ function AulaCard({ aula, defaultOpen = false, onDelete, onUpdate }) {
                   type="text"
                   value={editConteudo}
                   onChange={e => setEditConteudo(e.target.value)}
-                  className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#005DE4]"
+                  className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0e48fe]"
                 />
               </div>
               <div>
@@ -190,14 +190,14 @@ function AulaCard({ aula, defaultOpen = false, onDelete, onUpdate }) {
                   value={editObs}
                   onChange={e => setEditObs(e.target.value)}
                   rows={2}
-                  className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#005DE4] resize-none"
+                  className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0e48fe] resize-none"
                 />
               </div>
               <div className="flex gap-2">
                 <button
                   onClick={handleSaveEdit}
                   disabled={savingEdit}
-                  className="flex items-center gap-1.5 px-4 py-1.5 bg-[#005DE4] text-white rounded-lg text-xs font-medium hover:bg-[#0041a8] disabled:opacity-60"
+                  className="flex items-center gap-1.5 px-4 py-1.5 bg-[#0e48fe] text-white rounded-lg text-xs font-medium hover:bg-[#0b3ad4] disabled:opacity-60"
                 >
                   <Save size={13} /> {savingEdit ? 'Salvando...' : 'Salvar'}
                 </button>
@@ -339,7 +339,7 @@ export default function HistoricoAulas({ aulas, turmas, onClose, onDeleteAula, o
         <style>
           * { box-sizing: border-box; margin: 0; padding: 0; }
           body { font-family: Arial, sans-serif; font-size: 9px; color: #1e293b; }
-          .page-header { background: #005DE4; padding: 10px 14px; display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+          .page-header { background: #0e48fe; padding: 10px 14px; display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
           .page-header img { height: 32px; }
           .page-header-right { text-align: right; color: #ffffff; }
           .page-header-right .report-title { font-size: 11px; font-weight: bold; }
@@ -347,7 +347,7 @@ export default function HistoricoAulas({ aulas, turmas, onClose, onDeleteAula, o
           .content { padding: 0 10mm 10mm 10mm; }
           .subtitle { font-size: 8px; color: #64748b; margin-bottom: 8px; padding-bottom: 6px; border-bottom: 1px solid #e2e8f0; }
           .aula-card { border: 1px solid #e2e8f0; border-radius: 6px; margin-bottom: 8px; padding: 8px; page-break-inside: avoid; }
-          .aula-header { display: flex; gap: 16px; font-size: 10px; font-weight: bold; margin-bottom: 5px; color: #005DE4; border-bottom: 1px solid #e2e8f0; padding-bottom: 4px; }
+          .aula-header { display: flex; gap: 16px; font-size: 10px; font-weight: bold; margin-bottom: 5px; color: #0e48fe; border-bottom: 1px solid #e2e8f0; padding-bottom: 4px; }
           .field { font-size: 8px; margin-bottom: 3px; color: #475569; }
           .field span { font-weight: bold; color: #1e293b; }
           .homework span { color: #7c3aed; }
@@ -387,7 +387,7 @@ export default function HistoricoAulas({ aulas, turmas, onClose, onDeleteAula, o
       {/* Header */}
       <div className="p-5 border-b border-slate-200 bg-white flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="bg-[#005DE4] text-white p-2 rounded-lg">
+          <div className="bg-[#0e48fe] text-white p-2 rounded-lg">
             <FileText size={20} />
           </div>
           <div>
@@ -398,7 +398,7 @@ export default function HistoricoAulas({ aulas, turmas, onClose, onDeleteAula, o
         <div className="flex items-center gap-2">
           <button
             onClick={() => baixarRelatorioSemanal(aulas, professorNome || 'Professor')}
-            className="flex items-center gap-2 px-4 py-2 bg-[#005DE4] text-white rounded-lg hover:bg-[#0041a8] transition-all text-sm"
+            className="flex items-center gap-2 px-4 py-2 bg-[#0e48fe] text-white rounded-lg hover:bg-[#0b3ad4] transition-all text-sm"
             title="Baixa o relatório da semana anterior como arquivo HTML"
           >
             <Download size={16} /> Relatório Semanal
@@ -421,7 +421,7 @@ export default function HistoricoAulas({ aulas, turmas, onClose, onDeleteAula, o
         <select
           value={turmaFiltro}
           onChange={(e) => setTurmaFiltro(e.target.value)}
-          className="border border-slate-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#005DE4]"
+          className="border border-slate-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#0e48fe]"
         >
           <option value="all">Todas as turmas</option>
           {turmas.map((t) => (
@@ -431,7 +431,7 @@ export default function HistoricoAulas({ aulas, turmas, onClose, onDeleteAula, o
         <select
           value={mesFiltro}
           onChange={(e) => setMesFiltro(e.target.value)}
-          className="border border-slate-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#005DE4]"
+          className="border border-slate-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#0e48fe]"
         >
           <option value="all">Todos os meses</option>
           {mesesDisponiveis.map(m => {

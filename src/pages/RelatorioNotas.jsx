@@ -70,7 +70,7 @@ function LegendaConceitos({ aberta, onToggle }) {
         className="w-full flex items-center justify-between px-4 py-3"
       >
         <div className="flex items-center gap-2">
-          <Info size={15} className="text-[#005DE4]" />
+          <Info size={15} className="text-[#0e48fe]" />
           <span className="text-xs font-bold text-slate-600">Escala de Conceitos</span>
         </div>
         <span className="text-[10px] text-slate-400 font-semibold">{aberta ? 'ocultar' : 'ver'}</span>
@@ -78,8 +78,7 @@ function LegendaConceitos({ aberta, onToggle }) {
 
       {aberta && (
         <div className="px-4 pb-4 grid grid-cols-3 gap-2">
-          {CONCEITO_SCALE.map(({ min, label }, idx) => {
-            const max = idx === 0 ? 100 : CONCEITO_SCALE[idx - 1].min - 1;
+          {CONCEITO_SCALE.map(({ min, label }) => {
             return (
               <div key={label} className={`flex items-center gap-2 px-3 py-2 rounded-xl ${conceitoBadge(label)}`}>
                 <span className="font-black text-sm w-5 text-center">{label}</span>
@@ -117,7 +116,7 @@ function PrintView({ rows, qtdW, qtdL, qtdS, turma, etapa }) {
       </p>
       <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px' }}>
         <thead>
-          <tr style={{ backgroundColor: '#005DE4', color: '#fff' }}>
+          <tr style={{ backgroundColor: '#0e48fe', color: '#fff' }}>
             <th style={{ ...thP, textAlign: 'left', minWidth: '160px' }}>Aluno</th>
             {Array.from({ length: qtdW }, (_, i) => <th key={`w${i}`} style={{ ...thP, color: '#bfdbfe' }}>W{i+1}</th>)}
             <th style={{ ...thP, color: '#93c5fd' }}>⌀W</th>
@@ -167,7 +166,7 @@ export default function RelatorioNotas() {
   }, [turmas, turma]);
 
   const turmaObj = turmas.find(t => t.nome === turma) ?? turmas[0] ?? null;
-  const { alunos, loading: loadingAlunos }       = useTurmaAlunos(turmaObj);
+  const { alunos } = useTurmaAlunos(turmaObj);
   const { avaliacoes, loading: loadingAvaliacoes } = useAvaliacoesParciais(turmaObj?.id, etapa);
 
   const qtdW = avaliacoes.Written.length;
@@ -216,11 +215,11 @@ export default function RelatorioNotas() {
 
           {/* Seletores */}
           <div className="px-3 pt-3 grid grid-cols-2 gap-2 flex-shrink-0">
-            <div className="relative bg-white border-2 border-[#005DE4] rounded-xl px-3 py-2.5 col-span-2">
-              <label className="block text-xs font-semibold text-[#005DE4] mb-0.5">Turma</label>
+            <div className="relative bg-white border-2 border-[#0e48fe] rounded-xl px-3 py-2.5 col-span-2">
+              <label className="block text-xs font-semibold text-[#0e48fe] mb-0.5">Turma</label>
               <div className="flex items-center justify-between">
-                <span className="text-sm font-bold text-[#005DE4] truncate pr-2">{turma}</span>
-                <svg className="w-4 h-4 text-[#005DE4]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <span className="text-sm font-bold text-[#0e48fe] truncate pr-2">{turma}</span>
+                <svg className="w-4 h-4 text-[#0e48fe]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" />
                 </svg>
               </div>
@@ -235,8 +234,8 @@ export default function RelatorioNotas() {
                 onClick={() => setEtapa(e)}
                 className={`py-2.5 rounded-xl text-sm font-bold transition-all border-2 ${
                   etapa === e
-                    ? 'bg-[#005DE4] border-[#005DE4] text-white'
-                    : 'bg-white border-[#005DE4] text-[#005DE4]'
+                    ? 'bg-[#0e48fe] border-[#0e48fe] text-white'
+                    : 'bg-white border-[#0e48fe] text-[#0e48fe]'
                 }`}
               >
                 {e}
@@ -270,7 +269,7 @@ export default function RelatorioNotas() {
                 <p className="text-slate-400 text-sm mt-1">Vá em Notas Parciais e registre as avaliações.</p>
                 <button
                   onClick={() => navigate(`/professor/${professorSlug}/notas`)}
-                  className="mt-4 px-5 py-2 bg-[#005DE4] text-white rounded-xl text-sm font-semibold"
+                  className="mt-4 px-5 py-2 bg-[#0e48fe] text-white rounded-xl text-sm font-semibold"
                 >
                   Lançar notas
                 </button>

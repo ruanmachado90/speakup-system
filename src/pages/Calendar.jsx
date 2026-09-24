@@ -56,7 +56,7 @@ export default function Calendar() {
   // Feriados nacionais calculados pro ano em exibição (fixos + móveis via Páscoa)
   const holidaysISO = useMemo(() => gerarFeriadosNacionais(currentYear), [currentYear]);
   const holidays = useMemo(() => holidaysISO.map((h) => {
-    const [ano, mes, dia] = h.data.split('-').map(Number);
+    const [, mes, dia] = h.data.split('-').map(Number);
     return { month: mes - 1, day: dia, name: h.nome };
   }), [holidaysISO]);
 
@@ -127,9 +127,6 @@ export default function Calendar() {
     return schoolEvents.find(se => se.month === currentMonth && se.day === day);
   };
 
-  // Feriados do mês atual
-  const monthHolidays = holidays.filter(h => h.month === currentMonth);
-
   // Navegação
   const goToPrevious = () => {
     const newDate = new Date(selectedDate);
@@ -167,7 +164,7 @@ export default function Calendar() {
       {/* Header Info */}
       <Card>
         <div className="flex items-center gap-3 mb-4">
-          <CalendarIcon className="text-[#005DE4]" size={32} />
+          <CalendarIcon className="text-[#0e48fe]" size={32} />
           <div className="flex-1">
             <h2 className="text-2xl font-bold">Calendário</h2>
             <p className="text-slate-600">Visualize feriados e datas importantes</p>
@@ -180,7 +177,7 @@ export default function Calendar() {
             onClick={() => setCalendarView('month')}
             className={`px-3 md:px-4 py-2 rounded-lg font-semibold transition-colors text-sm md:text-base ${
               calendarView === 'month' 
-                ? 'bg-[#005DE4] text-white' 
+                ? 'bg-[#0e48fe] text-white' 
                 : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
             }`}
           >
@@ -190,7 +187,7 @@ export default function Calendar() {
             onClick={() => setCalendarView('year')}
             className={`px-3 md:px-4 py-2 rounded-lg font-semibold transition-colors text-sm md:text-base ${
               calendarView === 'year' 
-                ? 'bg-[#005DE4] text-white' 
+                ? 'bg-[#0e48fe] text-white' 
                 : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
             }`}
           >
@@ -274,9 +271,9 @@ export default function Calendar() {
                   className={`
                     flex flex-col items-center justify-center rounded-lg relative p-2 min-h-24
                     ${day ? 'cursor-pointer' : ''}
-                    ${isToday ? 'bg-[#005DE4] text-white font-bold hover:bg-[#0048b3]' : ''}
+                    ${isToday ? 'bg-[#0e48fe] text-white font-bold hover:bg-[#0048b3]' : ''}
                     ${holiday && !isToday ? 'border-2' : ''}
-                    ${schoolEvent && !isToday ? 'border-2 border-[#005DE4]' : ''}
+                    ${schoolEvent && !isToday ? 'border-2 border-[#0e48fe]' : ''}
                     ${schoolBreakDay && !isToday && !examWeek && !recoveryPeriod ? 'bg-slate-200' : ''}
                     ${examWeek && !isToday ? 'bg-[#ffae1e]' : ''}
                     ${recoveryPeriod && !isToday ? 'bg-[#e6f2ff]' : ''}
@@ -286,7 +283,7 @@ export default function Calendar() {
                   style={holiday && !isToday ? {
                     backgroundColor: '#fce7f0',
                     borderColor: '#f30961'
-                  } : isToday ? { backgroundColor: '#005DE4' } : recoveryPeriod && !isToday ? {
+                  } : isToday ? { backgroundColor: '#0e48fe' } : recoveryPeriod && !isToday ? {
                     backgroundColor: '#e6f2ff'
                   } : examWeek && !isToday ? {
                     backgroundColor: '#ffae1e'
@@ -298,7 +295,7 @@ export default function Calendar() {
                   {day && (
                     <>
                       <span className={`text-lg font-bold ${isToday ? 'text-white' : ''}`}
-                            style={holiday && !isToday ? { color: '#f30961' } : recoveryPeriod && !isToday ? { color: '#005DE4' } : examWeek && !isToday ? { color: '#b8860b' } : schoolBreakDay && !isToday ? { color: '#64748b' } : schoolEvent && !isToday ? { color: '#005DE4' } : {}}>
+                            style={holiday && !isToday ? { color: '#f30961' } : recoveryPeriod && !isToday ? { color: '#0e48fe' } : examWeek && !isToday ? { color: '#b8860b' } : schoolBreakDay && !isToday ? { color: '#64748b' } : schoolEvent && !isToday ? { color: '#0e48fe' } : {}}>
                         {day}
                       </span>
                       {holiday && (
@@ -309,7 +306,7 @@ export default function Calendar() {
                       )}
                       {recoveryPeriod && !holiday && (
                         <div className={`text-[10px] text-center mt-1 leading-tight w-full font-semibold ${isToday ? 'text-white' : ''}`}
-                             style={!isToday ? { color: '#005DE4' } : {}}>
+                             style={!isToday ? { color: '#0e48fe' } : {}}>
                           {recoveryPeriod.name}
                         </div>
                       )}
@@ -327,7 +324,7 @@ export default function Calendar() {
                       )}
                       {schoolEvent && !holiday && !examWeek && !recoveryPeriod && (
                         <div className={`text-[10px] text-center mt-1 leading-tight w-full font-semibold ${isToday ? 'text-white' : ''}`}
-                             style={!isToday ? { color: '#005DE4' } : {}}>
+                             style={!isToday ? { color: '#0e48fe' } : {}}>
                           {schoolEvent.name}
                         </div>
                       )}
@@ -367,11 +364,11 @@ export default function Calendar() {
               
               return (
                 <div key={monthIndex} className={`p-3 rounded-lg border-2 ${
-                  isCurrentMonth ? 'border-[#005DE4] bg-blue-50' : 'border-slate-200 bg-white'
+                  isCurrentMonth ? 'border-[#0e48fe] bg-blue-50' : 'border-slate-200 bg-white'
                 } shadow-sm hover:shadow-md transition-shadow`}>
                   {/* Nome do mês */}
                   <div className={`font-bold text-center mb-2 text-sm ${
-                    isCurrentMonth ? 'text-[#005DE4]' : 'text-slate-900'
+                    isCurrentMonth ? 'text-[#0e48fe]' : 'text-slate-900'
                   }`}>
                     {month}
                   </div>
@@ -414,19 +411,19 @@ export default function Calendar() {
                           className={`
                             aspect-square flex items-center justify-center rounded text-[10px]
                             ${day ? 'cursor-pointer' : ''}
-                            ${isToday ? 'bg-[#005DE4] text-white font-bold' : ''}
+                            ${isToday ? 'bg-[#0e48fe] text-white font-bold' : ''}
                             ${holiday && !isToday ? 'font-bold' : ''}
-                            ${schoolEvent && !isToday ? 'border-2 border-[#005DE4] font-bold' : ''}
+                            ${schoolEvent && !isToday ? 'border-2 border-[#0e48fe] font-bold' : ''}
                             ${recoveryPeriod && !isToday && !holiday ? 'bg-[#e6f2ff] font-bold' : ''}
                             ${examWeek && !isToday && !holiday && !recoveryPeriod ? 'bg-[#ffae1e] font-bold' : ''}
                             ${schoolBreakDay && !isToday && !holiday && !examWeek && !recoveryPeriod ? 'bg-slate-200' : ''}
                             ${!isToday && !holiday && !schoolBreakDay && !schoolEvent && !examWeek && !recoveryPeriod && day ? 'hover:bg-slate-100' : ''}
                           `}
                           style={holiday && !isToday ? { backgroundColor: '#fce7f0', color: '#f30961' } : 
-                                recoveryPeriod && !isToday && !holiday ? { backgroundColor: '#e6f2ff', color: '#005DE4' } : 
+                                recoveryPeriod && !isToday && !holiday ? { backgroundColor: '#e6f2ff', color: '#0e48fe' } : 
                                 examWeek && !isToday && !holiday ? { backgroundColor: '#ffae1e', color: '#b8860b' } : 
                                 schoolBreakDay && !isToday && !holiday ? { backgroundColor: '#e2e8f0', color: '#64748b' } : 
-                                schoolEvent && !isToday ? { color: '#005DE4' } : {}}
+                                schoolEvent && !isToday ? { color: '#0e48fe' } : {}}
                           title={holiday ? holiday.name : recoveryPeriod ? recoveryPeriod.name : examWeek ? examWeek.name : schoolBreakDay ? schoolBreakDay.name : schoolEvent ? schoolEvent.name : ''}
                         >
                           {day}
@@ -489,7 +486,7 @@ export default function Calendar() {
                     <div className={`${monthHolidaysList.length > 0 || monthSchoolBreakList.length > 0 || monthExamWeeksList.length > 0 ? '' : 'border-t'} pt-2 space-y-1`}>
                       {monthRecoveryPeriodsList.map((rp, idx) => (
                         <div key={idx} className="flex items-start gap-1.5">
-                          <div className="flex-shrink-0 w-4 h-4 rounded text-[9px] font-bold flex items-center justify-center" style={{ backgroundColor: '#e6f2ff', color: '#005DE4' }}>
+                          <div className="flex-shrink-0 w-4 h-4 rounded text-[9px] font-bold flex items-center justify-center" style={{ backgroundColor: '#e6f2ff', color: '#0e48fe' }}>
                             {rp.startDay}
                           </div>
                           <div className="text-[10px] text-slate-700 leading-tight font-semibold">
@@ -505,7 +502,7 @@ export default function Calendar() {
                     <div className={`${monthHolidaysList.length > 0 || monthSchoolBreakList.length > 0 || monthExamWeeksList.length > 0 || monthRecoveryPeriodsList.length > 0 ? '' : 'border-t'} pt-2 space-y-1`}>
                       {monthSchoolEventsList.map((se, idx) => (
                         <div key={idx} className="flex items-start gap-1.5">
-                          <div className="flex-shrink-0 w-4 h-4 rounded text-[9px] font-bold flex items-center justify-center border-2 border-[#005DE4] text-[#005DE4]">
+                          <div className="flex-shrink-0 w-4 h-4 rounded text-[9px] font-bold flex items-center justify-center border-2 border-[#0e48fe] text-[#0e48fe]">
                             {se.day}
                           </div>
                           <div className="text-[10px] text-slate-700 leading-tight font-semibold">
@@ -520,10 +517,10 @@ export default function Calendar() {
                   {isCurrentMonth && (
                     <div className="border-t pt-2 mt-2">
                       <div className="flex items-start gap-1.5">
-                        <div className="flex-shrink-0 w-4 h-4 bg-[#005DE4] rounded text-[9px] font-bold text-white flex items-center justify-center">
+                        <div className="flex-shrink-0 w-4 h-4 bg-[#0e48fe] rounded text-[9px] font-bold text-white flex items-center justify-center">
                           {currentDate.getDate()}
                         </div>
-                        <div className="text-[10px] text-[#005DE4] font-semibold leading-tight">
+                        <div className="text-[10px] text-[#0e48fe] font-semibold leading-tight">
                           Hoje
                         </div>
                       </div>

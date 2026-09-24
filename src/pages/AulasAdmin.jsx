@@ -84,7 +84,7 @@ function DiarioDeClasse({ turmaInfo, aulasMes, mesLabel }) {
       <div className="flex justify-end">
         <button
           onClick={handlePrint}
-          className="flex items-center gap-2 px-4 py-2 bg-[#005DE4] text-white rounded-lg hover:bg-[#0041a8] text-sm font-medium transition-colors"
+          className="flex items-center gap-2 px-4 py-2 bg-[#0e48fe] text-white rounded-lg hover:bg-[#0b3ad4] text-sm font-medium transition-colors"
         >
           <Printer size={16} /> Imprimir Diário
         </button>
@@ -111,7 +111,7 @@ function DiarioDeClasse({ turmaInfo, aulasMes, mesLabel }) {
           </div>
           <div className="px-4 py-2.5 border-r border-slate-300 flex gap-2 info-cell">
             <span className="font-semibold text-slate-500 info-label">Professor:</span>
-            <span className="text-[#005DE4] font-semibold">{turmaInfo?.professor || '—'}</span>
+            <span className="text-[#0e48fe] font-semibold">{turmaInfo?.professor || '—'}</span>
           </div>
           <div className="px-4 py-2.5 flex gap-2 info-cell">
             <span className="font-semibold text-slate-500 info-label">Horário:</span>
@@ -367,7 +367,7 @@ function RelPedagogico({ aulas, filtroMes, filtroAno }) {
       {/* Tabela por Professor */}
       <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
         <div className="px-5 py-4 border-b border-slate-100 flex items-center gap-2">
-          <Users size={16} className="text-[#005DE4]" />
+          <Users size={16} className="text-[#0e48fe]" />
           <span className="font-semibold text-slate-800">Desempenho por Professor — {mesLabel}</span>
         </div>
         <div className="overflow-x-auto">
@@ -405,7 +405,7 @@ function RelPedagogico({ aulas, filtroMes, filtroAno }) {
                     <td className="px-4 py-3.5 text-right">
                       <button
                         onClick={() => setExpandedProf(expandedProf === prof.nome ? null : prof.nome)}
-                        className="flex items-center gap-1 text-xs text-[#005DE4] hover:text-[#0041a8] font-medium ml-auto"
+                        className="flex items-center gap-1 text-xs text-[#0e48fe] hover:text-[#0b3ad4] font-medium ml-auto"
                       >
                         Turmas
                         <ChevronDown size={12} className={`transition-transform ${expandedProf === prof.nome ? 'rotate-180' : ''}`} />
@@ -575,7 +575,7 @@ export default function AulasAdmin() {
 
   if (loading) return (
     <div className="flex items-center justify-center py-20 text-slate-400">
-      <div className="w-8 h-8 border-2 border-slate-200 border-t-[#005DE4] rounded-full animate-spin mr-3" />
+      <div className="w-8 h-8 border-2 border-slate-200 border-t-[#0e48fe] rounded-full animate-spin mr-3" />
       Carregando...
     </div>
   );
@@ -583,7 +583,7 @@ export default function AulasAdmin() {
   return (
     <div className="space-y-6">
       {/* Cabeçalho + abas */}
-      <div className="bg-gradient-to-r from-[#005DE4] to-[#0041a8] rounded-2xl p-6 text-white">
+      <div className="bg-gradient-to-r from-[#0e48fe] to-[#0b3ad4] rounded-2xl p-6 text-white">
         <h2 className="text-2xl font-bold flex items-center gap-2 mb-4">
           <BookOpen size={28} /> Aulas
         </h2>
@@ -591,7 +591,7 @@ export default function AulasAdmin() {
           <button
             onClick={() => setActiveTab('diario')}
             className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold transition-all ${
-              activeTab === 'diario' ? 'bg-white text-[#005DE4]' : 'bg-white/15 text-white hover:bg-white/25'
+              activeTab === 'diario' ? 'bg-white text-[#0e48fe]' : 'bg-white/15 text-white hover:bg-white/25'
             }`}
           >
             <BookOpen size={14} /> Diário de Classe
@@ -599,7 +599,7 @@ export default function AulasAdmin() {
           <button
             onClick={() => setActiveTab('relatorio')}
             className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold transition-all ${
-              activeTab === 'relatorio' ? 'bg-white text-[#005DE4]' : 'bg-white/15 text-white hover:bg-white/25'
+              activeTab === 'relatorio' ? 'bg-white text-[#0e48fe]' : 'bg-white/15 text-white hover:bg-white/25'
             }`}
           >
             <BarChart3 size={14} /> Relatório Pedagógico
@@ -618,7 +618,7 @@ export default function AulasAdmin() {
                 <select
                   value={filtroProfessor}
                   onChange={e => { setFiltroProfessor(e.target.value); setFiltroTurmaId(''); }}
-                  className="w-full appearance-none border border-slate-200 rounded-lg px-3 py-2.5 pr-8 text-sm text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-[#005DE4]/30 focus:border-[#005DE4]"
+                  className="w-full appearance-none border border-slate-200 rounded-lg px-3 py-2.5 pr-8 text-sm text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-[#0e48fe]/30 focus:border-[#0e48fe]"
                 >
                   <option value="">Selecione...</option>
                   {professores.map(p => <option key={p} value={p}>{p}</option>)}
@@ -637,7 +637,7 @@ export default function AulasAdmin() {
                   value={filtroTurmaId}
                   onChange={e => setFiltroTurmaId(e.target.value)}
                   disabled={!filtroProfessor}
-                  className="w-full appearance-none border border-slate-200 rounded-lg px-3 py-2.5 pr-8 text-sm text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-[#005DE4]/30 focus:border-[#005DE4] disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full appearance-none border border-slate-200 rounded-lg px-3 py-2.5 pr-8 text-sm text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-[#0e48fe]/30 focus:border-[#0e48fe] disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <option value="">{filtroProfessor ? 'Selecione...' : 'Primeiro, professor'}</option>
                   {turmasFiltradas.map(t => <option key={t.id} value={t.id}>{t.nome}</option>)}
@@ -654,7 +654,7 @@ export default function AulasAdmin() {
               <select
                 value={filtroMes}
                 onChange={e => setFiltroMes(Number(e.target.value))}
-                className="w-full appearance-none border border-slate-200 rounded-lg px-3 py-2.5 pr-8 text-sm text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-[#005DE4]/30 focus:border-[#005DE4]"
+                className="w-full appearance-none border border-slate-200 rounded-lg px-3 py-2.5 pr-8 text-sm text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-[#0e48fe]/30 focus:border-[#0e48fe]"
               >
                 {MESES.map((m, i) => <option key={i} value={i + 1}>{m}</option>)}
               </select>
@@ -669,7 +669,7 @@ export default function AulasAdmin() {
               <select
                 value={filtroAno}
                 onChange={e => setFiltroAno(Number(e.target.value))}
-                className="w-full appearance-none border border-slate-200 rounded-lg px-3 py-2.5 pr-8 text-sm text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-[#005DE4]/30 focus:border-[#005DE4]"
+                className="w-full appearance-none border border-slate-200 rounded-lg px-3 py-2.5 pr-8 text-sm text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-[#0e48fe]/30 focus:border-[#0e48fe]"
               >
                 {anos.length > 0 ? anos.map(a => <option key={a} value={a}>{a}</option>) : <option value={filtroAno}>{filtroAno}</option>}
               </select>

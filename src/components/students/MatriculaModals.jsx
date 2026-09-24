@@ -87,7 +87,7 @@ export function ConfirmarMatriculaModal({ preCad, onConfirm, onClose, saving }) 
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between p-5 border-b border-slate-100">
           <div className="flex items-center gap-3">
-            <div className="bg-[#005DE4] text-white p-2 rounded-lg"><CheckCircle size={18} /></div>
+            <div className="bg-[#0e48fe] text-white p-2 rounded-lg"><CheckCircle size={18} /></div>
             <div>
               <h3 className="font-bold text-slate-800">Confirmar Matrícula</h3>
               <p className="text-sm text-slate-500">{preCad.nome}</p>
@@ -109,17 +109,17 @@ export function ConfirmarMatriculaModal({ preCad, onConfirm, onClose, saving }) 
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">Valor da mensalidade (R$)</label>
             <input type="number" min="0" step="0.01" value={fee} onChange={e => setFee(e.target.value)} placeholder="Ex: 350.00"
-              className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#005DE4]" />
+              className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0e48fe]" />
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">Vencimento da 1ª parcela</label>
             <input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)}
-              className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#005DE4]" />
+              className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0e48fe]" />
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">Número de parcelas</label>
             <input type="number" min="1" max="24" value={installments} onChange={e => setInstallments(e.target.value)}
-              className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#005DE4]" />
+              className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0e48fe]" />
           </div>
           <ParcelasEditor
             primeiraData={dueDate}
@@ -127,7 +127,7 @@ export function ConfirmarMatriculaModal({ preCad, onConfirm, onClose, saving }) 
             overrides={overrides}
             onChange={handleChangeData}
             onReset={handleResetData}
-            focusColor="focus:ring-[#005DE4]"
+            focusColor="focus:ring-[#0e48fe]"
           />
           {previewEnd && Number(fee) > 0 && (
             <div className="bg-blue-50 border border-blue-200 rounded-lg px-3 py-2.5 text-sm text-blue-800">
@@ -142,7 +142,7 @@ export function ConfirmarMatriculaModal({ preCad, onConfirm, onClose, saving }) 
         <div className="flex gap-3 px-5 pb-5">
           <button onClick={onClose} className="flex-1 py-2 border border-slate-300 rounded-lg text-slate-600 text-sm hover:bg-slate-50 transition-colors">Cancelar</button>
           <button onClick={handleSubmit} disabled={saving}
-            className="flex-1 py-2 bg-[#005DE4] text-white rounded-lg text-sm font-semibold hover:bg-[#0041a8] transition-colors disabled:opacity-60 flex items-center justify-center gap-2">
+            className="flex-1 py-2 bg-[#0e48fe] text-white rounded-lg text-sm font-semibold hover:bg-[#0b3ad4] transition-colors disabled:opacity-60 flex items-center justify-center gap-2">
             {saving ? <><Loader2 size={15} className="animate-spin" /> Salvando...</> : <><CheckCircle size={15} /> Confirmar matrícula</>}
           </button>
         </div>

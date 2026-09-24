@@ -46,8 +46,8 @@ export function ProfessorRelatorio({ professor, turmas, aulas, alunosPorTurma, o
       <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { font-family: Arial, sans-serif; font-size: 12px; color: #0f172a; padding: 20px; }
-        h1 { font-size: 18px; color: #005DE4; margin-bottom: 4px; }
-        .section-title { font-weight: 700; font-size: 13px; border-bottom: 2px solid #005DE4; padding-bottom: 4px; margin: 16px 0 10px; }
+        h1 { font-size: 18px; color: #0e48fe; margin-bottom: 4px; }
+        .section-title { font-weight: 700; font-size: 13px; border-bottom: 2px solid #0e48fe; padding-bottom: 4px; margin: 16px 0 10px; }
         table { width: 100%; border-collapse: collapse; font-size: 11px; }
         th { background: #f1f5f9; text-align: left; padding: 6px 8px; font-size: 10px; color: #64748b; }
         td { padding: 5px 8px; border-bottom: 1px solid #f1f5f9; }
@@ -64,7 +64,7 @@ export function ProfessorRelatorio({ professor, turmas, aulas, alunosPorTurma, o
   return (
     <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.55)', zIndex:9999, display:'flex', alignItems:'flex-start', justifyContent:'center', padding:20, overflowY:'auto' }}>
       <div style={{ background:'white', borderRadius:16, width:'100%', maxWidth:860, boxShadow:'0 24px 64px rgba(0,0,0,0.2)', marginTop:20, marginBottom:20 }}>
-        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'18px 24px', background:'linear-gradient(135deg,#005DE4,#0041a8)', borderRadius:'16px 16px 0 0', color:'white' }}>
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'18px 24px', background:'linear-gradient(135deg,#0e48fe,#0b3ad4)', borderRadius:'16px 16px 0 0', color:'white' }}>
           <div>
             <div style={{ fontWeight:700, fontSize:17 }}>📊 Relatório — {professor}</div>
             <div style={{ fontSize:13, opacity:0.85 }}>{mesAtual} de {anoAtual}</div>
@@ -84,7 +84,7 @@ export function ProfessorRelatorio({ professor, turmas, aulas, alunosPorTurma, o
 
           <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:10, marginBottom:20 }}>
             {[
-              { label:'Turmas', value: turmas.length, color:'#005DE4' },
+              { label:'Turmas', value: turmas.length, color:'#0e48fe' },
               { label:'Aulas este mês', value: totalAulasMes, color:'#7c3aed' },
               { label:'Freq. média geral', value: freqMedia !== null ? `${freqMedia}%` : '—', color: freqMedia === null ? '#64748b' : freqMedia >= 75 ? '#16a34a' : '#dc2626' },
               { label:'Alunos em risco', value: totalAlunosEmRisco, color: totalAlunosEmRisco > 0 ? '#dc2626' : '#16a34a' },
@@ -96,7 +96,7 @@ export function ProfessorRelatorio({ professor, turmas, aulas, alunosPorTurma, o
             ))}
           </div>
 
-          <div className="section-title" style={{ fontWeight:700, fontSize:14, borderBottom:'2px solid #005DE4', paddingBottom:6, marginBottom:12, color:'#0f172a' }}>📋 Desempenho por Turma</div>
+          <div className="section-title" style={{ fontWeight:700, fontSize:14, borderBottom:'2px solid #0e48fe', paddingBottom:6, marginBottom:12, color:'#0f172a' }}>📋 Desempenho por Turma</div>
           <table style={{ width:'100%', borderCollapse:'collapse', fontSize:13, marginBottom:20 }}>
             <thead>
               <tr style={{ background:'#f8fafc' }}>

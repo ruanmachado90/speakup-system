@@ -112,7 +112,7 @@ export default function ProfessorReport({
                             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
                               copiedLink === prof.nome
                                 ? 'bg-emerald-100 text-emerald-700 border border-emerald-300'
-                                : 'bg-white border border-gray-300 text-gray-600 hover:border-[#005DE4] hover:text-[#005DE4]'
+                                : 'bg-white border border-gray-300 text-gray-600 hover:border-[#0e48fe] hover:text-[#0e48fe]'
                             }`}
                             title="Copiar link do painel do professor"
                           >

@@ -4,6 +4,13 @@ import { NIVEIS, DIAS_DISPONIVEIS, CURSOS, BOOKS_POR_CURSO, DEFAULT_MAX_ALUNOS, 
 import { calcularPrevisaoAulas } from '../../utils/calendarioLetivo';
 import { useCalendarioLetivo } from '../../hooks/useCalendarioLetivo';
 
+const FieldError = ({ field, formErrors }) =>
+  formErrors[field] ? (
+    <span className="text-red-500 text-xs ml-2 inline-flex items-center gap-1">
+      <AlertTriangle size={12} /> {formErrors[field]}
+    </span>
+  ) : null;
+
 /**
  * Modal de criação/edição de turma com focus trap e fechar com ESC.
  */
@@ -92,15 +99,8 @@ export default function TurmasForm({
     `w-full border rounded-lg px-3 py-2 transition-colors focus:outline-none focus:ring-2 ${
       formErrors[field]
         ? 'border-red-300 focus:border-red-500 focus:ring-red-200'
-        : 'border-gray-300 focus:border-[#005DE4] focus:ring-blue-200'
+        : 'border-gray-300 focus:border-[#0e48fe] focus:ring-blue-200'
     }`;
-
-  const FieldError = ({ field }) =>
-    formErrors[field] ? (
-      <span className="text-red-500 text-xs ml-2 inline-flex items-center gap-1">
-        <AlertTriangle size={12} /> {formErrors[field]}
-      </span>
-    ) : null;
 
   return (
     <div
@@ -169,7 +169,7 @@ export default function TurmasForm({
         <div className="grid grid-cols-2 gap-4 mb-4">
           <div>
             <label htmlFor="turma-nome" className="block text-sm font-semibold mb-1.5">
-              Nome da Turma * <FieldError field="nome" />
+              Nome da Turma * <FieldError field="nome" formErrors={formErrors} />
             </label>
             <div className="flex items-center gap-1.5">
               <input
@@ -191,7 +191,7 @@ export default function TurmasForm({
                   onClick={() => { onFormChange({ ...form, nome: nomeSugerido }); clearFieldError('nome'); }}
                   disabled={saving}
                   title={`Usar nome sugerido: ${nomeSugerido}`}
-                  className="flex-shrink-0 p-2 text-[#005DE4] hover:bg-blue-50 rounded-lg transition-colors"
+                  className="flex-shrink-0 p-2 text-[#0e48fe] hover:bg-blue-50 rounded-lg transition-colors"
                 >
                   <RefreshCw size={16} />
                 </button>
@@ -202,7 +202,7 @@ export default function TurmasForm({
 
           <div>
             <label htmlFor="turma-nivel" className="block text-sm font-semibold mb-1.5">
-              Nível * <FieldError field="nivel" />
+              Nível * <FieldError field="nivel" formErrors={formErrors} />
             </label>
             <select
               id="turma-nivel"
@@ -224,7 +224,7 @@ export default function TurmasForm({
           {/* Professor */}
           <div>
             <label htmlFor="turma-professor" className="block text-sm font-semibold mb-1.5">
-              Professor * <FieldError field="professor" />
+              Professor * <FieldError field="professor" formErrors={formErrors} />
             </label>
             <select
               id="turma-professor"
@@ -248,7 +248,7 @@ export default function TurmasForm({
         {/* Dias e Horários (combinado) */}
         <div className="mb-4">
           <label className="block text-sm font-semibold mb-1.5">
-            Dias e Horários * <FieldError field="horarios" />
+            Dias e Horários * <FieldError field="horarios" formErrors={formErrors} />
           </label>
           <div className={`border rounded-lg p-3 ${formErrors.horarios ? 'border-red-300' : 'border-gray-300'}`}>
             {/* Chips de dias */}
@@ -273,8 +273,8 @@ export default function TurmasForm({
                     }}
                     className={`px-3 py-1 rounded-full text-sm font-medium border transition-colors ${
                       selected
-                        ? 'bg-[#005DE4] text-white border-[#005DE4]'
-                        : 'bg-white text-gray-600 border-gray-300 hover:border-[#005DE4] hover:text-[#005DE4]'
+                        ? 'bg-[#0e48fe] text-white border-[#0e48fe]'
+                        : 'bg-white text-gray-600 border-gray-300 hover:border-[#0e48fe] hover:text-[#0e48fe]'
                     } disabled:opacity-50 disabled:cursor-not-allowed`}
                   >
                     {dia}
@@ -288,7 +288,7 @@ export default function TurmasForm({
               <div className="mt-3 pt-3 border-t border-gray-100 space-y-2">
                 {(form.horarios || []).map((entry, idx) => (
                   <div key={entry.dia} className="flex items-center gap-2 flex-wrap">
-                    <span className="text-sm font-semibold text-[#005DE4] w-16 flex-shrink-0">{entry.dia}</span>
+                    <span className="text-sm font-semibold text-[#0e48fe] w-16 flex-shrink-0">{entry.dia}</span>
 
                     {/* Início */}
                     <div className="flex items-center gap-1.5">
@@ -303,7 +303,7 @@ export default function TurmasForm({
                           onFormChange({ ...form, horarios: novo });
                           clearFieldError('horarios');
                         }}
-                        className={`border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#005DE4] focus:border-[#005DE4] transition-colors ${
+                        className={`border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#0e48fe] focus:border-[#0e48fe] transition-colors ${
                           !entry.horario && formErrors.horarios ? 'border-red-300' : 'border-gray-300'
                         }`}
                         disabled={saving}
@@ -324,7 +324,7 @@ export default function TurmasForm({
                           );
                           onFormChange({ ...form, horarios: novo });
                         }}
-                        className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#005DE4] focus:border-[#005DE4] transition-colors"
+                        className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#0e48fe] focus:border-[#0e48fe] transition-colors"
                         disabled={saving}
                       />
                     </div>
@@ -349,8 +349,8 @@ export default function TurmasForm({
                 </span>
               ) : (
                 <span className="text-gray-600">
-                  <strong className="text-[#005DE4]">≈ {previsao.aulas} aula{previsao.aulas !== 1 ? 's' : ''}</strong>
-                  {previsao.horas > 0 && <> · <strong className="text-[#005DE4]">{previsao.horas.toFixed(1)}h</strong></>}
+                  <strong className="text-[#0e48fe]">≈ {previsao.aulas} aula{previsao.aulas !== 1 ? 's' : ''}</strong>
+                  {previsao.horas > 0 && <> · <strong className="text-[#0e48fe]">{previsao.horas.toFixed(1)}h</strong></>}
                   {' '}até o fim do ano letivo ({previsao.fimAno.split('-').reverse().join('/')})
                 </span>
               )}
@@ -362,7 +362,7 @@ export default function TurmasForm({
         <div className="grid grid-cols-2 gap-4 mb-4">
           <div>
             <label htmlFor="turma-max" className="block text-sm font-semibold mb-1.5">
-              Máximo de Alunos * <FieldError field="maxAlunos" />
+              Máximo de Alunos * <FieldError field="maxAlunos" formErrors={formErrors} />
             </label>
             <input
               id="turma-max"
@@ -386,12 +386,31 @@ export default function TurmasForm({
               type="number"
               value={form.totalAulas}
               onChange={(e) => onFormChange({ ...form, totalAulas: parseInt(e.target.value, 10) || DEFAULT_TOTAL_AULAS })}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#005DE4] focus:border-[#005DE4] transition-colors"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#0e48fe] focus:border-[#0e48fe] transition-colors"
               min="1" max="200" placeholder="40"
               disabled={saving}
             />
             <p className="text-xs text-gray-400 mt-1">Quantidade total de aulas planejadas</p>
           </div>
+        </div>
+
+        {/* Horas por mês — usado no custo do professor no relatório gerencial */}
+        <div className="mb-4">
+          <label htmlFor="turma-horas-mes" className="block text-sm font-semibold mb-1.5">
+            Horas de aula por mês
+          </label>
+          <input
+            id="turma-horas-mes"
+            type="number"
+            value={form.horasMensais ?? ''}
+            onChange={(e) => onFormChange({ ...form, horasMensais: e.target.value === '' ? '' : (parseFloat(e.target.value) || 0) })}
+            className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#0e48fe] focus:border-[#0e48fe] transition-colors"
+            min="0" max="60" step="0.5" placeholder="4"
+            disabled={saving}
+          />
+          <p className="text-xs text-gray-400 mt-1">
+            Ex.: 1x/semana de 1h = 4h/mês · 2x/semana = 8h/mês. Usado para calcular o custo do professor por turma.
+          </p>
         </div>
 
         {/* Busca de Alunos */}
@@ -406,7 +425,7 @@ export default function TurmasForm({
               type="text"
               value={searchAluno}
               onChange={(e) => onSearchChange(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#005DE4] focus:border-transparent transition-colors"
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0e48fe] focus:border-transparent transition-colors"
               placeholder="Buscar alunos para adicionar..."
               disabled={saving}
               autoComplete="off"
@@ -477,7 +496,7 @@ export default function TurmasForm({
           <button
             onClick={onSave}
             disabled={saving}
-            className="bg-[#005DE4] text-white px-4 py-2 rounded-lg hover:bg-[#0048b3] disabled:opacity-50 flex items-center gap-2 transition-colors text-sm font-semibold"
+            className="bg-[#0e48fe] text-white px-4 py-2 rounded-lg hover:bg-[#0048b3] disabled:opacity-50 flex items-center gap-2 transition-colors text-sm font-semibold"
           >
             {saving && <Loader2 size={16} className="animate-spin" />}
             {editingTurma ? 'Salvar Alterações' : 'Criar Turma'}

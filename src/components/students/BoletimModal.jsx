@@ -49,7 +49,7 @@ export default function BoletimModal({ aluno, boletimData, setBoletimData, loadi
           </tbody>
         </table>
         <div className="flex gap-2 print:hidden">
-          <button className="bg-[#005DE4] text-white px-6 py-2 rounded-lg font-bold mt-2" onClick={onSave} disabled={loading}>
+          <button className="bg-[#0e48fe] text-white px-6 py-2 rounded-lg font-bold mt-2" onClick={onSave} disabled={loading}>
             Salvar
           </button>
           <button className="bg-gray-300 text-gray-700 px-6 py-2 rounded-lg font-bold mt-2" onClick={() => window.print()}>

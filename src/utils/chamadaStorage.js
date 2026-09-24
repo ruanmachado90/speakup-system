@@ -1,7 +1,7 @@
 import { doc, setDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 
-const sanitize = str => String(str).replace(/[/\.#[\]\s]/g, '_');
+const sanitize = str => String(str).replace(/[/.#[\]\s]/g, '_');
 
 // Salva (ou atualiza) uma aula no diário do professor.
 // turmaId: id do documento da turma no Firestore

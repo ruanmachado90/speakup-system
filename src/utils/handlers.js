@@ -147,18 +147,30 @@ export const saveStudent = async (e, user, modal, toastMsg, setModal, setSaving)
  * Delete a student and all related payments
  */
 export const handleDeleteStudent = async (id, toastMsg) => {
-  if (!confirm('Remover aluno e pagamentos associados?')) return;
+  if (!confirm('Remover aluno? As parcelas pagas são preservadas e as pendentes viram canceladas (registro financeiro nunca é excluído).')) return;
 
   try {
     await deleteDoc(doc(col("students"), id));
 
-    const q = query(col("payments"), where("studentId", "==", id));
+    // Parcelas nunca são deletadas: pagas ficam intactas (histórico/auditoria),
+    // pendentes viram 'cancelada' e saem dos KPIs via saldoParcela().
+    const q = query(
+      col("payments"),
+      where("studentId", "==", id),
+      where("status", "==", "Pendente")
+    );
     const snap = await getDocs(q);
-    const batch = writeBatch(db);
-    snap.forEach(d => batch.delete(doc(col("payments"), d.id)));
-    await batch.commit();
+    if (!snap.empty) {
+      const batch = writeBatch(db);
+      snap.forEach(d => batch.update(doc(col("payments"), d.id), {
+        status: 'cancelada',
+        canceledAt: Date.now(),
+        cancelReason: 'Aluno removido'
+      }));
+      await batch.commit();
+    }
 
-    toastMsg('Aluno e pagamentos removidos');
+    toastMsg('Aluno removido; parcelas preservadas');
   } catch (err) {
     console.error(err);
     toastMsg('Erro ao remover aluno');
@@ -209,8 +221,8 @@ export const handleReactivateEnrollment = async (id, { studentName, fee, dueDate
   }
 };
 
-export const handleCancelEnrollment = async (id, toastMsg) => {
-  if (!confirm('Cancelar matrícula deste aluno? As parcelas pendentes serão excluídas.')) return;
+export const handleCancelEnrollment = async (id, toastMsg, motivo = '') => {
+  if (!confirm('Cancelar matrícula deste aluno? As parcelas pendentes serão marcadas como canceladas (nada é excluído).')) return;
 
   try {
     await updateDoc(doc(col("students"), id), {
@@ -227,7 +239,11 @@ export const handleCancelEnrollment = async (id, toastMsg) => {
 
     if (!snap.empty) {
       const batch = writeBatch(db);
-      snap.forEach(d => batch.delete(doc(col("payments"), d.id)));
+      snap.forEach(d => batch.update(doc(col("payments"), d.id), {
+        status: 'cancelada',
+        canceledAt: Date.now(),
+        cancelReason: motivo || 'Matrícula cancelada'
+      }));
       await batch.commit();
     }
 
@@ -387,6 +403,12 @@ export const saveExpense = async (e, user, modal, toastMsg, setModal, setExpense
   const value = Number(form.get('value') || 0);
   const dateStr = form.get('date');
   const paymentMethod = form.get('paymentMethod')?.trim() || 'Não especificado';
+  // checkbox: presente ('on') só quando marcado
+  const recorrente = form.get('recorrente') === 'on';
+  const tipoSaidaRaw = form.get('tipoSaida')?.trim();
+  const tipoSaida = ['operacional', 'retiradaSocio', 'investimento', 'imposto'].includes(tipoSaidaRaw)
+    ? tipoSaidaRaw
+    : 'operacional';
 
   if (!description || isNaN(value) || value <= 0) {
     toastMsg('Descrição e valor são obrigatórios');
@@ -408,7 +430,9 @@ export const saveExpense = async (e, user, modal, toastMsg, setModal, setExpense
       date: d.toISOString(),
       month: d.getMonth() + 1,
       year: d.getFullYear(),
-      paymentMethod
+      paymentMethod,
+      recorrente,
+      tipoSaida
     };
 
     if (modal.data?.id) {
@@ -521,7 +545,7 @@ export const handleExcelUpload = async (e, toastMsg, setSaving) => {
                 dueDate = `${year}-${month}-${day}`;
               }
             } else if (dueDate) {
-              const match = String(dueDate).match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
+              const match = String(dueDate).match(/(\d{1,2})[/-](\d{1,2})[/-](\d{4})/);
               if (match) {
                 const [_, day, month, year] = match;
                 dueDate = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
@@ -547,7 +571,7 @@ export const handleExcelUpload = async (e, toastMsg, setSaving) => {
             const rawFee = row['Mensalidade'] || row['mensalidade'] || row['Valor'] || row['valor'] || 0;
             let fee = 0;
             if (typeof rawFee === 'string') {
-              fee = parseFloat(rawFee.replace(/[R$\s\.]/g, '').replace(',', '.')) || 0;
+              fee = parseFloat(rawFee.replace(/[R$\s.]/g, '').replace(',', '.')) || 0;
             } else {
               fee = Number(rawFee) || 0;
             }

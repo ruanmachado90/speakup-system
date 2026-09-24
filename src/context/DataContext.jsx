@@ -3,6 +3,7 @@ import { db, auth } from '../firebase';
 import { useAuth } from '../hooks/useAuth';
 import { useFirestore, useFirestoreCollection } from '../hooks/useFirestore';
 import { useProfessores } from '../hooks/useProfessores';
+import { useParametros } from '../hooks/useParametros';
 import { 
   useStats, 
   useTeacherStats, 
@@ -48,6 +49,7 @@ export const DataProvider = ({ children }) => {
   const { data: expenses, isLoading: expensesLoading } = useFirestoreCollection(db, APP_ID, "expenses", user);
   const leads = useFirestore(db, APP_ID, "leads", user);
   const { professores } = useProfessores();
+  const { parametros, salvarParametros, loading: parametrosLoading } = useParametros();
 
   // Enquanto qualquer uma das três coleções que alimentam `stats` não chegou,
   // os números derivados são zeros de partida — não fatos.
@@ -87,6 +89,9 @@ export const DataProvider = ({ children }) => {
     expenses,
     leads,
     professores,
+    parametros,
+    parametrosLoading,
+    salvarParametros,
     dataLoading,
 
     // Calculated Data
@@ -99,7 +104,8 @@ export const DataProvider = ({ children }) => {
     filteredExpensesData,
     expenseEvolutionData,
   }), [
-    user, students, payments, expenses, leads, professores, dataLoading,
+    user, students, payments, expenses, leads, professores,
+    parametros, parametrosLoading, salvarParametros, dataLoading,
     stats, teacherStats, filteredExpenses, monthlyData,
     financeStats, filteredPayments, filteredExpensesData, expenseEvolutionData
   ]);

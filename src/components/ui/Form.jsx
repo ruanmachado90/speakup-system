@@ -9,7 +9,7 @@ export const Form = ({label, name, type="text", defaultValue, required, step, pl
       required={required}
       step={step}
       placeholder={placeholder}
-      className="w-full px-4 py-3 rounded-xl border focus:outline-none focus:ring-2 focus:ring-[#005DE4]"
+      className="w-full px-4 py-3 rounded-xl border focus:outline-none focus:ring-2 focus:ring-[#0e48fe]"
     />
   </div>
 );

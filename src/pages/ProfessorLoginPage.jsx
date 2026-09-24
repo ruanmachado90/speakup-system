@@ -62,7 +62,7 @@ export default function ProfessorLoginPage() {
     <div className="min-h-screen bg-gradient-to-br from-[#EEF4FF] via-slate-50 to-[#E8F0FE] flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
         {/* Header */}
-        <div className="bg-gradient-to-r from-[#005DE4] to-[#0041a8] px-8 py-6 text-center">
+        <div className="bg-gradient-to-r from-[#0e48fe] to-[#0b3ad4] px-8 py-6 text-center">
           <img
             src={SPEAKUP_LOGO_URL}
             alt="SpeakUp"
@@ -89,7 +89,7 @@ export default function ProfessorLoginPage() {
                 required
                 autoFocus
                 autoComplete="email"
-                className="w-full border border-slate-300 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#005DE4] focus:border-[#005DE4]"
+                className="w-full border border-slate-300 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#0e48fe] focus:border-[#0e48fe]"
               />
             </label>
 
@@ -103,7 +103,7 @@ export default function ProfessorLoginPage() {
                   placeholder="Sua senha"
                   required
                   autoComplete="current-password"
-                  className="w-full border border-slate-300 rounded-xl px-4 py-3 pr-11 text-sm focus:outline-none focus:ring-2 focus:ring-[#005DE4] focus:border-[#005DE4]"
+                  className="w-full border border-slate-300 rounded-xl px-4 py-3 pr-11 text-sm focus:outline-none focus:ring-2 focus:ring-[#0e48fe] focus:border-[#0e48fe]"
                 />
                 <button
                   type="button"
@@ -125,7 +125,7 @@ export default function ProfessorLoginPage() {
             <button
               type="submit"
               disabled={loading || !email.trim() || !password}
-              className="w-full py-3 bg-[#005DE4] text-white rounded-xl font-semibold text-sm hover:bg-[#0041a8] disabled:opacity-50 transition-colors"
+              className="w-full py-3 bg-[#0e48fe] text-white rounded-xl font-semibold text-sm hover:bg-[#0b3ad4] disabled:opacity-50 transition-colors"
             >
               {loading ? 'Entrando...' : 'Entrar'}
             </button>
@@ -133,7 +133,7 @@ export default function ProfessorLoginPage() {
 
           <p className="mt-6 text-xs text-slate-400 text-center">
             É administrador ou secretária?{' '}
-            <Link to="/login" className="text-[#005DE4] hover:underline">
+            <Link to="/login" className="text-[#0e48fe] hover:underline">
               Entrar com Google
             </Link>
           </p>

@@ -41,8 +41,8 @@ function ItemLink({ item }) {
       rel="noopener noreferrer"
       className="flex items-center gap-3 px-4 py-3 hover:bg-slate-50 transition-colors"
     >
-      <div className="w-9 h-9 rounded-full bg-[#005DE4]/10 flex items-center justify-center flex-shrink-0">
-        <Icon size={16} className="text-[#005DE4]" />
+      <div className="w-9 h-9 rounded-full bg-[#0e48fe]/10 flex items-center justify-center flex-shrink-0">
+        <Icon size={16} className="text-[#0e48fe]" />
       </div>
       <div className="flex-1 min-w-0">
         <p className="text-sm font-bold text-slate-800 truncate">{item.titulo}</p>

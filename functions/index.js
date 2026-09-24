@@ -13,8 +13,8 @@ const CONFIG = {
   // Configurações da API
   API_URL: "https://api.anthropic.com/v1/messages",
   API_VERSION: "2023-06-01",
-  MODEL: "claude-sonnet-4-20250514",
-  MAX_TOKENS: 2000,
+  MODEL: "claude-sonnet-5",
+  MAX_TOKENS: 4096,
   
   // CORS
   ALLOWED_ORIGINS: "*", // Em produção, pode limitar para seu domínio específico
@@ -65,13 +65,16 @@ function validatePayload(body) {
 }
 
 /**
- * Chama a API da Anthropic Claude
+ * Chama a API da Anthropic Claude em modo streaming e repassa os eventos
+ * SSE diretamente para a resposta HTTP conforme chegam, sem esperar a
+ * resposta completa — permite ao frontend renderizar o texto em tempo real.
  * @param {string} systemPrompt - Prompt do sistema
  * @param {Array} messages - Array de mensagens
- * @returns {Promise<Object>} - Resposta da API
+ * @param {import('express').Response} res - Resposta HTTP do Cloud Function
+ * @returns {Promise<void>}
  */
-async function callClaudeAPI(systemPrompt, messages) {
-  const response = await fetch(CONFIG.API_URL, {
+async function streamClaudeAPI(systemPrompt, messages, res) {
+  const upstream = await fetch(CONFIG.API_URL, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -83,19 +86,35 @@ async function callClaudeAPI(systemPrompt, messages) {
       max_tokens: CONFIG.MAX_TOKENS,
       system: systemPrompt,
       messages: messages,
+      stream: true,
     }),
   });
 
-  const data = await response.json();
-  
-  if (!response.ok) {
+  if (!upstream.ok || !upstream.body) {
+    const data = await upstream.json().catch(() => ({}));
     const error = new Error(data.error?.message || "API request failed");
-    error.status = response.status;
+    error.status = upstream.status;
     error.data = data;
     throw error;
   }
-  
-  return data;
+
+  res.status(200);
+  res.set("Content-Type", "text/event-stream; charset=utf-8");
+  res.set("Cache-Control", "no-cache");
+  // Desativa qualquer buffering de proxy intermediário (nginx/GFE) que
+  // quebraria o streaming em pedaços grandes em vez de chunk a chunk.
+  res.set("X-Accel-Buffering", "no");
+
+  const reader = upstream.body.getReader();
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      res.write(Buffer.from(value));
+    }
+  } finally {
+    res.end();
+  }
 }
 
 // ============================================
@@ -151,21 +170,16 @@ exports.chatWithAI = functions.https.onRequest(async (req, res) => {
       timestamp: new Date().toISOString(),
     });
 
-    // 3. Chamar API da Claude
-    const data = await callClaudeAPI(systemPrompt, messages);
+    // 3. Chamar API da Claude em streaming — repassa os eventos SSE direto
+    // para o cliente conforme chegam (res.status/headers só são setados
+    // aqui dentro, depois que a Anthropic confirmar que a chamada é válida)
+    await streamClaudeAPI(systemPrompt, messages, res);
 
-    // 4. Log de sucesso
+    // 4. Log de sucesso (sem métricas de token — streaming não devolve
+    // usage agregado no fluxo que repassamos bruto ao cliente)
     const duration = Date.now() - startTime;
-    console.log("Request successful:", {
-      duration: `${duration}ms`,
-      inputTokens: data.usage?.input_tokens,
-      outputTokens: data.usage?.output_tokens,
-      model: data.model,
-    });
+    console.log("Request successful:", { duration: `${duration}ms` });
 
-    // 5. Retornar resposta
-    res.status(200).json(data);
-    
   } catch (error) {
     // Log detalhado do erro
     const duration = Date.now() - startTime;
@@ -176,9 +190,16 @@ exports.chatWithAI = functions.https.onRequest(async (req, res) => {
       stack: error.stack,
     });
 
+    // Se o streaming já começou (headers já enviados), não dá mais para
+    // trocar o status/JSON de erro — apenas encerra a conexão.
+    if (res.headersSent) {
+      res.end();
+      return;
+    }
+
     // Retornar erro apropriado
     const statusCode = error.status || 500;
-    res.status(statusCode).json({ 
+    res.status(statusCode).json({
       error: error.message || "Internal server error",
       details: process.env.NODE_ENV === "development" ? error.data : undefined,
     });
@@ -321,4 +342,74 @@ exports.deleteProfessor = functions.https.onCall(async (data, context) => {
   await admin.auth().deleteUser(uid);
   await admin.firestore().doc(`users/${uid}`).delete();
   return { success: true };
+});
+
+/**
+ * Migração idempotente: parcelas de alunos já cancelados que ficaram como
+ * 'Pendente' (ou foram deletadas antes desta correção) passam a 'cancelada'.
+ * Antes, cancelar/excluir aluno fazia batch.delete nas parcelas pendentes —
+ * perda de registro financeiro e provável causa do gap de faturamento.
+ * As parcelas já deletadas não voltam; esta função só conserta as que restaram.
+ * Callable: httpsCallable(functions, 'backfillParcelasCanceladas')
+ */
+exports.backfillParcelasCanceladas = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError("unauthenticated", "Não autorizado.");
+  }
+  const callerSnap = await admin.firestore().doc(`users/${context.auth.uid}`).get();
+  if (!callerSnap.exists || callerSnap.data().role !== "admin") {
+    throw new functions.https.HttpsError("permission-denied", "Apenas administradores podem executar esta migração.");
+  }
+
+  const dryRun = !!(data && data.dryRun);
+
+  try {
+    const db = admin.firestore();
+    const base = "artifacts/speakup-manager/public/data";
+
+    // Um único filtro de igualdade por query — evita necessidade de índice composto.
+    const cancelledSnap = await db.collection(`${base}/students`)
+      .where("status", "==", "cancelado").get();
+
+    const cancelledById = new Map();
+    cancelledSnap.forEach((d) => cancelledById.set(d.id, d.data()));
+
+    let scannedStudents = cancelledById.size;
+    let updatedPayments = 0;
+    let batch = db.batch();
+    let pending = 0;
+
+    // Varre TODAS as parcelas pendentes uma vez e cruza com os alunos cancelados
+    // em memória (mais barato que 1 query por aluno e sem índice composto).
+    const pendentesSnap = await db.collection(`${base}/payments`)
+      .where("status", "==", "Pendente").get();
+
+    for (const paymentDoc of pendentesSnap.docs) {
+      const p = paymentDoc.data();
+      const aluno = cancelledById.get(p.studentId);
+      if (!aluno) continue;
+
+      updatedPayments += 1;
+      if (!dryRun) {
+        batch.update(paymentDoc.ref, {
+          status: "cancelada",
+          canceledAt: aluno.canceledAt || Date.now(),
+          cancelReason: "Backfill: aluno já cancelado",
+        });
+        pending += 1;
+        if (pending === 450) {
+          await batch.commit();
+          batch = db.batch();
+          pending = 0;
+        }
+      }
+    }
+
+    if (!dryRun && pending > 0) await batch.commit();
+
+    return { dryRun, scannedStudents, updatedPayments };
+  } catch (err) {
+    console.error("backfillParcelasCanceladas falhou:", err);
+    throw new functions.https.HttpsError("internal", err.message || String(err));
+  }
 });

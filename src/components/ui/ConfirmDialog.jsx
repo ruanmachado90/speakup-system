@@ -83,7 +83,7 @@ export default function ConfirmDialog({
     },
     info: {
       icon: <AlertTriangle size={22} className="text-blue-500" />,
-      confirmClass: 'bg-[#005DE4] hover:bg-[#0048b3] text-white',
+      confirmClass: 'bg-[#0e48fe] hover:bg-[#0048b3] text-white',
       iconBg: 'bg-blue-100',
     },
   }[variant] ?? variantConfig.danger;

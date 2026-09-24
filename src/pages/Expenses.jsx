@@ -130,8 +130,8 @@ const Expenses = ({
     setShowExportMenu(false);
   };
 
-  // Empty State Component
-  const EmptyState = () => (
+  // Empty State
+  const emptyState = (
     <div className="flex flex-col items-center justify-center py-16 px-4 text-center">
       <div className="bg-slate-100 rounded-full p-6 mb-4">
         <TrendingDown size={48} className="text-slate-400" />
@@ -140,13 +140,13 @@ const Expenses = ({
         Nenhuma despesa registrada
       </h3>
       <p className="text-sm text-slate-500 mb-6 max-w-sm">
-        {expenseView === 'month' 
+        {expenseView === 'month'
           ? `Não há despesas para ${MONTHS[expenseMonth]} de ${expenseYear}.`
           : `Não há despesas para o ano ${expenseYear}.`}
       </p>
-      <button 
-        onClick={() => setModal({open: true, type: 'expense'})} 
-        className="bg-[#005DE4] text-white px-6 py-3 rounded-full font-bold flex items-center gap-2 hover:bg-[#004CC0] transition-colors active:scale-95"
+      <button
+        onClick={() => setModal({open: true, type: 'expense'})}
+        className="bg-[#0e48fe] text-white px-6 py-3 rounded-full font-bold flex items-center gap-2 hover:bg-[#0b3ad4] transition-colors active:scale-95"
         aria-label="Adicionar nova despesa"
       >
         <PlusCircle size={20}/> Adicionar despesa
@@ -175,7 +175,7 @@ const Expenses = ({
             onClick={() => setExpenseView('year')} 
             className={`px-4 py-2 rounded-lg font-semibold transition-all ${
               expenseView === 'year' 
-                ? 'bg-[#005DE4] text-white shadow-md' 
+                ? 'bg-[#0e48fe] text-white shadow-md' 
                 : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
             }`}
             aria-pressed={expenseView === 'year'}
@@ -187,7 +187,7 @@ const Expenses = ({
             onClick={() => setExpenseView('month')} 
             className={`px-4 py-2 rounded-lg font-semibold transition-all ${
               expenseView === 'month' 
-                ? 'bg-[#005DE4] text-white shadow-md' 
+                ? 'bg-[#0e48fe] text-white shadow-md' 
                 : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
             }`}
             aria-pressed={expenseView === 'month'}
@@ -208,7 +208,7 @@ const Expenses = ({
                 id="expense-month"
                 value={expenseMonth} 
                 onChange={e => setExpenseMonth(Number(e.target.value))} 
-                className="border px-3 py-2 rounded-lg font-semibold focus:outline-none focus:ring-2 focus:ring-[#005DE4] transition-all"
+                className="border px-3 py-2 rounded-lg font-semibold focus:outline-none focus:ring-2 focus:ring-[#0e48fe] transition-all"
                 aria-label="Selecionar mês"
               >
                 {MONTHS.map((month, i) => (
@@ -229,7 +229,7 @@ const Expenses = ({
               type="number" 
               value={expenseYear} 
               onChange={e => setExpenseYear(Number(e.target.value))} 
-              className="border px-3 py-2 rounded-lg w-28 font-semibold focus:outline-none focus:ring-2 focus:ring-[#005DE4] transition-all" 
+              className="border px-3 py-2 rounded-lg w-28 font-semibold focus:outline-none focus:ring-2 focus:ring-[#0e48fe] transition-all" 
               aria-label="Selecionar ano"
               min="2020"
               max="2100"
@@ -349,7 +349,7 @@ const Expenses = ({
               {/* Add Button */}
               <button 
                 onClick={() => setModal({open: true, type: 'expense'})} 
-                className="bg-[#005DE4] text-white px-4 py-2 rounded-full font-bold flex items-center gap-2 hover:bg-[#004CC0] transition-all active:scale-95 shadow-md"
+                className="bg-[#0e48fe] text-white px-4 py-2 rounded-full font-bold flex items-center gap-2 hover:bg-[#0b3ad4] transition-all active:scale-95 shadow-md"
                 aria-label="Adicionar nova despesa"
               >
                 <PlusCircle size={18}/> 
@@ -367,7 +367,7 @@ const Expenses = ({
               onClick={() => setStatusFilter('todos')}
               className={`px-3 py-1 rounded-full text-sm font-semibold transition-all ${
                 statusFilter === 'todos'
-                  ? 'bg-[#005DE4] text-white shadow-sm'
+                  ? 'bg-[#0e48fe] text-white shadow-sm'
                   : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
               }`}
             >
@@ -399,7 +399,7 @@ const Expenses = ({
                   onClick={() => setCategoryFilter(cat)}
                   className={`px-3 py-1 rounded-full text-sm font-semibold transition-all ${
                     categoryFilter === cat
-                      ? 'bg-[#005DE4] text-white shadow-sm'
+                      ? 'bg-[#0e48fe] text-white shadow-sm'
                       : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                   }`}
                 >
@@ -429,6 +429,11 @@ const Expenses = ({
                     <span className="inline-block px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">
                       {x.category || '-'}
                     </span>
+                    {x.tipoSaida && x.tipoSaida !== 'operacional' && (
+                      <span className="ml-1 inline-block px-2 py-1 text-xs font-semibold rounded-full bg-amber-100 text-amber-800">
+                        {{ retiradaSocio: 'Retirada de sócio', investimento: 'Investimento', imposto: 'Imposto' }[x.tipoSaida]}
+                      </span>
+                    )}
                   </td>
                   <td key="date" className="px-6 py-3 text-slate-600">{formatDate(x.date)}</td>
                   <td key="value" className="px-6 py-3">
@@ -470,13 +475,13 @@ const Expenses = ({
               <p className="text-slate-500 font-medium">Nenhuma despesa encontrada na categoria "{categoryFilter}"</p>
               <button
                 onClick={() => setCategoryFilter('Todas')}
-                className="mt-4 text-[#005DE4] hover:underline font-semibold"
+                className="mt-4 text-[#0e48fe] hover:underline font-semibold"
               >
                 Limpar filtro
               </button>
             </div>
           ) : (
-            <EmptyState />
+            emptyState
           )
         )}
       </Card>

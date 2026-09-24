@@ -22,7 +22,7 @@ export default function EditarVendaModal({ venda, onClose, onSave, loading, livr
               type="text"
               value={form.aluno || ''}
               onChange={e => setForm(f => ({ ...f, aluno: e.target.value }))}
-              className="w-full border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-[#005DE4]"
+              className="w-full border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-[#0e48fe]"
               placeholder="Nome completo"
               required
             />
@@ -32,7 +32,7 @@ export default function EditarVendaModal({ venda, onClose, onSave, loading, livr
             <select
               value={form.tipo || ''}
               onChange={e => setForm(f => ({ ...f, tipo: e.target.value }))}
-              className="w-full border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-[#005DE4]"
+              className="w-full border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-[#0e48fe]"
               required
             >
               <option value="">Selecione o tipo</option>
@@ -51,7 +51,7 @@ export default function EditarVendaModal({ venda, onClose, onSave, loading, livr
                 <select
                   value={form.livro || ''}
                   onChange={e => setForm(f => ({ ...f, livro: e.target.value }))}
-                  className="w-full border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-[#005DE4]"
+                  className="w-full border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-[#0e48fe]"
                 >
                   <option value="">Selecione o livro</option>
                   {livros.map(l => (
@@ -68,7 +68,7 @@ export default function EditarVendaModal({ venda, onClose, onSave, loading, livr
               type="number"
               value={form.valor || ''}
               onChange={e => setForm(f => ({ ...f, valor: e.target.value }))}
-              className="w-full border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-[#005DE4]"
+              className="w-full border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-[#0e48fe]"
               placeholder="R$ 0,00"
               min="0"
               step="0.01"
@@ -80,7 +80,7 @@ export default function EditarVendaModal({ venda, onClose, onSave, loading, livr
             <select
               value={form.pagamento || ''}
               onChange={e => setForm(f => ({ ...f, pagamento: e.target.value }))}
-              className="w-full border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-[#005DE4]"
+              className="w-full border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-[#0e48fe]"
               required
             >
               <option value="">Selecione a forma</option>
@@ -96,7 +96,7 @@ export default function EditarVendaModal({ venda, onClose, onSave, loading, livr
               type="date"
               value={form.vencimento || ''}
               onChange={e => setForm(f => ({ ...f, vencimento: e.target.value }))}
-              className="w-full border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-[#005DE4]"
+              className="w-full border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-[#0e48fe]"
               required
             />
           </div>
@@ -110,7 +110,7 @@ export default function EditarVendaModal({ venda, onClose, onSave, loading, livr
             </button>
             <button
               type="submit"
-              className="px-6 py-2 rounded-lg bg-[#005DE4] text-white font-bold hover:bg-[#004BB8] transition-colors"
+              className="px-6 py-2 rounded-lg bg-[#0e48fe] text-white font-bold hover:bg-[#0b3ad4] transition-colors"
               disabled={loading}
             >
               {loading ? 'Salvando...' : 'Salvar Alterações'}

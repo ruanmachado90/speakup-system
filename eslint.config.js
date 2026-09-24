@@ -26,4 +26,11 @@ export default defineConfig([
       'no-unused-vars': ['error', { varsIgnorePattern: '^[A-Z_]' }],
     },
   },
+  {
+    // Testes rodam no Jest (jest.config.cjs) — expõe describe/it/expect/etc.
+    files: ['**/*.test.{js,jsx}', '**/__tests__/**/*.{js,jsx}'],
+    languageOptions: {
+      globals: { ...globals.jest, ...globals.node },
+    },
+  },
 ])

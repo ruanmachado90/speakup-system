@@ -5,7 +5,7 @@
  * ⚡ Performance: Componentes só re-renderizam quando os dados que usam mudam
  */
 
-import { useContext, useMemo } from 'react';
+import { useMemo } from 'react';
 import { useUI } from '../context/UIContext';
 import { useFilters } from '../context/FilterContext';
 import { useData } from '../context/DataContext';
@@ -159,6 +159,17 @@ export const useLeads = () => {
 export const useProfessoresData = () => {
   const { professores } = useData();
   return professores;
+};
+
+/**
+ * Selector para os parâmetros de negócio (preço cheio, custo de professor, metas)
+ */
+export const useParametrosData = () => {
+  const { parametros, parametrosLoading, salvarParametros } = useData();
+  return useMemo(
+    () => ({ parametros, parametrosLoading, salvarParametros }),
+    [parametros, parametrosLoading, salvarParametros],
+  );
 };
 
 /**

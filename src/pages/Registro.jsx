@@ -26,7 +26,7 @@ function maskCEP(v) {
 
 /* ── Paleta de seções ─────────────────────────────────────────── */
 const THEME = {
-  blue:   { strip: 'from-[#0e48fe] to-[#0041a8]', ring: 'focus:ring-[#0e48fe]/25 focus:border-[#0e48fe]', chip: 'bg-[#0e48fe] border-[#0e48fe]', hover: 'hover:border-[#0e48fe]/40 hover:text-[#0e48fe]' },
+  blue:   { strip: 'from-[#0e48fe] to-[#0b3ad4]', ring: 'focus:ring-[#0e48fe]/25 focus:border-[#0e48fe]', chip: 'bg-[#0e48fe] border-[#0e48fe]', hover: 'hover:border-[#0e48fe]/40 hover:text-[#0e48fe]' },
   orange: { strip: 'from-[#fc6e1f] to-[#d95810]', ring: 'focus:ring-[#fc6e1f]/25 focus:border-[#fc6e1f]', chip: 'bg-[#fc6e1f] border-[#fc6e1f]', hover: 'hover:border-[#fc6e1f]/40 hover:text-[#fc6e1f]' },
   pink:   { strip: 'from-[#c98800] to-[#ffae1e]', ring: 'focus:ring-[#ffae1e]/30 focus:border-[#c98800]', chip: 'bg-[#c98800] border-[#c98800]', hover: 'hover:border-[#ffae1e]/60 hover:text-[#c98800]' },
 };
@@ -174,7 +174,7 @@ export default function Registro() {
     return (
       <div className="min-h-screen bg-gradient-to-br from-[#edf2f8] to-[#dbe8f8] flex items-center justify-center p-6">
         <div className="bg-white rounded-3xl shadow-xl overflow-hidden w-full max-w-md text-center">
-          <div className="bg-gradient-to-r from-[#0e48fe] to-[#0041a8] px-8 py-8">
+          <div className="bg-gradient-to-r from-[#0e48fe] to-[#0b3ad4] px-8 py-8">
             <div className="w-16 h-16 rounded-full bg-white/20 flex items-center justify-center mx-auto mb-3">
               <CheckCircle size={32} className="text-white" />
             </div>
@@ -196,7 +196,7 @@ export default function Registro() {
     <div className="min-h-screen bg-gradient-to-br from-[#edf2f8] to-[#dbe8f8]">
 
       {/* Hero header */}
-      <div id="reg-top" className="bg-gradient-to-r from-[#005DE4] to-[#0e48fe] relative overflow-hidden">
+      <div id="reg-top" className="bg-gradient-to-r from-[#0e48fe] to-[#0e48fe] relative overflow-hidden">
         {/* Decoração de pontos */}
         <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'radial-gradient(circle, white 1.5px, transparent 1.5px)', backgroundSize: '18px 18px' }} />
         <div className="relative max-w-xl mx-auto px-6 py-8 text-center">
@@ -227,11 +227,11 @@ export default function Registro() {
                 icon: GraduationCap,
                 title: 'Sou o aluno',
                 sub: 'Maior de idade, preenchendo meus próprios dados',
-                color: 'border-[#005DE4] bg-[#005DE4]/5',
-                iconActive: 'bg-[#005DE4] text-white',
+                color: 'border-[#0e48fe] bg-[#0e48fe]/5',
+                iconActive: 'bg-[#0e48fe] text-white',
                 iconIdle: 'bg-slate-100 text-slate-500',
-                titleActive: 'text-[#005DE4]',
-                check: 'bg-[#005DE4]',
+                titleActive: 'text-[#0e48fe]',
+                check: 'bg-[#0e48fe]',
               },
               {
                 key: 'responsavel',
@@ -415,7 +415,7 @@ export default function Registro() {
               type="submit"
               onClick={handleSubmit}
               disabled={enviando}
-              className="w-full py-4 bg-gradient-to-r from-[#005DE4] to-[#0e48fe] hover:from-[#0041a8] hover:to-[#005DE4] text-white font-bold rounded-2xl text-base transition-all disabled:opacity-60 flex items-center justify-center gap-2 shadow-lg shadow-[#005DE4]/25"
+              className="w-full py-4 bg-gradient-to-r from-[#0e48fe] to-[#0e48fe] hover:from-[#0b3ad4] hover:to-[#0e48fe] text-white font-bold rounded-2xl text-base transition-all disabled:opacity-60 flex items-center justify-center gap-2 shadow-lg shadow-[#0e48fe]/25"
             >
               {enviando ? <><Loader2 size={18} className="animate-spin" /> Enviando...</> : 'Enviar pré-cadastro'}
             </button>

@@ -1,5 +1,4 @@
-import React, { useRef, useEffect, useState } from "react";
-import MonthlyReport from "../components/MonthlyReport";
+import React, { useRef, useEffect, useMemo } from "react";
 import {
   Sparkles,
   Send,
@@ -16,6 +15,9 @@ import {
 } from "lucide-react";
 import { useAI } from "../hooks/useAI";
 import { AI_CONFIG } from "../config/aiConfig";
+import { getQuickAlerts } from "../utils/aiUtils";
+import { useAuthContext } from "../context/AuthContext";
+import { useSaldosBancarios } from "../hooks/useSaldosBancarios";
 
 // ─────────────────────────────────────────────
 // MAPEAMENTO DE ÍCONES
@@ -71,7 +73,7 @@ function renderMarkdown(text) {
     if (h1) {
       flushList(`fl${idx}`);
       elements.push(
-        <div key={idx} style={{ fontWeight: 700, fontSize: 15, marginTop: 14, marginBottom: 4, color: "#0f172a", borderBottom: "2px solid #005DE4", paddingBottom: 4 }}>
+        <div key={idx} style={{ fontWeight: 700, fontSize: 15, marginTop: 14, marginBottom: 4, color: "#0f172a", borderBottom: "2px solid #0e48fe", paddingBottom: 4 }}>
           {renderInline(h1[1], `h1${idx}`)}
         </div>
       );
@@ -141,6 +143,9 @@ function renderMarkdown(text) {
 // COMPONENTE PRINCIPAL
 // ─────────────────────────────────────────────
 export default function AIManager({ students = [], payments = [], expenses = [], leads = [], filterMonth, filterYear }) {
+  const { user } = useAuthContext();
+  const { porCompetencia } = useSaldosBancarios();
+  const saldosBancarios = useMemo(() => Object.values(porCompetencia), [porCompetencia]);
   const {
     messages,
     inputValue,
@@ -149,11 +154,17 @@ export default function AIManager({ students = [], payments = [], expenses = [],
     clearChat,
     setInput,
     sendQuickPrompt
-  } = useAI({ students, payments, expenses, leads, filterMonth, filterYear });
+  } = useAI({ students, payments, expenses, leads, saldosBancarios, filterMonth, filterYear }, { uid: user?.uid });
 
-  const [showReport, setShowReport] = useState(false);
   const bottomRef = useRef(null);
   const textareaRef = useRef(null);
+
+  // Alertas proativos — calculados na hora, sem chamar a IA, a partir dos
+  // dados já carregados. Aparecem antes mesmo do gestor perguntar algo.
+  const quickAlerts = useMemo(
+    () => getQuickAlerts({ students, payments, expenses, leads, saldosBancarios, filterMonth, filterYear }),
+    [students, payments, expenses, leads, saldosBancarios, filterMonth, filterYear]
+  );
 
   // Auto-scroll quando novas mensagens chegam
   useEffect(() => {
@@ -192,25 +203,12 @@ export default function AIManager({ students = [], payments = [], expenses = [],
         gap: "20px",
       }}
     >
-      {/* Relatório Mensal Modal */}
-      {showReport && (
-        <MonthlyReport
-          onClose={() => setShowReport(false)}
-          students={students}
-          payments={payments}
-          expenses={expenses}
-          leads={leads}
-          filterMonth={filterMonth}
-          filterYear={filterYear}
-        />
-      )}
-
       {/* ============================================ */}
       {/* HEADER */}
       {/* ============================================ */}
       <div
         style={{
-          background: "linear-gradient(135deg, #005DE4 0%, #0041a8 100%)",
+          background: "linear-gradient(135deg, #0e48fe 0%, #0b3ad4 100%)",
           borderRadius: "16px",
           padding: "24px 28px",
           color: "white",
@@ -261,6 +259,42 @@ export default function AIManager({ students = [], payments = [], expenses = [],
       </div>
 
       {/* ============================================ */}
+      {/* ALERTAS PROATIVOS — calculados na hora, sem IA */}
+      {/* ============================================ */}
+      {quickAlerts.length > 0 && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          {quickAlerts.map((alert, i) => (
+            <button
+              key={i}
+              onClick={() => sendQuickPrompt(alert.prompt)}
+              disabled={isLoading}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 10,
+                padding: "10px 16px",
+                borderRadius: 10,
+                border: `1px solid ${alert.level === "critical" ? "#fecaca" : "#fde68a"}`,
+                background: alert.level === "critical" ? "#fef2f2" : "#fffbeb",
+                cursor: isLoading ? "not-allowed" : "pointer",
+                textAlign: "left",
+                fontFamily: "'DM Sans', sans-serif",
+                opacity: isLoading ? 0.6 : 1,
+              }}
+            >
+              <AlertTriangle size={15} color={alert.level === "critical" ? "#dc2626" : "#d97706"} />
+              <span style={{ flex: 1, fontSize: 13, fontWeight: 500, color: alert.level === "critical" ? "#991b1b" : "#92400e" }}>
+                {alert.text}
+              </span>
+              <span style={{ fontSize: 11, color: alert.level === "critical" ? "#dc2626" : "#d97706", fontWeight: 600 }}>
+                Analisar →
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* ============================================ */}
       {/* PROMPTS RÁPIDOS */}
       {/* ============================================ */}
       <div
@@ -270,46 +304,8 @@ export default function AIManager({ students = [], payments = [], expenses = [],
           gap: "10px",
         }}
       >
-        {/* Relatório Mensal — full-width, abre painel direto (sem IA) */}
-        <button
-          onClick={() => setShowReport(true)}
-          style={{
-            gridColumn: "1 / -1",
-            display: "flex",
-            alignItems: "center",
-            gap: "12px",
-            padding: "14px 20px",
-            borderRadius: "12px",
-            border: "none",
-            background: "linear-gradient(135deg, #005DE4 0%, #0041a8 100%)",
-            cursor: "pointer",
-            transition: "all 0.15s",
-            fontSize: "14px",
-            fontWeight: 600,
-            color: "white",
-            textAlign: "left",
-            fontFamily: "'DM Sans', sans-serif",
-            boxShadow: "0 4px 16px rgba(0,93,228,0.3)",
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.transform = "translateY(-2px)";
-            e.currentTarget.style.boxShadow = "0 8px 24px rgba(0,93,228,0.4)";
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.transform = "translateY(0)";
-            e.currentTarget.style.boxShadow = "0 4px 16px rgba(0,93,228,0.3)";
-          }}
-        >
-          <div style={{ width: 32, height: 32, borderRadius: 8, background: "rgba(255,255,255,0.2)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <FileText size={16} />
-          </div>
-          <span style={{ flex: 1 }}>Relatório mensal completo</span>
-          <span style={{ fontSize: 11, opacity: 0.8, background: "rgba(255,255,255,0.15)", padding: "3px 8px", borderRadius: 6 }}>Instantâneo</span>
-          <ChevronRight size={16} color="rgba(255,255,255,0.7)" />
-        </button>
-
-        {/* Demais prompts */}
-        {AI_CONFIG.QUICK_PROMPTS.filter(p => p.id !== "relatorio").map((item) => (
+        {/* Prompts de IA (os relatórios em PDF ficam na página Financeiro) */}
+        {AI_CONFIG.QUICK_PROMPTS.map((item) => (
           <button
             key={item.id}
             onClick={() => sendQuickPrompt(item.prompt)}
@@ -333,7 +329,7 @@ export default function AIManager({ students = [], payments = [], expenses = [],
             }}
             onMouseEnter={(e) => {
               if (!isLoading) {
-                e.currentTarget.style.borderColor = "#005DE4";
+                e.currentTarget.style.borderColor = "#0e48fe";
                 e.currentTarget.style.transform = "translateY(-1px)";
                 e.currentTarget.style.boxShadow = "0 4px 12px rgba(0,93,228,0.1)";
               }
@@ -353,7 +349,7 @@ export default function AIManager({ students = [], payments = [], expenses = [],
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                color: "#005DE4",
+                color: "#0e48fe",
               }}
             >
               {ICONS_MAP[item.id]}
@@ -433,53 +429,102 @@ export default function AIManager({ students = [], payments = [], expenses = [],
               key={i}
               style={{
                 display: "flex",
-                justifyContent: msg.role === "user" ? "flex-end" : "flex-start",
-                gap: 10,
-                alignItems: "flex-start",
+                flexDirection: "column",
+                alignItems: msg.role === "user" ? "flex-end" : "flex-start",
+                gap: 6,
               }}
             >
-              {/* Avatar da IA */}
-              {msg.role === "assistant" && (
-                <div
-                  style={{
-                    width: 32,
-                    height: 32,
-                    minWidth: 32,
-                    borderRadius: "10px",
-                    background: "linear-gradient(135deg, #005DE4, #0041a8)",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    marginTop: 2,
-                  }}
-                >
-                  <Sparkles size={14} color="white" />
-                </div>
-              )}
-
-              {/* Mensagem */}
               <div
                 style={{
-                  maxWidth: "78%",
-                  padding: "12px 16px",
-                  borderRadius: msg.role === "user" ? "16px 4px 16px 16px" : "4px 16px 16px 16px",
-                  background: msg.role === "user" ? "#005DE4" : "#f8fafc",
-                  color: msg.role === "user" ? "white" : "#1e293b",
-                  fontSize: 14,
-                  lineHeight: 1.65,
-                  border: msg.role === "assistant" ? "1px solid #e2e8f0" : "none",
+                  display: "flex",
+                  justifyContent: msg.role === "user" ? "flex-end" : "flex-start",
+                  gap: 10,
+                  alignItems: "flex-start",
+                  width: "100%",
                 }}
               >
-                {msg.role === "user"
-                  ? msg.content
-                  : renderMarkdown(msg.content)
-                }
+                {/* Avatar da IA */}
+                {msg.role === "assistant" && (
+                  <div
+                    style={{
+                      width: 32,
+                      height: 32,
+                      minWidth: 32,
+                      borderRadius: "10px",
+                      background: "linear-gradient(135deg, #0e48fe, #0b3ad4)",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      marginTop: 2,
+                    }}
+                  >
+                    <Sparkles size={14} color="white" />
+                  </div>
+                )}
+
+                {/* Mensagem */}
+                <div
+                  style={{
+                    maxWidth: "78%",
+                    padding: "12px 16px",
+                    borderRadius: msg.role === "user" ? "16px 4px 16px 16px" : "4px 16px 16px 16px",
+                    background: msg.role === "user" ? "#0e48fe" : "#f8fafc",
+                    color: msg.role === "user" ? "white" : "#1e293b",
+                    fontSize: 14,
+                    lineHeight: 1.65,
+                    border: msg.role === "assistant" ? "1px solid #e2e8f0" : "none",
+                  }}
+                >
+                  {msg.role === "user" ? (
+                    msg.content
+                  ) : msg.streaming && !msg.content ? (
+                    <span style={{ display: "flex", alignItems: "center", gap: 8, color: "#64748b", fontSize: 13 }}>
+                      <Loader2 size={14} style={{ animation: "spin 1s linear infinite" }} />
+                      {AI_CONFIG.MESSAGES.THINKING}
+                    </span>
+                  ) : (
+                    <>
+                      {renderMarkdown(msg.content)}
+                      {msg.streaming && (
+                        <span style={{ display: "inline-block", width: 7, height: 14, background: "#0e48fe", marginLeft: 2, verticalAlign: "text-bottom", animation: "blink 1s step-start infinite" }} />
+                      )}
+                    </>
+                  )}
+                </div>
               </div>
+
+              {/* Sugestões de continuação — clicáveis, enviam a pergunta direto */}
+              {msg.role === "assistant" && !msg.streaming && msg.suggestions?.length > 0 && (
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 6, paddingLeft: 42, maxWidth: "78%" }}>
+                  {msg.suggestions.map((s, j) => (
+                    <button
+                      key={j}
+                      onClick={() => !isLoading && sendMessage(s)}
+                      disabled={isLoading}
+                      style={{
+                        fontSize: 12,
+                        fontWeight: 500,
+                        color: "#0e48fe",
+                        background: "#eef2ff",
+                        border: "1px solid #dbe4ff",
+                        borderRadius: 20,
+                        padding: "6px 12px",
+                        cursor: isLoading ? "not-allowed" : "pointer",
+                        opacity: isLoading ? 0.6 : 1,
+                        fontFamily: "'DM Sans', sans-serif",
+                        textAlign: "left",
+                      }}
+                    >
+                      {s}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           ))}
 
-          {/* Indicador de Loading */}
-          {isLoading && (
+          {/* Indicador de Loading — só quando ainda não há mensagem de streaming na lista */}
+          {isLoading && messages[messages.length - 1]?.role !== "assistant" && (
             <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
               <div
                 style={{
@@ -487,7 +532,7 @@ export default function AIManager({ students = [], payments = [], expenses = [],
                   height: 32,
                   minWidth: 32,
                   borderRadius: "10px",
-                  background: "linear-gradient(135deg, #005DE4, #0041a8)",
+                  background: "linear-gradient(135deg, #0e48fe, #0b3ad4)",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
@@ -551,7 +596,7 @@ export default function AIManager({ students = [], payments = [], expenses = [],
               lineHeight: 1.5,
               minHeight: 44,
             }}
-            onFocus={(e) => (e.target.style.borderColor = "#005DE4")}
+            onFocus={(e) => (e.target.style.borderColor = "#0e48fe")}
             onBlur={(e) => (e.target.style.borderColor = "#e2e8f0")}
           />
           <button
@@ -562,7 +607,7 @@ export default function AIManager({ students = [], payments = [], expenses = [],
               height: 44,
               minWidth: 44,
               borderRadius: "12px",
-              background: isLoading || !inputValue.trim() ? "#e2e8f0" : "#005DE4",
+              background: isLoading || !inputValue.trim() ? "#e2e8f0" : "#0e48fe",
               border: "none",
               display: "flex",
               alignItems: "center",
@@ -582,6 +627,9 @@ export default function AIManager({ students = [], payments = [], expenses = [],
         @keyframes spin {
           from { transform: rotate(0deg); }
           to { transform: rotate(360deg); }
+        }
+        @keyframes blink {
+          50% { opacity: 0; }
         }
       `}</style>
     </div>

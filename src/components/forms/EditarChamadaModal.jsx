@@ -38,7 +38,7 @@ export default function EditarChamadaModal({ aula, onSave, onClose, saving }) {
         {/* Header */}
         <div className="p-5 border-b border-slate-200 flex items-center justify-between flex-shrink-0">
           <div className="flex items-center gap-3">
-            <div className="bg-[#005DE4] text-white p-2 rounded-lg">
+            <div className="bg-[#0e48fe] text-white p-2 rounded-lg">
               <BookOpen size={18} />
             </div>
             <div>
@@ -64,7 +64,7 @@ export default function EditarChamadaModal({ aula, onSave, onClose, saving }) {
                 type="text"
                 value={conteudo}
                 onChange={e => setConteudo(e.target.value)}
-                className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#005DE4]"
+                className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0e48fe]"
               />
             </div>
             <div>
@@ -82,7 +82,7 @@ export default function EditarChamadaModal({ aula, onSave, onClose, saving }) {
                 value={observacoes}
                 onChange={e => setObservacoes(e.target.value)}
                 rows={2}
-                className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#005DE4] resize-none"
+                className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0e48fe] resize-none"
               />
             </div>
           </div>
@@ -91,7 +91,7 @@ export default function EditarChamadaModal({ aula, onSave, onClose, saving }) {
           <div className="bg-white rounded-xl border border-slate-200 p-4">
             <div className="flex items-center justify-between mb-3">
               <h3 className="font-semibold text-slate-700 text-sm flex items-center gap-2">
-                <CheckCircle size={15} className="text-[#005DE4]" /> Chamada
+                <CheckCircle size={15} className="text-[#0e48fe]" /> Chamada
               </h3>
               <div className="flex items-center gap-3 text-xs font-medium">
                 <span className="text-emerald-600">✓ {presentes} presente{presentes !== 1 ? 's' : ''}</span>
@@ -144,7 +144,7 @@ export default function EditarChamadaModal({ aula, onSave, onClose, saving }) {
           <button
             onClick={handleSave}
             disabled={saving}
-            className="flex items-center gap-2 px-5 py-2 bg-[#005DE4] text-white rounded-lg hover:bg-[#0041a8] transition-all disabled:opacity-60 disabled:cursor-not-allowed text-sm font-medium"
+            className="flex items-center gap-2 px-5 py-2 bg-[#0e48fe] text-white rounded-lg hover:bg-[#0b3ad4] transition-all disabled:opacity-60 disabled:cursor-not-allowed text-sm font-medium"
           >
             {saving
               ? <><Loader size={16} className="animate-spin" /> Salvando...</>

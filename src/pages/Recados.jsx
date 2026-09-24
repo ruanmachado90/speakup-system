@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   collection, query, orderBy, onSnapshot,
-  updateDoc, deleteDoc, doc, serverTimestamp, addDoc
+  updateDoc, deleteDoc, doc, addDoc
 } from 'firebase/firestore';
 import { db } from '../firebase';
 import { MessageSquare, Check, Trash2, Send, RefreshCw, Plus, X, ChevronDown } from 'lucide-react';
@@ -144,7 +144,7 @@ export function Recados() {
       <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
         <div className="flex items-center gap-2">
           <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
-            <MessageSquare size={22} className="text-[#005DE4]" />
+            <MessageSquare size={22} className="text-[#0e48fe]" />
             Recados
           </h2>
           {naoLidos > 0 && (
@@ -165,7 +165,7 @@ export function Recados() {
               onClick={() => setFiltro(f.id)}
               className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
                 filtro === f.id
-                  ? 'bg-[#005DE4] text-white'
+                  ? 'bg-[#0e48fe] text-white'
                   : 'bg-white border border-slate-300 text-slate-600 hover:bg-slate-50'
               }`}
             >
@@ -275,7 +275,7 @@ export function Recados() {
                   isEnviado
                     ? 'border-emerald-200 border-l-4 border-l-emerald-500'
                     : !r.lido
-                    ? 'border-l-4 border-l-[#005DE4] shadow-sm'
+                    ? 'border-l-4 border-l-[#0e48fe] shadow-sm'
                     : 'border-slate-200 opacity-80'
                 }`}
               >
@@ -321,12 +321,12 @@ export function Recados() {
                       value={resposta[r.id] || ''}
                       onChange={e => setResposta(prev => ({ ...prev, [r.id]: e.target.value }))}
                       onKeyDown={e => e.key === 'Enter' && enviarResposta(r)}
-                      className="flex-1 text-sm border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#005DE4] focus:border-[#005DE4]"
+                      className="flex-1 text-sm border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#0e48fe] focus:border-[#0e48fe]"
                     />
                     <button
                       onClick={() => enviarResposta(r)}
                       disabled={sending[r.id] || !resposta[r.id]?.trim()}
-                      className="flex items-center gap-1 px-3 py-2 bg-[#005DE4] text-white rounded-lg hover:bg-[#0041a8] disabled:opacity-40 transition-colors text-sm"
+                      className="flex items-center gap-1 px-3 py-2 bg-[#0e48fe] text-white rounded-lg hover:bg-[#0b3ad4] disabled:opacity-40 transition-colors text-sm"
                     >
                       <Send size={14} />
                     </button>

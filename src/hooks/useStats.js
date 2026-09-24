@@ -25,29 +25,38 @@ export const useStats = (students = [], payments = [], expenses = [], dashboardR
 
     payments.forEach(payment => {
       if (!payment.dueDate) return;
-      
+      if (payment.status === 'cancelada') return; // parcela cancelada não é cobrança
+
       const dueDate = new Date(payment.dueDate);
       const isInPeriod = dashboardRange === 'month'
         ? dueDate.getFullYear() === currentYear && dueDate.getMonth() === currentMonth
         : dueDate.getFullYear() === currentYear;
-      
+
       if (!isInPeriod) return;
-      
-      // Incrementa contadores
-      paymentStats.totalCount++;
-      paymentStats.planned += Number(payment.valuePlanned || 0);
-      
+
+      const plannedValue = Number(payment.valuePlanned || 0);
       const isPaid = payment.status === "Pago";
-      const isOverdue = new Date(payment.dueDate) < now;
-      
-      if (isPaid) {
-        paymentStats.paid += Number(payment.valuePaid || payment.valuePlanned || 0);
-      } else if (isOverdue) {
-        paymentStats.overdue += Number(payment.valuePlanned || 0);
-        paymentStats.overdueCount++;
-        paymentStats.overduePayments.push(payment);
-      } else {
-        paymentStats.pending += Number(payment.valuePlanned || 0);
+      // "Pago" liquida a parcela inteira mesmo em registros legados sem valuePaid.
+      const paidValue = isPaid
+        ? Number(payment.valuePaid || payment.valuePlanned || 0)
+        : Number(payment.valuePaid || 0);
+
+      paymentStats.totalCount++;
+      paymentStats.planned += plannedValue;
+      paymentStats.paid += paidValue;
+
+      // Inadimplência/pendência em R$: saldo devedor da parcela (previsto − pago),
+      // nunca contagem de parcelas. Pagamentos parciais reduzem o saldo.
+      const saldo = isPaid ? 0 : plannedValue - paidValue;
+      if (saldo > 0.005) {
+        const isOverdue = dueDate < now;
+        if (isOverdue) {
+          paymentStats.overdue += saldo;
+          paymentStats.overdueCount++;
+          paymentStats.overduePayments.push(payment);
+        } else {
+          paymentStats.pending += saldo;
+        }
       }
     });
 
@@ -104,8 +113,10 @@ export const useStats = (students = [], payments = [], expenses = [], dashboardR
       }
     });
 
-    const inadimplenciaPercent = paymentStats.totalCount 
-      ? Math.round((paymentStats.overdueCount / paymentStats.totalCount) * 100) 
+    // Inadimplência = % do valor previsto (R$) que está vencido e não recebido —
+    // não o percentual de parcelas em atraso.
+    const inadimplenciaPercent = paymentStats.planned > 0
+      ? Math.round((paymentStats.overdue / paymentStats.planned) * 100)
       : 0;
 
     return {
@@ -150,6 +161,7 @@ export const useTeacherStats = (students, payments, dashboardRange, professores 
 
     payments.forEach(payment => {
       if (!payment.dueDate || !payment.studentId) return;
+      if (payment.status === 'cancelada') return;
 
       const dueDate = new Date(payment.dueDate);
       const isInPeriod = dashboardRange === 'month'
@@ -222,7 +234,7 @@ export const useMonthlyData = (payments, expenses) => {
     // Filtrar pagamentos por mês/ano usando a data de vencimento real (dueDate)
     const planned = months.map(m => payments
       .filter(x => {
-        if (!x.dueDate) return false;
+        if (!x.dueDate || x.status === 'cancelada') return false;
         const dueDate = new Date(x.dueDate);
         return dueDate.getFullYear() === currentYear && dueDate.getMonth() === m;
       })
@@ -260,11 +272,11 @@ export const useFinanceStats = (payments, filterMonth, filterYear) => {
     
     // Filtrar por mês/ano usando a data de vencimento real (dueDate)
     const filtered = payments.filter(x => {
-      if (!x.dueDate) return false;
+      if (!x.dueDate || x.status === 'cancelada') return false;
       const dueDate = new Date(x.dueDate);
       return dueDate.getFullYear() === filterYear && dueDate.getMonth() === filterMonth;
     });
-    
+
     const planned = filtered.reduce((a, x) => a + Number(x.valuePlanned || 0), 0);
     
     // Cada cobrança só entra em um grupo, considerando pagamentos parciais:
@@ -293,7 +305,7 @@ export const useFilteredPayments = (payments, filterMonth, filterYear, filterSta
   return useMemo(() => {
     // Filtrar por mês/ano usando a data de vencimento real (dueDate)
     let filtered = payments.filter(x => {
-      if (!x.dueDate) return false;
+      if (!x.dueDate || x.status === 'cancelada') return false;
       const dueDate = new Date(x.dueDate);
       return dueDate.getFullYear() === filterYear && dueDate.getMonth() === filterMonth;
     });

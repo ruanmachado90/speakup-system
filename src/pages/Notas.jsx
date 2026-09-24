@@ -54,13 +54,13 @@ function ModalAddAvaliacao({ tipo, onSave, onClose }) {
               value={pontos}
               onChange={e => setPontos(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter') handleSave(); }}
-              className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-[#005DE4] focus:ring-1 focus:ring-[#005DE4] transition-all"
+              className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-[#0e48fe] focus:ring-1 focus:ring-[#0e48fe] transition-all"
             />
           </div>
           {err && <p className="text-red-500 text-xs">{err}</p>}
           <div className="flex gap-2 justify-end">
             <button onClick={onClose} className="px-4 py-2 bg-slate-100 text-slate-700 border border-slate-200 rounded-xl text-sm font-semibold hover:bg-slate-200 transition-all">Cancelar</button>
-            <button onClick={handleSave} className="px-4 py-2 bg-[#005DE4] text-white rounded-xl text-sm font-semibold hover:bg-[#0041a8] transition-all flex items-center gap-1.5"><Plus size={13} /> Adicionar</button>
+            <button onClick={handleSave} className="px-4 py-2 bg-[#0e48fe] text-white rounded-xl text-sm font-semibold hover:bg-[#0b3ad4] transition-all flex items-center gap-1.5"><Plus size={13} /> Adicionar</button>
           </div>
         </div>
       </div>
@@ -466,7 +466,7 @@ function baixarPng() {
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.65)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, overflowY: 'auto' }}>
       <div style={{ background: 'white', borderRadius: 20, overflow: 'hidden', width: '100%', maxWidth: 420, boxShadow: '0 24px 64px rgba(0,0,0,0.25)', marginTop: 20, marginBottom: 20 }}>
-        <div style={{ background: 'linear-gradient(135deg,#0e48fe,#0041a8)', padding: '18px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div style={{ background: 'linear-gradient(135deg,#0e48fe,#0b3ad4)', padding: '18px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             <img src="https://www.speakupcataguases.com/wp-content/uploads/2025/11/logo-speakup-brancal-1.png" alt="SpeakUp" style={{ height: 26, objectFit: 'contain' }} />
           </div>
@@ -511,7 +511,7 @@ function baixarPng() {
 
         <div style={{ padding: '14px 20px', display: 'flex', gap: 8 }}>
           <button onClick={onClose} style={{ flex: 1, padding: '10px', background: '#f1f5f9', border: 'none', borderRadius: 10, cursor: 'pointer', fontWeight: 600, fontSize: 13, color: '#64748b' }}>Fechar</button>
-          <button onClick={handlePrint} style={{ flex: 2, padding: '10px', background: 'linear-gradient(135deg,#0e48fe,#0041a8)', border: 'none', borderRadius: 10, cursor: 'pointer', fontWeight: 700, fontSize: 13, color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+          <button onClick={handlePrint} style={{ flex: 2, padding: '10px', background: 'linear-gradient(135deg,#0e48fe,#0b3ad4)', border: 'none', borderRadius: 10, cursor: 'pointer', fontWeight: 700, fontSize: 13, color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
             📄 Gerar Boletim (PDF)
           </button>
         </div>
@@ -647,14 +647,14 @@ export function NotasView({ professorSlug, professorNome, turmas, alunosPorTurma
           onChange={e => setEditVal(e.target.value)}
           onBlur={commitEdit}
           onKeyDown={handleKeyDown}
-          style={{ width: '100%', border: '2px solid #005DE4', borderRadius: 4, padding: '2px 4px', fontSize: 12, textAlign: 'center', outline: 'none', fontWeight: 700, boxSizing: 'border-box', color: '#0f172a', background: '#eff6ff' }}
+          style={{ width: '100%', border: '2px solid #0e48fe', borderRadius: 4, padding: '2px 4px', fontSize: 12, textAlign: 'center', outline: 'none', fontWeight: 700, boxSizing: 'border-box', color: '#0f172a', background: '#eff6ff' }}
         />
       );
     }
     if (isSaving) {
       return (
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 26 }}>
-          <div style={{ width: 12, height: 12, border: '2px solid #e2e8f0', borderTopColor: '#005DE4', borderRadius: '50%', animation: 'spin 0.6s linear infinite' }} />
+          <div style={{ width: 12, height: 12, border: '2px solid #e2e8f0', borderTopColor: '#0e48fe', borderRadius: '50%', animation: 'spin 0.6s linear infinite' }} />
         </div>
       );
     }
@@ -681,7 +681,7 @@ export function NotasView({ professorSlug, professorNome, turmas, alunosPorTurma
 
       {/* Header */}
       <div className="rounded-2xl overflow-hidden shadow-sm">
-        <div className="bg-gradient-to-r from-[#005DE4] to-[#0041a8] px-6 py-4">
+        <div className="bg-gradient-to-r from-[#0e48fe] to-[#0b3ad4] px-6 py-4">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-3">
               <button
@@ -711,9 +711,9 @@ export function NotasView({ professorSlug, professorNome, turmas, alunosPorTurma
               <label className="text-white/80 text-xs font-semibold block mb-1.5 uppercase tracking-wide">Turma</label>
               <select value={selectedTurma} onChange={e => setSelectedTurma(e.target.value)}
                 className="w-full bg-white/15 border border-white/30 rounded-xl px-3 py-2 text-white text-sm font-semibold outline-none cursor-pointer focus:border-white/60 transition-all">
-                <option value="" className="bg-[#0041a8]">— Selecione a turma —</option>
+                <option value="" className="bg-[#0b3ad4]">— Selecione a turma —</option>
                 {turmas.map(t => (
-                  <option key={t.id} value={t.id} className="bg-[#0041a8]">{t.nome}</option>
+                  <option key={t.id} value={t.id} className="bg-[#0b3ad4]">{t.nome}</option>
                 ))}
               </select>
             </div>
@@ -722,7 +722,7 @@ export function NotasView({ professorSlug, professorNome, turmas, alunosPorTurma
               <select value={semestre} onChange={e => setSemestre(e.target.value)}
                 className="w-full bg-white/15 border border-white/30 rounded-xl px-3 py-2 text-white text-sm font-semibold outline-none cursor-pointer focus:border-white/60 transition-all">
                 {semestres.map(s => (
-                  <option key={s} value={s} className="bg-[#0041a8]">{semestreLabel(s)}</option>
+                  <option key={s} value={s} className="bg-[#0b3ad4]">{semestreLabel(s)}</option>
                 ))}
               </select>
             </div>
@@ -750,7 +750,7 @@ export function NotasView({ professorSlug, professorNome, turmas, alunosPorTurma
           ))}
           <div className="bg-white rounded-xl px-4 py-2.5 shadow-sm border border-slate-100 flex items-center gap-2">
             <span className="text-slate-500 text-xs">Total</span>
-            <span className="bg-[#005DE4] text-white rounded px-2 py-0.5 text-xs font-bold">100 pts</span>
+            <span className="bg-[#0e48fe] text-white rounded px-2 py-0.5 text-xs font-bold">100 pts</span>
           </div>
         </div>
       )}
@@ -770,8 +770,8 @@ export function NotasView({ professorSlug, professorNome, turmas, alunosPorTurma
 
                 {/* Linha 1: categorias com colSpan */}
                 <tr>
-                  <th rowSpan={3} style={{ ...thBase, background: '#00234b', color: 'white', width: 36, textAlign: 'center', borderRight: '1px solid rgba(255,255,255,0.1)' }}>N</th>
-                  <th rowSpan={3} style={{ ...thBase, background: '#00234b', color: 'white', textAlign: 'left', minWidth: 160, borderRight: '2px solid rgba(255,255,255,0.2)' }}>Aluno</th>
+                  <th rowSpan={3} style={{ ...thBase, background: '#0a2540', color: 'white', width: 36, textAlign: 'center', borderRight: '1px solid rgba(255,255,255,0.1)' }}>N</th>
+                  <th rowSpan={3} style={{ ...thBase, background: '#0a2540', color: 'white', textAlign: 'left', minWidth: 160, borderRight: '2px solid rgba(255,255,255,0.2)' }}>Aluno</th>
                   {CATEGORIAS.map(cat => {
                     const avs = avsByTipo[cat.tipo] || [];
                     return (
@@ -788,9 +788,9 @@ export function NotasView({ professorSlug, professorNome, turmas, alunosPorTurma
                       </th>
                     );
                   })}
-                  <th rowSpan={3} style={{ ...thBase, background: '#00234b', color: 'white', width: 80, textAlign: 'center', borderLeft: '2px solid rgba(255,255,255,0.2)', borderRight: '1px solid rgba(255,255,255,0.1)' }}>Total<div style={{ fontSize: 10, opacity: 0.7, fontWeight: 400 }}>/100</div></th>
-                  <th rowSpan={3} style={{ ...thBase, background: '#00234b', color: 'white', width: 90, textAlign: 'center' }}>Faltas<div style={{ fontSize: 9, opacity: 0.7, fontWeight: 400 }}>de chamadas</div></th>
-                  <th rowSpan={3} style={{ ...thBase, background: '#00234b', color: 'white', width: 70, textAlign: 'center' }}>Boletim</th>
+                  <th rowSpan={3} style={{ ...thBase, background: '#0a2540', color: 'white', width: 80, textAlign: 'center', borderLeft: '2px solid rgba(255,255,255,0.2)', borderRight: '1px solid rgba(255,255,255,0.1)' }}>Total<div style={{ fontSize: 10, opacity: 0.7, fontWeight: 400 }}>/100</div></th>
+                  <th rowSpan={3} style={{ ...thBase, background: '#0a2540', color: 'white', width: 90, textAlign: 'center' }}>Faltas<div style={{ fontSize: 9, opacity: 0.7, fontWeight: 400 }}>de chamadas</div></th>
+                  <th rowSpan={3} style={{ ...thBase, background: '#0a2540', color: 'white', width: 70, textAlign: 'center' }}>Boletim</th>
                 </tr>
 
                 {/* Linha 2: labels das provas + "Media" */}
@@ -1045,7 +1045,7 @@ export default function Notas() {
     return (
       <div style={{ minHeight: '100vh', background: '#f0f4f8', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <div style={{ textAlign: 'center', color: '#64748b' }}>
-          <div style={{ width: 36, height: 36, border: '3px solid #e2e8f0', borderTopColor: '#005DE4', borderRadius: '50%', margin: '0 auto 12px', animation: 'spin 0.8s linear infinite' }} />
+          <div style={{ width: 36, height: 36, border: '3px solid #e2e8f0', borderTopColor: '#0e48fe', borderRadius: '50%', margin: '0 auto 12px', animation: 'spin 0.8s linear infinite' }} />
           <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
           {!authReady ? 'Autenticando...' : 'Carregando turmas...'}
         </div>
@@ -1060,7 +1060,7 @@ export default function Notas() {
           <div style={{ fontSize: 32, marginBottom: 8 }}>x</div>
           <div style={{ fontWeight: 700, marginBottom: 4 }}>Erro ao carregar dados</div>
           <div style={{ fontSize: 12, color: '#64748b', marginBottom: 16 }}>{fetchError}</div>
-          <button onClick={() => window.location.reload()} style={{ background: '#005DE4', color: 'white', border: 'none', borderRadius: 8, padding: '8px 16px', cursor: 'pointer', fontWeight: 600 }}>Tentar novamente</button>
+          <button onClick={() => window.location.reload()} style={{ background: '#0e48fe', color: 'white', border: 'none', borderRadius: 8, padding: '8px 16px', cursor: 'pointer', fontWeight: 600 }}>Tentar novamente</button>
         </div>
       </div>
     );

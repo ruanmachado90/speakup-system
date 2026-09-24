@@ -8,7 +8,11 @@ export const AI_CONFIG = {
   API_ENDPOINT: "https://us-central1-speakup-system.cloudfunctions.net/chatWithAI",
 
   // Timeout para requisições (em milissegundos)
-  REQUEST_TIMEOUT: 20000, // 20 segundos
+  // Precisa ser generoso: a resposta só chega ao navegador de uma vez, no
+  // final (sem streaming real — limitação do Cloud Function 1ª geração), e
+  // análises completas com "thinking" + até 4096 tokens de saída podem levar
+  // bem mais que os 20s antigos para serem geradas do outro lado.
+  REQUEST_TIMEOUT: 90000, // 90 segundos
 
   // Configurações de retry
   RETRY: {
@@ -25,7 +29,7 @@ export const AI_CONFIG = {
 
   // Mensagens do sistema
   MESSAGES: {
-    WELCOME: "👋 Olá! Sou seu **Consultor de Gestão com IA** da SpeakUp.\n\nEstou conectado aos dados em tempo real da escola e posso ajudar você a:\n\n📊 Analisar inadimplência e criar planos de cobrança\n💰 Diagnosticar saúde financeira vs benchmarks da indústria\n📈 Identificar tendências e oportunidades de crescimento\n🎯 Otimizar conversão de leads e retenção de alunos\n💡 Sugerir ações estratégicas priorizadas por impacto\n\nMinhas análises são baseadas em dados reais e sempre incluem comparações com meses anteriores e benchmarks do mercado de idiomas.\n\n**Como posso ajudar você hoje?**",
+    WELCOME: "👋 Oi! Sou a **Lexi**, sua consultora de gestão com IA da SpeakUp.\n\nEstou conectada aos dados em tempo real da escola e posso ajudar você a:\n\n📊 Analisar inadimplência e criar planos de cobrança\n💰 Diagnosticar saúde financeira vs benchmarks da indústria\n📈 Identificar tendências e oportunidades de crescimento\n🎯 Otimizar conversão de leads e retenção de alunos\n💡 Sugerir ações estratégicas priorizadas por impacto\n\nMinhas análises são baseadas em dados reais e sempre incluem comparações com meses anteriores e benchmarks do mercado de idiomas.\n\n**Como posso ajudar você hoje?**",
     ERROR_GENERIC: "Desculpe, ocorreu um erro ao processar sua mensagem. Tente novamente.",
     ERROR_NETWORK: "Erro de conexão. Verifique sua internet e tente novamente.",
     ERROR_TIMEOUT: "A requisição demorou muito. Tente uma pergunta mais simples.",

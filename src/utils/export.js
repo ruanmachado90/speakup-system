@@ -1,5 +1,17 @@
 import { formatCurrency, formatDate } from './formatters';
 
+/** Dados do aluno/responsável de uma parcela, para os relatórios financeiros. */
+const infoAluno = (payment, students = []) => {
+  const student = students.find((s) => s.id === payment.studentId);
+  return {
+    name: payment.studentName || student?.name || '-',
+    cpf: student?.cpf || '-',
+    responsible: student?.responsibleName || '-',
+    responsibleCpf: student?.responsibleCpf || student?.cpf || '-',
+    student,
+  };
+};
+
 /**
  * Export expenses to CSV
  * @param {Array} expenses - Array of expense objects
@@ -65,7 +77,7 @@ export const exportToExcel = (expenses, filename = 'despesas') => {
         <style>
           table { border-collapse: collapse; width: 100%; }
           th, td { border: 1px solid #000; padding: 8px; text-align: left; }
-          th { background-color: #005DE4; color: white; font-weight: bold; }
+          th { background-color: #0e48fe; color: white; font-weight: bold; }
           .total { background-color: #f0f0f0; font-weight: bold; }
           .currency { text-align: right; }
         </style>
@@ -155,7 +167,7 @@ export const printExpenses = (expenses, period = '') => {
             margin: 20px;
             font-size: 12px;
           }
-          h2 { color: #005DE4; margin-bottom: 5px; }
+          h2 { color: #0e48fe; margin-bottom: 5px; }
           .period { color: #666; margin-bottom: 20px; }
           table { 
             border-collapse: collapse; 
@@ -168,7 +180,7 @@ export const printExpenses = (expenses, period = '') => {
             text-align: left; 
           }
           th { 
-            background-color: #005DE4; 
+            background-color: #0e48fe; 
             color: white; 
             font-weight: bold; 
           }
@@ -237,7 +249,8 @@ export const printExpenses = (expenses, period = '') => {
  * @param {string} filename - Filename for the export
  */
 export const exportPaymentsToCSV = (payments, students, filename = 'financeiro') => {
-  if (!payments || payments.length === 0) {
+  payments = (payments || []).filter(p => p.status !== 'cancelada');
+  if (payments.length === 0) {
     alert('Nenhuma cobrança para exportar');
     return;
   }
@@ -245,18 +258,9 @@ export const exportPaymentsToCSV = (payments, students, filename = 'financeiro')
   // CSV Headers
   const headers = ['Aluno', 'Responsável', 'Valor Planejado', 'Valor Pago', 'Data Vencimento', 'Data Pagamento', 'Status', 'Forma de Pagamento', 'Banco'];
   
-  // Helper to get student info
-  const getStudentInfo = (payment) => {
-    const student = students.find(s => s.id === payment.studentId);
-    return {
-      name: payment.studentName || student?.name || '-',
-      responsible: student?.responsibleName || '-'
-    };
-  };
-
   // CSV Rows
   const rows = payments.map(payment => {
-    const { name, responsible } = getStudentInfo(payment);
+    const { name, responsible } = infoAluno(payment, students);
     return [
       name,
       responsible,
@@ -297,19 +301,11 @@ export const exportPaymentsToCSV = (payments, students, filename = 'financeiro')
  * @param {string} filename - Filename for the export
  */
 export const exportPaymentsToExcel = (payments, students, filename = 'financeiro') => {
-  if (!payments || payments.length === 0) {
+  payments = (payments || []).filter(p => p.status !== 'cancelada');
+  if (payments.length === 0) {
     alert('Nenhuma cobrança para exportar');
     return;
   }
-
-  // Helper to get student info
-  const getStudentInfo = (payment) => {
-    const student = students.find(s => s.id === payment.studentId);
-    return {
-      name: payment.studentName || student?.name || '-',
-      responsible: student?.responsibleName || '-'
-    };
-  };
 
   // Calculate totals
   const totalPlanned = payments.reduce((sum, p) => sum + Number(p.valuePlanned || 0), 0);
@@ -325,7 +321,7 @@ export const exportPaymentsToExcel = (payments, students, filename = 'financeiro
         <style>
           table { border-collapse: collapse; width: 100%; }
           th, td { border: 1px solid #000; padding: 8px; text-align: left; }
-          th { background-color: #005DE4; color: white; font-weight: bold; }
+          th { background-color: #0e48fe; color: white; font-weight: bold; }
           .summary { background-color: #e8f4fd; font-weight: bold; margin-bottom: 20px; }
           .total { background-color: #f0f0f0; font-weight: bold; }
           .currency { text-align: right; }
@@ -375,7 +371,7 @@ export const exportPaymentsToExcel = (payments, students, filename = 'financeiro
   const today = new Date().setHours(0, 0, 0, 0);
   
   payments.forEach(payment => {
-    const { name, responsible } = getStudentInfo(payment);
+    const { name, responsible } = infoAluno(payment, students);
     const isOverdue = payment.status !== 'Pago' && payment.dueDate && 
       new Date(payment.dueDate).setHours(0, 0, 0, 0) < today;
     
@@ -437,19 +433,11 @@ export const exportPaymentsToExcel = (payments, students, filename = 'financeiro
  * @param {string} period - Period description
  */
 export const printPayments = (payments, students, period = '') => {
-  if (!payments || payments.length === 0) {
+  payments = (payments || []).filter(p => p.status !== 'cancelada');
+  if (payments.length === 0) {
     alert('Nenhuma cobrança para imprimir');
     return;
   }
-
-  // Helper to get student info
-  const getStudentInfo = (payment) => {
-    const student = students.find(s => s.id === payment.studentId);
-    return {
-      name: payment.studentName || student?.name || '-',
-      responsible: student?.responsibleName || '-'
-    };
-  };
 
   // Calculate totals
   const totalPlanned = payments.reduce((sum, p) => sum + Number(p.valuePlanned || 0), 0);
@@ -502,11 +490,11 @@ export const printPayments = (payments, students, period = '') => {
           .header {
             margin-bottom: 8px;
             padding-bottom: 6px;
-            border-bottom: 2px solid #005DE4;
+            border-bottom: 2px solid #0e48fe;
           }
           
           h2 { 
-            color: #005DE4; 
+            color: #0e48fe; 
             font-size: 14px;
             margin-bottom: 2px;
           }
@@ -526,7 +514,7 @@ export const printPayments = (payments, students, period = '') => {
           .summary-box {
             background: #f8f9fa;
             padding: 4px 6px;
-            border-left: 2px solid #005DE4;
+            border-left: 2px solid #0e48fe;
           }
           
           .summary-label {
@@ -538,7 +526,7 @@ export const printPayments = (payments, students, period = '') => {
           .summary-value {
             font-size: 10px;
             font-weight: 700;
-            color: #005DE4;
+            color: #0e48fe;
             margin-top: 2px;
           }
           
@@ -558,7 +546,7 @@ export const printPayments = (payments, students, period = '') => {
           .analytics-title {
             font-size: 8px;
             font-weight: 700;
-            color: #005DE4;
+            color: #0e48fe;
             margin-bottom: 4px;
             padding-bottom: 2px;
             border-bottom: 1px solid #eee;
@@ -594,7 +582,7 @@ export const printPayments = (payments, students, period = '') => {
           }
           
           th { 
-            background-color: #005DE4; 
+            background-color: #0e48fe; 
             color: white; 
             font-weight: 600;
             font-size: 7px;
@@ -621,6 +609,7 @@ export const printPayments = (payments, students, period = '') => {
           .status-vencido { background-color: #f8d7da; }
           
           .col-aluno { max-width: 80px; }
+          .col-cpf { width: 55px; }
           .col-resp { max-width: 80px; }
           .col-valor { width: 50px; }
           .col-data { width: 50px; }
@@ -630,7 +619,7 @@ export const printPayments = (payments, students, period = '') => {
           
           button {
             padding: 8px 16px;
-            background: #005DE4;
+            background: #0e48fe;
             color: white;
             border: none;
             border-radius: 4px;
@@ -741,7 +730,9 @@ export const printPayments = (payments, students, period = '') => {
             <thead>
               <tr>
                 <th class="col-aluno">Aluno</th>
+                <th class="col-cpf">CPF Aluno</th>
                 <th class="col-resp">Responsável</th>
+                <th class="col-cpf">CPF Responsável</th>
                 <th class="col-valor">Previsto</th>
                 <th class="col-valor">Pago</th>
                 <th class="col-data">Venc.</th>
@@ -757,24 +748,26 @@ export const printPayments = (payments, students, period = '') => {
   const today = new Date().setHours(0, 0, 0, 0);
 
   payments.forEach(payment => {
-    const { name, responsible } = getStudentInfo(payment);
-    const isOverdue = payment.status !== 'Pago' && payment.dueDate && 
+    const { name, cpf, responsible, responsibleCpf } = infoAluno(payment, students);
+    const isOverdue = payment.status !== 'Pago' && payment.dueDate &&
       new Date(payment.dueDate).setHours(0, 0, 0, 0) < today;
-    
+
     let statusClass = 'status-pendente';
     let statusText = payment.status || 'Pendente';
-    
+
     if (payment.status === 'Pago') {
       statusClass = 'status-pago';
     } else if (isOverdue) {
       statusClass = 'status-vencido';
       statusText = 'VENCIDO';
     }
-    
+
     html += `
       <tr class="${statusClass}">
         <td class="col-aluno">${name}</td>
+        <td class="col-cpf">${cpf}</td>
         <td class="col-resp">${responsible}</td>
+        <td class="col-cpf">${responsibleCpf}</td>
         <td class="col-valor currency">${formatCurrency(Number(payment.valuePlanned || 0))}</td>
         <td class="col-valor currency">${payment.valuePaid ? formatCurrency(Number(payment.valuePaid)) : '-'}</td>
         <td class="col-data">${formatDate(payment.dueDate)}</td>
@@ -790,7 +783,7 @@ export const printPayments = (payments, students, period = '') => {
             </tbody>
             <tfoot>
               <tr class="total-row">
-                <td colspan="2">TOTAL</td>
+                <td colspan="4">TOTAL</td>
                 <td class="currency">${formatCurrency(totalPlanned)}</td>
                 <td class="currency">${formatCurrency(totalPaid)}</td>
                 <td colspan="5"></td>

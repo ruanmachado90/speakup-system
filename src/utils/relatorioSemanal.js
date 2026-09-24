@@ -39,7 +39,7 @@ function cardAula(aula) {
     return `
     <div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;margin-bottom:12px;">
       <div style="padding:14px 16px;display:flex;align-items:center;gap:12px;">
-        <div style="background:#005DE4;color:#fff;border-radius:8px;padding:8px;font-size:16px;">📖</div>
+        <div style="background:#0e48fe;color:#fff;border-radius:8px;padding:8px;font-size:16px;">📖</div>
         <div>
           <div style="font-weight:700;color:#1e293b;font-size:14px;">${fmtData(aula.data)} — ${aula.turmaNome}</div>
           <span style="background:${bg};color:${cor};font-size:11px;padding:2px 8px;border-radius:20px;font-weight:600;">${emoji} ${label}</span>
@@ -77,7 +77,7 @@ function cardAula(aula) {
   return `
   <div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;margin-bottom:12px;overflow:hidden;">
     <div style="padding:14px 16px;border-bottom:1px solid #f1f5f9;display:flex;align-items:center;gap:12px;">
-      <div style="background:#005DE4;color:#fff;border-radius:8px;padding:8px;font-size:16px;">📖</div>
+      <div style="background:#0e48fe;color:#fff;border-radius:8px;padding:8px;font-size:16px;">📖</div>
       <div>
         <div style="font-weight:700;color:#1e293b;font-size:14px;">${fmtData(aula.data)} — ${aula.turmaNome}</div>
         <div style="color:#64748b;font-size:12px;margin-top:2px;">${conteudo}</div>
@@ -111,8 +111,8 @@ function gerarHTMLRelatorio(aulas, segunda, domingo, professor) {
        </div>`
     : Object.keys(porDia).sort().map(data => `
         <div style="margin-bottom:24px;">
-          <div style="font-size:13px;font-weight:700;color:#005DE4;text-transform:uppercase;
-                      letter-spacing:.8px;padding:6px 0;border-bottom:2px solid #005DE4;margin-bottom:12px;">
+          <div style="font-size:13px;font-weight:700;color:#0e48fe;text-transform:uppercase;
+                      letter-spacing:.8px;padding:6px 0;border-bottom:2px solid #0e48fe;margin-bottom:12px;">
             ${diaSemana(data)}, ${fmtData(data)}
           </div>
           ${porDia[data].map(cardAula).join('')}
@@ -134,7 +134,7 @@ function gerarHTMLRelatorio(aulas, segunda, domingo, professor) {
 <title>Relatório Semanal — ${professor}</title></head>
 <body style="margin:0;padding:0;background:#f1f5f9;font-family:Arial,sans-serif;">
   <div style="max-width:640px;margin:24px auto;background:#fff;border-radius:14px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,.08);">
-    <div style="background:#005DE4;padding:24px 28px;display:flex;align-items:center;justify-content:space-between;">
+    <div style="background:#0e48fe;padding:24px 28px;display:flex;align-items:center;justify-content:space-between;">
       <div>
         <div style="color:#fff;font-size:20px;font-weight:800;">SpeakUp</div>
         <div style="color:#93c5fd;font-size:12px;margin-top:2px;">English Language Academy</div>

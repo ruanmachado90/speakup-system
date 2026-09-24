@@ -42,10 +42,6 @@ export default defineConfig({
           if (id.includes('firebase')) {
             return 'vendor-firebase';
           }
-          // Recharts (gráficos) em chunk separado
-          if (id.includes('recharts')) {
-            return 'vendor-charts';
-          }
           // Lucide icons em chunk separado
           if (id.includes('lucide-react')) {
             return 'vendor-icons';
@@ -53,6 +49,34 @@ export default defineConfig({
           // XLSX em chunk separado (é grande ~400KB)
           if (id.includes('node_modules/xlsx')) {
             return 'vendor-xlsx';
+          }
+          // jsPDF em chunk separado (usado só na geração de recibos).
+          // canvg/dompurify/html2canvas (+ transitivas) são dependências do
+          // plugin doc.html() do jsPDF, que este app nunca chama — mas se
+          // caírem no catch-all "vendor-other" elas grudam nele (mesmo bug
+          // do chart.js, ver comentário abaixo) e viram ~130KB de carga
+          // inicial morta. Juntando no chunk do jsPDF, ficam presas ali:
+          // carregadas só sob demanda ao gerar PDF (e nem isso, na prática,
+          // já que .html() não é usado).
+          if (
+            id.includes('node_modules/jspdf') ||
+            id.includes('node_modules/canvg') ||
+            id.includes('node_modules/dompurify') ||
+            id.includes('node_modules/html2canvas') ||
+            id.includes('node_modules/raf') ||
+            id.includes('node_modules/rgbcolor') ||
+            id.includes('node_modules/stackblur-canvas') ||
+            id.includes('node_modules/svg-pathdata') ||
+            id.includes('node_modules/css-line-break') ||
+            id.includes('node_modules/text-segmentation')
+          ) {
+            return 'vendor-pdf';
+          }
+          // Chart.js em chunk separado — senão cai no "vendor-other" e vira
+          // carga inicial de toda página (~200KB) mesmo só sendo usado ao
+          // gerar o relatório em PDF (import dinâmico em graficosCanvas.js).
+          if (id.includes('node_modules/chart.js') || id.includes('node_modules/@kurkle')) {
+            return 'vendor-chartjs';
           }
           // Outros node_modules
           if (id.includes('node_modules')) {

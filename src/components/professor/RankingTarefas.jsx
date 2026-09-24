@@ -68,7 +68,7 @@ export function RankingTarefas({ turma, aulas, alunos, onClose }) {
       <style>
         *{box-sizing:border-box;margin:0;padding:0}
         body{font-family:Arial,sans-serif;font-size:13px;color:#0f172a;padding:24px;max-width:620px;margin:0 auto}
-        h1{font-size:20px;color:#005DE4;margin-bottom:2px}
+        h1{font-size:20px;color:#0e48fe;margin-bottom:2px}
         .sub{font-size:12px;color:#64748b;margin-bottom:20px}
         .card{border:1px solid #e2e8f0;border-radius:12px;padding:12px 14px;margin-bottom:10px}
         .header{display:flex;align-items:center;gap:10px;margin-bottom:8px}
@@ -115,7 +115,7 @@ export function RankingTarefas({ turma, aulas, alunos, onClose }) {
         <div className="flex items-center gap-2">
           <button
             onClick={handlePrint}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-sm border border-slate-300 rounded-lg hover:border-[#005DE4] hover:text-[#005DE4] transition-all"
+            className="flex items-center gap-1.5 px-3 py-1.5 text-sm border border-slate-300 rounded-lg hover:border-[#0e48fe] hover:text-[#0e48fe] transition-all"
           >
             <Printer size={16} /> Imprimir / Enviar
           </button>

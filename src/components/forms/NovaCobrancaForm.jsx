@@ -68,7 +68,7 @@ export const NovaCobrancaForm = ({ students = [], saving, onSubmit, onCancel }) 
               onChange={(e) => setSearchTerm(e.target.value)}
               placeholder="Buscar aluno pelo nome..."
               autoComplete="off"
-              className="w-full pl-10 pr-4 py-3 rounded-xl border focus:outline-none focus:ring-2 focus:ring-[#005DE4]"
+              className="w-full pl-10 pr-4 py-3 rounded-xl border focus:outline-none focus:ring-2 focus:ring-[#0e48fe]"
             />
             {sugestoes.length > 0 && (
               <div className="absolute top-full left-0 right-0 bg-white border border-t-0 rounded-b-xl max-h-48 overflow-y-auto z-10 shadow-lg">
@@ -96,7 +96,7 @@ export const NovaCobrancaForm = ({ students = [], saving, onSubmit, onCancel }) 
             type="number" min="0" step="0.01" value={valuePlanned}
             onChange={(e) => setValuePlanned(e.target.value)}
             placeholder="Ex: 350.00"
-            className="w-full px-4 py-3 rounded-xl border focus:outline-none focus:ring-2 focus:ring-[#005DE4]"
+            className="w-full px-4 py-3 rounded-xl border focus:outline-none focus:ring-2 focus:ring-[#0e48fe]"
           />
         </div>
         <div>
@@ -104,7 +104,7 @@ export const NovaCobrancaForm = ({ students = [], saving, onSubmit, onCancel }) 
           <input
             type="date" value={dueDate}
             onChange={(e) => setDueDate(e.target.value)}
-            className="w-full px-4 py-3 rounded-xl border focus:outline-none focus:ring-2 focus:ring-[#005DE4]"
+            className="w-full px-4 py-3 rounded-xl border focus:outline-none focus:ring-2 focus:ring-[#0e48fe]"
           />
         </div>
       </div>
@@ -115,7 +115,7 @@ export const NovaCobrancaForm = ({ students = [], saving, onSubmit, onCancel }) 
           type="text" value={description}
           onChange={(e) => setDescription(e.target.value)}
           placeholder="Ex: 2ª parcela semestralidade"
-          className="w-full px-4 py-3 rounded-xl border focus:outline-none focus:ring-2 focus:ring-[#005DE4]"
+          className="w-full px-4 py-3 rounded-xl border focus:outline-none focus:ring-2 focus:ring-[#0e48fe]"
         />
       </div>
 
@@ -132,7 +132,7 @@ export const NovaCobrancaForm = ({ students = [], saving, onSubmit, onCancel }) 
         <button
           type="submit"
           disabled={saving}
-          className={`w-full py-3 rounded-xl font-bold ${saving ? 'bg-slate-300 text-slate-600' : 'bg-[#005DE4] text-white'}`}
+          className={`w-full py-3 rounded-xl font-bold ${saving ? 'bg-slate-300 text-slate-600' : 'bg-[#0e48fe] text-white'}`}
         >
           {saving ? 'Salvando...' : 'Criar cobrança'}
         </button>

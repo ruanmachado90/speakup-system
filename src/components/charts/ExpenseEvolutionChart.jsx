@@ -1,4 +1,4 @@
-export const ExpenseEvolutionChart = ({labels, values, year}) => {
+export const ExpenseEvolutionChart = ({labels, values}) => {
   const w = 800;
   const h = 250;
   const pad = 50;

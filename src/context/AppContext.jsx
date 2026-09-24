@@ -37,11 +37,3 @@ export const AppProvider = ({ children }) => {
 
 // Re-exporta hooks especializados para facilitar imports
 export { useUI, useFilters, useData, useLoading };
-
-/** @deprecated Use specialized hooks or selectors for better performance */
-export const useAppContext = () => ({
-  ...useUI(),
-  ...useFilters(),
-  ...useData(),
-  ...useLoading(),
-});

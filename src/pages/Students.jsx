@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect } from 'react';
 import { useProfessores } from '../hooks/useProfessores';
 import { Search, Edit, X, FileText, CheckSquare, Square, Trash2, ArrowUpDown, School, Printer, UserCheck, UserX, Users, FileCheck, FileClock, FileMinus, GraduationCap, Loader2, RotateCcw, CheckCircle, Clock } from 'lucide-react';
 import { db } from '../firebase';
-import { doc, collection, getDoc, setDoc, getDocs, addDoc, onSnapshot, updateDoc, writeBatch, arrayUnion, query, where } from 'firebase/firestore';
+import { doc, collection, getDoc, setDoc, getDocs, addDoc, onSnapshot, updateDoc, writeBatch, query, where } from 'firebase/firestore';
 import { Card, Table, KPI } from '../components';
 import { APP_ID } from '../utils/constants';
 import { formatDate } from '../utils/formatters';
@@ -259,16 +259,16 @@ export const Students = ({
         <style>
           * { margin: 0; padding: 0; box-sizing: border-box; }
           body { font-family: Arial, sans-serif; padding: 15px; font-size: 11px; }
-          .header { text-align: center; margin-bottom: 20px; border-bottom: 1px solid #005DE4; padding-bottom: 15px; }
-          .logo { font-size: 18px; font-weight: bold; color: #005DE4; margin-bottom: 5px; }
+          .header { text-align: center; margin-bottom: 20px; border-bottom: 1px solid #0e48fe; padding-bottom: 15px; }
+          .logo { font-size: 18px; font-weight: bold; color: #0e48fe; margin-bottom: 5px; }
           .subtitle { color: #64748b; font-size: 10px; }
           .stats { display: flex; justify-content: center; gap: 30px; margin-bottom: 20px; background: #f8fafc; padding: 10px; border-radius: 6px; }
           .stat { text-align: center; }
-          .stat-value { font-size: 16px; font-weight: bold; color: #005DE4; }
+          .stat-value { font-size: 16px; font-weight: bold; color: #0e48fe; }
           .stat-label { font-size: 9px; color: #64748b; text-transform: uppercase; }
           table { width: 100%; border-collapse: collapse; margin-top: 15px; }
           th, td { border: 1px solid #e2e8f0; padding: 6px 8px; text-align: left; font-size: 10px; }
-          th { background: #005DE4; color: white; font-weight: bold; }
+          th { background: #0e48fe; color: white; font-weight: bold; }
           tr:nth-child(even) { background: #f8fafc; }
           .student-name { font-weight: bold; color: #1e293b; }
           .responsible { color: #64748b; }
@@ -511,15 +511,15 @@ export const Students = ({
       {teacherFilter !== 'all' && (
         <Card className="mb-4">
           <div className="flex items-center gap-4 p-4 bg-gradient-to-r from-blue-50 to-blue-100 rounded-lg">
-            <div className="p-3 bg-[#005DE4] rounded-full">
+            <div className="p-3 bg-[#0e48fe] rounded-full">
               <School size={32} className="text-white" />
             </div>
             <div className="flex-1">
               <h3 className="text-sm font-semibold text-gray-600 mb-1">Professor(a) - {dashboardRange === 'month' ? 'Mês Atual' : 'Ano Atual'}</h3>
-              <p className="text-2xl font-bold text-[#005DE4] mb-1">{nomeProfessorFiltro}</p>
+              <p className="text-2xl font-bold text-[#0e48fe] mb-1">{nomeProfessorFiltro}</p>
               <div className="flex items-center gap-4 text-sm">
                 <span className="text-gray-700">
-                  <strong className="text-[#005DE4] text-xl">{teacherFilteredStats.count}</strong> aluno{teacherFilteredStats.count !== 1 ? 's' : ''} com pagamento{teacherFilteredStats.count !== 1 ? 's' : ''} no período
+                  <strong className="text-[#0e48fe] text-xl">{teacherFilteredStats.count}</strong> aluno{teacherFilteredStats.count !== 1 ? 's' : ''} com pagamento{teacherFilteredStats.count !== 1 ? 's' : ''} no período
                 </span>
                 <span className="text-gray-400">"¢</span>
                 <span className="text-gray-700">
@@ -540,7 +540,7 @@ export const Students = ({
               onClick={() => setStatusFilter('all')}
               className={`px-4 py-2 rounded-full font-bold text-xs ${
                 statusFilter === 'all' 
-                  ? 'bg-[#005DE4] text-white' 
+                  ? 'bg-[#0e48fe] text-white' 
                   : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
               }`}
             >
@@ -647,7 +647,7 @@ export const Students = ({
             <>
               <button 
                 onClick={handleBulkPayment}
-                className="bg-[#005DE4] text-white px-4 py-2 rounded-full font-bold flex gap-2 items-center hover:bg-blue-700"
+                className="bg-[#0e48fe] text-white px-4 py-2 rounded-full font-bold flex gap-2 items-center hover:bg-blue-700"
               >
                 Dar Baixa ({selectedStudents.length})
               </button>
@@ -729,7 +729,7 @@ export const Students = ({
               <button
                 onClick={() => setConfirmarMatricula(s)}
                 title="Confirmar matrícula"
-                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#005DE4] text-white text-xs font-semibold hover:bg-[#0041a8] transition-colors"
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#0e48fe] text-white text-xs font-semibold hover:bg-[#0b3ad4] transition-colors"
               >
                 <CheckCircle size={12} /> Confirmar
               </button>
@@ -740,7 +740,7 @@ export const Students = ({
             <td key="select" className="px-6 py-3">
               <button onClick={() => toggleStudent(s.id)}>
                 {selectedStudents.includes(s.id) ?
-                  <CheckSquare size={18} className="text-[#005DE4]"/> :
+                  <CheckSquare size={18} className="text-[#0e48fe]"/> :
                   <Square size={18} className="text-slate-300"/>
                 }
               </button>
@@ -784,7 +784,7 @@ export const Students = ({
             <td key="nextPayment" className="px-6 py-3 text-xs">
               {(() => {
                 const next = payments
-                  .filter(p => p.studentId === s.id && p.status !== "Pago")
+                  .filter(p => p.studentId === s.id && p.status !== "Pago" && p.status !== "cancelada")
                   .sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate))[0];
                 return next ? formatDate(next.dueDate) : '-';
               })()}

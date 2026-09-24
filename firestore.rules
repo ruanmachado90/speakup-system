@@ -24,6 +24,15 @@ service cloud.firestore {
           in ['admin', 'secretaria'];
     }
 
+    // Equipe = quem tem papel cadastrado em users/{uid} (admin, secretaria ou
+    // professor). NÃO usar isNotAnonymous() como "é da escola": qualquer conta
+    // Google vira usuário do Firebase Auth ao passar pela tela de login.
+    function isEquipe() {
+      return isNotAnonymous() &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role
+          in ['admin', 'secretaria', 'professor'];
+    }
+
     // FIX #2 — professor só escreve/atualiza aulas que pertencem a ele.
     // professorKey é o nome normalizado (sem acento/maiúsculas, ver src/utils/normalizeNome.js)
     // gravado no documento junto com o nome original — evita que uma pequena
@@ -38,56 +47,58 @@ service cloud.firestore {
     }
 
     // ── Roles dos usuários ────────────────────────────────────────────────
-    // Criado manualmente no console Firebase para admin inicial.
-    // Cada usuário lê/escreve apenas seu próprio documento.
-    // Admin pode ler todos os documentos de outros usuários para gerenciar roles.
+    // Cada usuário LÊ o próprio documento (o app descobre o papel no login).
+    // Ninguém escreve no próprio: antes qualquer conta Google podia gravar
+    // role 'admin' em users/{seu uid} e virar administrador. Professores são
+    // criados/alterados pelas Cloud Functions (Admin SDK, fora das regras).
+    // Mudar papel pelo cliente: só admin (secretaria não se promove).
     match /users/{uid} {
       allow read: if isAuthenticated() && request.auth.uid == uid;
-      allow write: if isAuthenticated() && request.auth.uid == uid;
-      allow read, write: if isAdminOrSecretaria();
+      allow read: if isAdminOrSecretaria();
+      allow write: if isAdmin();
     }
 
     // ── Links de pagamento ────────────────────────────────────────────────
     // FIX #3: leitura restrita a autenticados (link de pagamento usa artifacts/payments, não esta coleção).
     match /payments/{paymentId} {
-      allow read: if isNotAnonymous();
-      allow write: if isNotAnonymous();
+      allow read: if isEquipe();
+      allow write: if isAdminOrSecretaria();
     }
 
     // ── Turmas ───────────────────────────────────────────────────────────
     // Professores (magic link = não-anônimo) e admin podem ler.
     // Escrita apenas para admin/secretaria.
     match /turmas/{docId} {
-      allow read: if isNotAnonymous();
+      allow read: if isEquipe();
       allow write: if isAdminOrSecretaria();
     }
 
     // ── Professores ──────────────────────────────────────────────────────
     // Mesmo perfil de leitura de turmas; escrita só admin/secretaria.
     match /professores/{docId} {
-      allow read: if isNotAnonymous();
+      allow read: if isEquipe();
       allow write: if isAdminOrSecretaria();
     }
 
     // ── Aulas ────────────────────────────────────────────────────────────
     // FIX #2: professor só cria/edita/deleta aulas que pertencem a ele.
     match /aulas/{docId} {
-      allow read: if isNotAnonymous();
+      allow read: if isEquipe();
       allow create: if isAdminOrSecretaria() || isProfessorOwner(request.resource.data.professor, request.resource.data.get('professorKey', null));
       allow update, delete: if isAdminOrSecretaria() || isProfessorOwner(resource.data.professor, resource.data.get('professorKey', null));
     }
 
     // ── Diário do professor (conteúdo + frequência + tarefas) ────────────
     match /diario/{docId} {
-      allow read, write: if isNotAnonymous();
+      allow read, write: if isEquipe();
     }
 
     // ── Avaliações e notas ────────────────────────────────────────────────
     match /avaliacoes/{docId} {
-      allow read, write: if isNotAnonymous();
+      allow read, write: if isEquipe();
     }
     match /grades/{docId} {
-      allow read, write: if isNotAnonymous();
+      allow read, write: if isEquipe();
     }
 
     // ── Recados dos professores para coordenação ──────────────────────────
@@ -96,14 +107,14 @@ service cloud.firestore {
     // excluir os recados da própria conversa (campo "professor" identifica
     // de quem é a conversa, tanto nas mensagens enviadas quanto recebidas).
     match /recados/{docId} {
-      allow create: if isNotAnonymous();
-      allow read: if isNotAnonymous();
+      allow create: if isEquipe();
+      allow read: if isEquipe();
       allow update, delete: if isAdminOrSecretaria() || isProfessorOwner(resource.data.professor, resource.data.get('professorKey', null));
     }
 
     // ── Agenda ───────────────────────────────────────────────────────────
     match /agendaEventos/{docId} {
-      allow read: if isNotAnonymous();
+      allow read: if isEquipe();
       allow write: if isAdminOrSecretaria();
     }
 
@@ -111,7 +122,7 @@ service cloud.firestore {
     // Professores precisam ler (futuros alertas de semana de prova); só
     // admin/secretaria decide essas datas.
     match /calendarioLetivo/{ano} {
-      allow read: if isNotAnonymous();
+      allow read: if isEquipe();
       allow write: if isAdminOrSecretaria();
     }
 
@@ -127,7 +138,7 @@ service cloud.firestore {
     // useTurmaAlunos/ProfessorDashboard para listar alunos das próprias turmas.
     match /artifacts/{appId}/public/data/students/{docId} {
       allow get: if true;
-      allow list: if isNotAnonymous();
+      allow list: if isEquipe();
       allow create, update: if isAdminOrSecretaria();
       // Excluir tira o aluno de todo o histórico (matrículas, churn, ativos):
       // só admin. Secretaria cancela a matrícula.
@@ -140,7 +151,7 @@ service cloud.firestore {
     match /artifacts/{appId}/public/data/contratos/{docId} {
       allow get, create: if true;
       allow list: if isAdminOrSecretaria();
-      allow update, delete: if isNotAnonymous();
+      allow update, delete: if isEquipe();
     }
 
     // ── Pré-cadastros (formulário público) ───────────────────────────────
@@ -182,13 +193,17 @@ service cloud.firestore {
     match /artifacts/{appId}/public/data/payments/{docId} {
       allow get: if true;
       allow list: if isAdminOrSecretaria();
-      allow write: if isNotAnonymous();
+      // Baixa/valor de parcela: só admin/secretaria (antes: qualquer conta Google).
+      allow write: if isAdminOrSecretaria();
     }
 
     // ── Demais coleções (vendas, estoque, etc.) ───────────────────────────
-    // FIX #1: catch-all restrito a admin/secretaria — professores não devem acessar coleções não listadas.
-    match /{document=**} {
-      allow read, write: if isAdminOrSecretaria();
+    // Catch-all restrito a admin/secretaria para coleções sem regra própria.
+    // `users` e `artifacts` ficam de fora: as duas têm regras específicas acima
+    // e, como as regras do Firestore somam, este catch-all anularia as travas
+    // delas (secretaria se promover a admin; excluir aluno).
+    match /{collection}/{document=**} {
+      allow read, write: if isAdminOrSecretaria() && !(collection in ['users', 'artifacts']);
     }
   }
 }

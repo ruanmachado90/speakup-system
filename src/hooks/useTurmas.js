@@ -1,15 +1,24 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot } from 'firebase/firestore';
 import { db } from '../firebase';
 import { DEFAULT_MAX_ALUNOS, DEFAULT_TOTAL_AULAS } from '../constants/turmasConfig';
 import { normalizarDias } from '../utils/turmas';
+import { useProfessores } from './useProfessores';
+import { normalizarProfessoresDasTurmas } from '../utils/professores';
 
 /**
  * Hook que centraliza todo o acesso a Firestore para turmas e aulas.
  * Garante esquema consistente, tempo real e operações CRUD seguras.
  */
 export function useTurmas() {
-  const [turmas, setTurmas] = useState([]);
+  const [turmasBrutas, setTurmas] = useState([]);
+  const { professores } = useProfessores();
+  // `turma.professor` é texto livre ("BÁRBARA" em turmas antigas): resolve pro
+  // nome cadastrado, senão Turmas.jsx agrupa a mesma pessoa em dois professores.
+  const turmas = useMemo(
+    () => normalizarProfessoresDasTurmas(turmasBrutas, professores),
+    [turmasBrutas, professores]
+  );
   const [aulas, setAulas] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);

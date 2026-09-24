@@ -397,6 +397,17 @@ describe('ocupacaoTurma', () => {
   it('capacidade zero → indisponível (sem divisão por zero)', () => {
     expect(ocupacaoTurma({ maxAlunos: 0, alunosIds: ['a'] }, ativos)).toMatchObject({ disponivel: false });
   });
+  it('conta quem saiu da turma ao cancelar mas ainda estava ativo no mês', () => {
+    const ativosNoMes = new Map([
+      ['a', {}],
+      ['z', { turmasNoCancelamento: [{ id: 't1', nome: 'TEENS 1' }] }],
+    ]);
+    expect(ocupacaoTurma({ id: 't1', maxAlunos: 10, alunosIds: ['a'] }, ativosNoMes)).toMatchObject({ valor: 20 });
+    expect(ocupacaoTurma({ id: 't2', maxAlunos: 10, alunosIds: ['a'] }, ativosNoMes)).toMatchObject({ valor: 10 });
+  });
+  it('aceita alunosIds no formato antigo ({ id, nome })', () => {
+    expect(ocupacaoTurma({ maxAlunos: 10, alunosIds: [{ id: 'a', nome: 'A' }, 'b'] }, ativos)).toMatchObject({ valor: 20 });
+  });
 });
 
 describe('detalhamentoPorTurma — margem de contribuição', () => {

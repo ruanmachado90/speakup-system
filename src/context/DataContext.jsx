@@ -15,6 +15,7 @@ import {
   useExpenseEvolutionData 
 } from '../hooks/useStats';
 import { showToast, APP_ID, EXPENSE_CATEGORIES } from '../utils';
+import { normalizarProfessoresDosAlunos } from '../utils/professores';
 import { useFilters } from './FilterContext';
 import { useUI } from './UIContext';
 
@@ -44,11 +45,19 @@ export const DataProvider = ({ children }) => {
   
   // Auth & Firebase Data
   const user = useAuth(auth, (msg) => showToast(setToast, msg, 4000));
-  const { data: students, isLoading: studentsLoading } = useFirestoreCollection(db, APP_ID, "students", user);
+  const { data: studentsBrutos, isLoading: studentsLoading } = useFirestoreCollection(db, APP_ID, "students", user);
   const { data: payments, isLoading: paymentsLoading } = useFirestoreCollection(db, APP_ID, "payments", user);
   const { data: expenses, isLoading: expensesLoading } = useFirestoreCollection(db, APP_ID, "expenses", user);
   const leads = useFirestore(db, APP_ID, "leads", user);
   const { professores } = useProfessores();
+
+  // `student.teacher` é texto livre (alunos antigos têm "BÁRBARA", "Vera"...).
+  // Normalizamos uma vez aqui pro nome cadastrado em `professores`, e toda tela,
+  // relatório, boletim e contrato herda a grafia certa sem cada um resolver.
+  const students = useMemo(
+    () => normalizarProfessoresDosAlunos(studentsBrutos, professores),
+    [studentsBrutos, professores]
+  );
   const { parametros, salvarParametros, loading: parametrosLoading } = useParametros();
 
   // Enquanto qualquer uma das três coleções que alimentam `stats` não chegou,

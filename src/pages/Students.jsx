@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect } from 'react';
 import { useProfessores } from '../hooks/useProfessores';
 import { Search, Edit, X, FileText, CheckSquare, Square, Trash2, ArrowUpDown, School, Printer, UserCheck, UserX, Users, FileCheck, FileClock, FileMinus, GraduationCap, Loader2, RotateCcw, CheckCircle, Clock } from 'lucide-react';
 import { db } from '../firebase';
-import { doc, collection, getDoc, setDoc, getDocs, addDoc, onSnapshot, updateDoc, writeBatch, query, where } from 'firebase/firestore';
+import { doc, collection, getDoc, setDoc, getDocs, onSnapshot, updateDoc, query, where } from 'firebase/firestore';
 import { Card, Table, KPI } from '../components';
 import { APP_ID } from '../utils/constants';
 import { formatDate } from '../utils/formatters';
@@ -12,8 +12,9 @@ import { useConfirm } from '../hooks/useConfirm';
 import ConfirmDialog from '../components/ui/ConfirmDialog';
 import FrequenciaAlunoModal from '../components/FrequenciaAlunoModal';
 import { buildBoletimHTML } from '../utils/boletim';
-import { addMonthsClamped } from '../utils/dateMath';
-import { ConfirmarMatriculaModal, ReativarMatriculaModal } from '../components/students/MatriculaModals';
+import { ConfirmarMatriculaModal, ReativarMatriculaModal, CancelarMatriculaModal } from '../components/students/MatriculaModals';
+import { confirmarPreCadastro, descartarPreCadastro, removerCanceladosDasTurmas } from '../utils/handlers';
+import { alunosComMesmoCpf, turmasDoAluno, paraISODia } from '../utils/matricula';
 import InserirEmTurmaModal from '../components/students/InserirEmTurmaModal';
 import BoletimModal from '../components/students/BoletimModal';
 
@@ -27,7 +28,8 @@ export const Students = ({
   handleReactivateEnrollment,
   handleDeleteStudent,
   handleExcelUpload,
-  dashboardRange
+  dashboardRange,
+  role
 }) => {
   const { toastMsg } = useUI();
   const { confirmState, requestConfirm, handleConfirm, handleCancel } = useConfirm();
@@ -65,52 +67,38 @@ export const Students = ({
     return unsub;
   }, []);
 
-  const handleConfirmarMatricula = async (preCad, { fee, dueDate, installments, installmentDates }) => {
+  const handleConfirmarMatricula = async (preCad, campos) => {
     setSavingConfirmar(true);
-    try {
-      const colStudents = collection(db, 'artifacts', APP_ID, 'public', 'data', 'students');
-      const studentRef = await addDoc(colStudents, {
-        name: preCad.nome, cpf: preCad.cpf || '',
-        contact: preCad.celular || '', email: preCad.email || '',
-        dataNascimento: preCad.dataNascimento || '', cep: preCad.cep || '',
-        address: preCad.endereco || '',
-        responsibleName: preCad.responsavelNome || '',
-        responsibleContact: preCad.responsavelCelular || '',
-        formaPagamento: preCad.formaPagamento || '',
-        fee: Number(fee), dueDate, installments: Number(installments),
-        status: 'ativo', source: 'pre-cadastro',
-        preCadastroId: preCad.id, createdAt: Date.now(),
-      });
+    const ok = await confirmarPreCadastro(preCad, campos, toastMsg);
+    setSavingConfirmar(false);
+    if (ok) setConfirmarMatricula(null);
+  };
 
-      const batch = writeBatch(db);
-      const colPayments = collection(db, 'artifacts', APP_ID, 'public', 'data', 'payments');
-      // installmentDates traz a data (já ajustada manualmente, se for o caso) de
-      // cada parcela; se não vier (chamada legada), cai no cálculo mensal padrão.
-      for (let i = 0; i < Number(installments); i++) {
-        const dataStr = installmentDates?.[i];
-        const d = dataStr ? new Date(dataStr + 'T00:00:00') : addMonthsClamped(new Date(dueDate + 'T00:00:00'), i);
-        const iso = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}T00:00:00`;
-        batch.set(doc(colPayments), {
-          studentId: studentRef.id, studentName: preCad.nome,
-          installmentNum: i + 1, valuePlanned: Number(fee),
-          valuePaid: 0, status: 'Pendente',
-          month: d.getMonth() + 1, year: d.getFullYear(), dueDate: iso,
-        });
-      }
-      await batch.commit();
+  // CPF do pré-cadastro já existe na base? Ativo = duplicata; inativo = reativar.
+  const duplicadosPreCad = useMemo(
+    () => (confirmarMatricula ? alunosComMesmoCpf(students, confirmarMatricula.cpf) : []),
+    [confirmarMatricula, students]
+  );
 
-      await updateDoc(doc(collection(db, 'artifacts', APP_ID, 'public', 'data', 'pre-cadastros'), preCad.id), {
-        status: 'convertido', convertidoEm: Date.now(), studentId: studentRef.id,
-      });
-
-      setConfirmarMatricula(null);
-      toastMsg(`${preCad.nome} matriculado com sucesso!`);
-    } catch (err) {
-      console.error(err);
-      toastMsg('Erro ao confirmar matrícula. Tente novamente.');
-    } finally {
-      setSavingConfirmar(false);
+  // Cancelamento: um aluno ou a seleção inteira, sempre com motivo.
+  const [cancelarAlvo, setCancelarAlvo] = useState(null); // { ids, nomes }
+  const [savingCancelar, setSavingCancelar] = useState(false);
+  const executarCancelamento = async ({ motivo, observacao, manterVencidas }) => {
+    setSavingCancelar(true);
+    let falhas = 0;
+    // Em sequência (não em paralelo) pra um erro não deixar metade em estado incerto.
+    for (const id of cancelarAlvo.ids) {
+      const ok = await handleCancelEnrollment(id, { motivo, observacao, manterVencidas, silencioso: cancelarAlvo.ids.length > 1 });
+      if (!ok) falhas += 1;
     }
+    if (cancelarAlvo.ids.length > 1) {
+      toastMsg(falhas
+        ? `${cancelarAlvo.ids.length - falhas} cancelada(s), ${falhas} com erro`
+        : `${cancelarAlvo.ids.length} matrículas canceladas`);
+    }
+    setSavingCancelar(false);
+    setCancelarAlvo(null);
+    setSelectedStudents([]);
   };
 
   // Carregar contratos assinados
@@ -226,6 +214,46 @@ export const Students = ({
     });
     return map;
   }, [turmas]);
+
+  // O que o cancelamento vai fazer, pra secretaria ver antes de confirmar.
+  const resumoCancelamento = useMemo(() => {
+    if (!cancelarAlvo) return null;
+    const ids = new Set(cancelarAlvo.ids);
+    const hojeISO = paraISODia(new Date()); // data local (toISOString é UTC e vira o dia às 21h)
+    const vencidas = payments.filter(p =>
+      ids.has(p.studentId) && p.status === 'Pendente' && String(p.dueDate || '').slice(0, 10) < hojeISO
+    );
+    return {
+      turmas: [...new Set(cancelarAlvo.ids.flatMap(id => turmasDoAluno(turmas, id).map(t => t.nome)))],
+      vencidas: vencidas.length,
+      valorVencido: vencidas.reduce((s, p) => s + Number(p.valuePlanned || 0) - Number(p.valuePaid || 0), 0),
+    };
+  }, [cancelarAlvo, payments, turmas]);
+
+  // Cancelados que ficaram em turma antes do cancelamento passar a tirar da turma.
+  const canceladosEmTurma = useMemo(
+    () => students.filter(s => s.status === 'cancelado' && turmasDoAluno(turmas, s.id).length > 0).length,
+    [students, turmas]
+  );
+  const [limpandoTurmas, setLimpandoTurmas] = useState(false);
+  const handleLimparTurmas = async () => {
+    const ok = await requestConfirm({
+      title: 'Tirar cancelados das turmas',
+      message: `${canceladosEmTurma} aluno(s) com matrícula cancelada ainda aparecem em turmas. Removê-los das turmas? Chamadas e notas já lançadas continuam no histórico.`,
+      confirmLabel: 'Remover das turmas',
+    });
+    if (!ok) return;
+    setLimpandoTurmas(true);
+    try {
+      const n = await removerCanceladosDasTurmas(turmas, students);
+      toastMsg(`${n} vínculo(s) de aluno cancelado removido(s) das turmas`);
+    } catch (err) {
+      console.error(err);
+      toastMsg('Erro ao limpar turmas. Nada foi alterado.');
+    } finally {
+      setLimpandoTurmas(false);
+    }
+  };
 
   const handleInserirEmTurma = async () => {
     if (!inserirModal || !turmaSelecionada) return;
@@ -381,7 +409,13 @@ export const Students = ({
       variant: 'danger',
     });
     if (!ok) return;
-    selectedStudents.forEach(id => handleDeleteStudent(id));
+    let falhas = 0;
+    for (const id of selectedStudents) {
+      if (!(await handleDeleteStudent(id, { silencioso: true }))) falhas += 1;
+    }
+    toastMsg(falhas
+      ? `${selectedStudents.length - falhas} removido(s), ${falhas} com erro`
+      : `${selectedStudents.length} aluno(s) removido(s); parcelas preservadas`);
     setSelectedStudents([]);
   };
 
@@ -390,17 +424,13 @@ export const Students = ({
     setModal({ open: true, type: 'bulk-payment', data: { studentIds: selectedStudents } });
   };
 
-  const handleBulkCancel = async () => {
-    if (selectedStudents.length === 0) return;
-    const ok = await requestConfirm({
-      title: 'Cancelar matrículas',
-      message: `Cancelar matrícula de ${selectedStudents.length} aluno(s) selecionado(s)?`,
-      confirmLabel: 'Cancelar matrículas',
-      variant: 'danger',
-    });
-    if (!ok) return;
-    selectedStudents.forEach(id => handleCancelEnrollment(id));
-    setSelectedStudents([]);
+  const handleBulkCancel = () => {
+    const alvos = students.filter(s => selectedStudents.includes(s.id) && s.status !== 'cancelado');
+    if (alvos.length === 0) {
+      toastMsg('Nenhum aluno ativo na seleção');
+      return;
+    }
+    setCancelarAlvo({ ids: alvos.map(s => s.id), nomes: alvos.map(s => s.name) });
   };
 
   const semTurmaCount = useMemo(() =>
@@ -636,7 +666,18 @@ export const Students = ({
         <div className="flex items-center justify-between mb-4">
           <div></div>
           <div className="flex gap-2">
-          <button 
+          {canceladosEmTurma > 0 && (
+            <button
+              onClick={handleLimparTurmas}
+              disabled={limpandoTurmas}
+              className="border border-amber-300 bg-amber-50 text-amber-800 px-4 py-2 rounded-full font-semibold text-xs flex gap-2 items-center hover:bg-amber-100 transition-colors disabled:opacity-60"
+              title="Alunos cancelados que ainda aparecem em turmas"
+            >
+              {limpandoTurmas ? <Loader2 size={15} className="animate-spin" /> : <UserX size={15} />}
+              Tirar {canceladosEmTurma} cancelado(s) das turmas
+            </button>
+          )}
+          <button
             onClick={printActiveStudents}
             className="border border-slate-300 text-slate-600 px-4 py-2 rounded-full font-semibold text-xs flex gap-2 items-center hover:bg-slate-100 transition-colors"
             title="Imprimir lista de alunos ativos"
@@ -657,12 +698,15 @@ export const Students = ({
               >
                 <X size={16}/> Cancelar Matrícula ({selectedStudents.length})
               </button>
-              <button 
-                onClick={handleBulkDelete}
-                className="bg-red-700 text-white px-4 py-2 rounded-full font-bold flex gap-2 items-center hover:bg-red-800"
-              >
-                <Trash2 size={16}/> Excluir ({selectedStudents.length})
-              </button>
+              {/* Excluir apaga o aluno do histórico — só admin. Secretaria cancela. */}
+              {role === 'admin' && (
+                <button
+                  onClick={handleBulkDelete}
+                  className="bg-red-700 text-white px-4 py-2 rounded-full font-bold flex gap-2 items-center hover:bg-red-800"
+                >
+                  <Trash2 size={16}/> Excluir ({selectedStudents.length})
+                </button>
+              )}
             </>
           )}
           <input
@@ -872,7 +916,7 @@ export const Students = ({
                   </button>
                 ) : (
                   <button
-                    onClick={() => handleCancelEnrollment(s.id)}
+                    onClick={() => setCancelarAlvo({ ids: [s.id], nomes: [s.name] })}
                     aria-label="Cancelar matrícula"
                     title="Cancelar matrícula"
                     className="p-1.5 rounded-lg hover:bg-red-50 text-red-400 hover:text-red-600 transition-colors"
@@ -917,10 +961,21 @@ export const Students = ({
       {confirmarMatricula && (
         <ConfirmarMatriculaModal
           preCad={confirmarMatricula}
+          duplicados={duplicadosPreCad}
           saving={savingConfirmar}
           onClose={() => setConfirmarMatricula(null)}
-          onConfirm={async (params) => {
-            await handleConfirmarMatricula(confirmarMatricula, params);
+          onConfirm={(campos) => handleConfirmarMatricula(confirmarMatricula, campos)}
+          onReativarExistente={(aluno) => {
+            // Ex-aluno voltando pelo formulário online: reativa o cadastro dele
+            // e fecha o pré-cadastro junto, em vez de criar um aluno novo.
+            setReativarAluno({ ...aluno, _preCadastroId: confirmarMatricula.id });
+            setConfirmarMatricula(null);
+          }}
+          onDescartar={async () => {
+            const ativo = duplicadosPreCad.find(s => s.status !== 'cancelado');
+            if (await descartarPreCadastro(confirmarMatricula.id, ativo?.id || null, toastMsg)) {
+              setConfirmarMatricula(null);
+            }
           }}
         />
       )}
@@ -928,14 +983,25 @@ export const Students = ({
       {reativarAluno && (
         <ReativarMatriculaModal
           aluno={reativarAluno}
+          turmas={turmas}
           saving={savingReativar}
           onClose={() => setReativarAluno(null)}
           onConfirm={async (params) => {
             setSavingReativar(true);
-            await handleReactivateEnrollment(reativarAluno.id, params);
+            const ok = await handleReactivateEnrollment(reativarAluno.id, params, { preCadastroId: reativarAluno._preCadastroId });
             setSavingReativar(false);
-            setReativarAluno(null);
+            if (ok) setReativarAluno(null);
           }}
+        />
+      )}
+
+      {cancelarAlvo && (
+        <CancelarMatriculaModal
+          nomes={cancelarAlvo.nomes}
+          resumo={resumoCancelamento}
+          saving={savingCancelar}
+          onClose={() => setCancelarAlvo(null)}
+          onConfirm={executarCancelamento}
         />
       )}
 

@@ -13,6 +13,11 @@ service cloud.firestore {
         request.auth.token.firebase.sign_in_provider != 'anonymous';
     }
 
+    function isAdmin() {
+      return isNotAnonymous() &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
     function isAdminOrSecretaria() {
       return isNotAnonymous() &&
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role
@@ -123,7 +128,10 @@ service cloud.firestore {
     match /artifacts/{appId}/public/data/students/{docId} {
       allow get: if true;
       allow list: if isNotAnonymous();
-      allow write: if isAdminOrSecretaria();
+      allow create, update: if isAdminOrSecretaria();
+      // Excluir tira o aluno de todo o histórico (matrículas, churn, ativos):
+      // só admin. Secretaria cancela a matrícula.
+      allow delete: if isAdmin();
     }
 
     // Assinaturas de contrato: qualquer um pode criar (assinar) e ler (verificar se já assinou), só auth pode alterar/deletar.
@@ -161,8 +169,10 @@ service cloud.firestore {
     }
 
     // FIX #4 (companion): regra geral restrita a admin/secretaria para evitar bypass da regra de students acima.
+    // `students` fica de fora: senão esta regra geral liberaria o delete que a
+    // regra específica acima restringe a admin (regras do Firestore somam).
     match /artifacts/{appId}/public/data/{collection}/{docId} {
-      allow read, write: if isAdminOrSecretaria();
+      allow read, write: if isAdminOrSecretaria() && collection != 'students';
     }
 
     // ── Link de pagamento público (acesso por clientes sem login) ─────────

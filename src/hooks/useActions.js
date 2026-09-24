@@ -20,9 +20,11 @@ import {
 
 export const useStudentActions = (user, modal, toastMsg, setModal, setSaving) => {
   const saveStudent = (e) => saveStudentHandler(e, user, modal, toastMsg, setModal, setSaving);
-  const handleCancelEnrollment = (id) => cancelEnrollmentHandler(id, toastMsg);
-  const handleReactivateEnrollment = (id, params) => reactivateEnrollmentHandler(id, params, toastMsg);
-  const handleDeleteStudent = (id) => deleteStudentHandler(id, toastMsg);
+  // A confirmação (modal com motivo / diálogo) fica com a tela que chama;
+  // aqui só executam e devolvem true/false.
+  const handleCancelEnrollment = (id, opts) => cancelEnrollmentHandler(id, toastMsg, opts);
+  const handleReactivateEnrollment = (id, params, opts) => reactivateEnrollmentHandler(id, params, toastMsg, opts);
+  const handleDeleteStudent = (id, opts) => deleteStudentHandler(id, toastMsg, opts);
   const handleExcelUpload = (e) => excelUploadHandler(e, toastMsg, setSaving);
 
   return { saveStudent, handleCancelEnrollment, handleReactivateEnrollment, handleDeleteStudent, handleExcelUpload };

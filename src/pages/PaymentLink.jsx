@@ -34,6 +34,13 @@ const PaymentLink = () => {
           setLoading(false);
           return;
         }
+        // Link antigo (WhatsApp) de parcela cancelada junto com a matrícula:
+        // não pode gerar PIX de uma cobrança que não existe mais.
+        if (paymentData.status === 'cancelada') {
+          setError('Esta cobrança foi cancelada. Em caso de dúvida, fale com a secretaria.');
+          setLoading(false);
+          return;
+        }
         setPayment(paymentData);
         // Gera o payload PIX automaticamente
         const chavePix = 'ruan@speakupcataguases.com';

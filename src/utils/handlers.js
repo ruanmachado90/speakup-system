@@ -7,11 +7,22 @@ import {
   query,
   writeBatch,
   getDocs,
-  where
+  getDoc,
+  where,
+  arrayUnion
 } from "firebase/firestore";
 import { db } from "../firebase";
 import { APP_ID } from "./constants";
 import { addMonthsClamped } from "./dateMath";
+import {
+  lerCamposMatricula,
+  validarContrato,
+  montarParcelas,
+  turmasDoAluno,
+  alunosIdsSem,
+  alunosIdsCom,
+  separarParcelasNoCancelamento,
+} from "./matricula";
 
 const appId = APP_ID;
 const col = (name) => collection(db, "artifacts", appId, "public", "data", name);
@@ -24,115 +35,117 @@ const toLocalISOString = (date) => {
   return `${year}-${month}-${day}T00:00:00`;
 };
 
+// Campos cadastrais (texto) que o formulário de aluno pode gravar. Lista
+// explícita: o que não está aqui não vai pro Firestore por acidente.
+const CAMPOS_CADASTRAIS = [
+  'name', 'cpf', 'contact', 'email', 'dataNascimento',
+  'responsibleName', 'responsibleCpf', 'responsibleContact', 'responsibleEmail',
+];
+
+const lerCadastro = (formData) => Object.fromEntries(
+  CAMPOS_CADASTRAIS
+    .filter((k) => formData.has(k))
+    .map((k) => [k, String(formData.get(k)).trim()])
+);
+
+const parcelasPendentes = (studentId) => getDocs(query(
+  col("payments"),
+  where("studentId", "==", studentId),
+  where("status", "==", "Pendente")
+));
+
 /**
- * Save or update a student
+ * Cria ou edita um aluno pelo formulário "Novo aluno"/"Editar".
+ *
+ * Criação: aluno + parcelas num batch só (antes era aluno primeiro, parcelas
+ * depois — falha no meio deixava aluno sem parcela).
+ * Edição: só dados cadastrais, curso/professor e mensalidade. Vencimento e
+ * número de parcelas não são mais editáveis aqui: recalcular tudo a partir da
+ * 1ª parcela desfazia ajustes manuais (ex: semestralidade). Data de uma
+ * parcela se ajusta no Financeiro.
  */
 export const saveStudent = async (e, user, modal, toastMsg, setModal, setSaving) => {
   e.preventDefault();
-
-  const form = new FormData(e.target);
-  const data = Object.fromEntries(form.entries());
 
   if (!user) {
     toastMsg('Você não está autenticado. Recarregue a página.');
     return;
   }
 
+  const formData = new FormData(e.target);
+  const cadastro = lerCadastro(formData);
+  const campos = lerCamposMatricula(formData);
+  const vinculo = {
+    course: campos.course,
+    book: campos.book,
+    teacher: campos.teacher,
+    professorId: campos.professorId,
+  };
+
+  setSaving(true);
   try {
     if (modal.data?.id) {
-      await updateDoc(
-        doc(db, "artifacts", appId, "public", "data", "students", modal.data.id),
-        data
-      );
-
-      const q = query(
-        col("payments"),
-        where("studentId", "==", modal.data.id),
-        where("status", "==", "Pendente")
-      );
-      const snap = await getDocs(q);
-
-      if (!snap.empty) {
-        const batch = writeBatch(db);
-        const hasDateChange = data.dueDate && data.dueDate !== modal.data.dueDate;
-        const newBaseDate = hasDateChange ? new Date(data.dueDate + 'T00:00:00') : null;
-
-        snap.forEach(paymentDoc => {
-          const payment = paymentDoc.data();
-          const updates = {};
-
-          if (data.name && data.name !== modal.data.name) {
-            updates.studentName = data.name;
-          }
-
-          if (data.fee && Number(data.fee) !== Number(modal.data.fee)) {
-            updates.valuePlanned = Number(data.fee);
-          }
-
-          if (hasDateChange) {
-            const newDueDate = addMonthsClamped(newBaseDate, payment.installmentNum - 1);
-            updates.dueDate = toLocalISOString(newDueDate);
-          }
-
-          if (Object.keys(updates).length > 0) {
-            batch.update(doc(col("payments"), paymentDoc.id), updates);
-          }
-        });
-
-        await batch.commit();
+      const id = modal.data.id;
+      const fee = Number(campos.fee);
+      if (!(fee > 0)) {
+        toastMsg('Informe um valor de mensalidade válido.');
+        return;
       }
 
-      toastMsg("Aluno atualizado com sucesso");
+      const batch = writeBatch(db);
+      batch.update(doc(col("students"), id), { ...cadastro, ...vinculo, fee });
+
+      // Parcelas pendentes acompanham nome, mensalidade e vínculo atuais;
+      // pagas/canceladas ficam como estavam (histórico).
+      const snap = await parcelasPendentes(id);
+      const feeMudou = fee !== Number(modal.data.fee);
+      snap.forEach((p) => {
+        const updates = {
+          studentName: cadastro.name || p.data().studentName,
+          course: vinculo.course,
+          professorId: vinculo.professorId,
+        };
+        if (feeMudou) updates.valuePlanned = fee;
+        batch.update(p.ref, updates);
+      });
+
+      await batch.commit();
+      toastMsg(feeMudou && !snap.empty
+        ? `Aluno atualizado; ${snap.size} parcela(s) pendente(s) com a nova mensalidade`
+        : 'Aluno atualizado com sucesso');
       setModal({ open: false, type: null, data: null });
       return;
     }
 
-    const fee = Number(data.fee || 0);
-    const installments = Number(data.installments || 1);
-
-    if (!data.dueDate) {
-      toastMsg('Data de vencimento é obrigatória');
-      setSaving(false);
+    const problema = validarContrato(campos);
+    if (problema) {
+      toastMsg(problema);
       return;
     }
 
-    setSaving(true);
-
-    const ref = await addDoc(
-      col("students"),
-      {
-        ...data,
-        fee,
-        installments,
-        status: "ativo",
-        createdAt: Date.now()
-      }
-    );
-
     const batch = writeBatch(db);
-    const start = new Date(data.dueDate + 'T00:00:00');
-
-    for (let i = 0; i < installments; i++) {
-      const d = addMonthsClamped(start, i);
-
-      batch.set(
-        doc(col("payments")),
-        {
-          studentId: ref.id,
-          studentName: data.name,
-          installmentNum: i + 1,
-          valuePlanned: fee,
-          valuePaid: 0,
-          status: "Pendente",
-          month: d.getMonth() + 1,
-          year: d.getFullYear(),
-          dueDate: toLocalISOString(d)
-        }
-      );
-    }
+    const studentRef = doc(col("students"));
+    batch.set(studentRef, {
+      ...cadastro,
+      ...vinculo,
+      fee: Number(campos.fee),
+      dueDate: campos.dueDate,
+      installments: Number(campos.installments),
+      status: "ativo",
+      source: 'balcao',
+      createdAt: Date.now(),
+    });
+    montarParcelas({
+      studentId: studentRef.id,
+      studentName: cadastro.name,
+      fee: campos.fee,
+      installmentDates: campos.installmentDates,
+      course: vinculo.course,
+      professorId: vinculo.professorId,
+    }).forEach((p) => batch.set(doc(col("payments")), p));
 
     await batch.commit();
-    toastMsg(`Aluno cadastrado (id: ${ref.id})`);
+    toastMsg(`${cadastro.name} matriculado com ${campos.installments} parcela(s)`);
     setModal({ open: false, type: null, data: null });
 
   } catch (err) {
@@ -144,114 +157,268 @@ export const saveStudent = async (e, user, modal, toastMsg, setModal, setSaving)
 };
 
 /**
- * Delete a student and all related payments
+ * Confirma um pré-cadastro online como matrícula. Tudo num batch: aluno,
+ * parcelas e o pré-cadastro marcado como convertido — sem estado parcial.
+ * Antes, CPF/e-mail do responsável se perdiam aqui e o contrato saía com o
+ * CPF do aluno como contratante.
  */
-export const handleDeleteStudent = async (id, toastMsg) => {
-  if (!confirm('Remover aluno? As parcelas pagas são preservadas e as pendentes viram canceladas (registro financeiro nunca é excluído).')) return;
-
+export const confirmarPreCadastro = async (preCad, campos, toastMsg) => {
   try {
-    await deleteDoc(doc(col("students"), id));
+    const batch = writeBatch(db);
+    const studentRef = doc(col("students"));
+    batch.set(studentRef, {
+      name: preCad.nome,
+      cpf: preCad.cpf || '',
+      contact: preCad.celular || '',
+      email: preCad.email || '',
+      dataNascimento: preCad.dataNascimento || '',
+      cep: preCad.cep || '',
+      address: preCad.endereco || '',
+      responsibleName: preCad.responsavelNome || '',
+      responsibleCpf: preCad.responsavelCpf || '',
+      responsibleContact: preCad.responsavelCelular || '',
+      responsibleEmail: preCad.responsavelEmail || '',
+      formaPagamento: preCad.formaPagamento || '',
+      course: campos.course,
+      book: campos.book,
+      teacher: campos.teacher,
+      professorId: campos.professorId,
+      fee: Number(campos.fee),
+      dueDate: campos.dueDate,
+      installments: Number(campos.installments),
+      status: 'ativo',
+      source: 'pre-cadastro',
+      preCadastroId: preCad.id,
+      createdAt: Date.now(),
+    });
+    montarParcelas({
+      studentId: studentRef.id,
+      studentName: preCad.nome,
+      fee: campos.fee,
+      installmentDates: campos.installmentDates,
+      course: campos.course,
+      professorId: campos.professorId,
+    }).forEach((p) => batch.set(doc(col("payments")), p));
+    batch.update(doc(col('pre-cadastros'), preCad.id), {
+      status: 'convertido', convertidoEm: Date.now(), studentId: studentRef.id,
+    });
 
-    // Parcelas nunca são deletadas: pagas ficam intactas (histórico/auditoria),
-    // pendentes viram 'cancelada' e saem dos KPIs via saldoParcela().
-    const q = query(
-      col("payments"),
-      where("studentId", "==", id),
-      where("status", "==", "Pendente")
-    );
-    const snap = await getDocs(q);
-    if (!snap.empty) {
-      const batch = writeBatch(db);
-      snap.forEach(d => batch.update(doc(col("payments"), d.id), {
-        status: 'cancelada',
-        canceledAt: Date.now(),
-        cancelReason: 'Aluno removido'
-      }));
-      await batch.commit();
-    }
-
-    toastMsg('Aluno removido; parcelas preservadas');
+    await batch.commit();
+    toastMsg(`${preCad.nome} matriculado com sucesso!`);
+    return true;
   } catch (err) {
     console.error(err);
-    toastMsg('Erro ao remover aluno');
+    toastMsg('Erro ao confirmar matrícula. Nada foi gravado, tente novamente.');
+    return false;
+  }
+};
+
+/** Pré-cadastro de quem já é aluno ativo: sai da fila sem criar duplicata. */
+export const descartarPreCadastro = async (preCadId, alunoExistenteId, toastMsg) => {
+  try {
+    await updateDoc(doc(col('pre-cadastros'), preCadId), {
+      status: 'duplicado', descartadoEm: Date.now(), studentId: alunoExistenteId,
+    });
+    toastMsg('Pré-cadastro descartado (aluno já matriculado)');
+    return true;
+  } catch (err) {
+    console.error(err);
+    toastMsg('Erro ao descartar pré-cadastro');
+    return false;
   }
 };
 
 /**
- * Cancel student enrollment
+ * Exclui um aluno (só admin — regra do Firestore). A confirmação é de quem
+ * chama. Parcelas nunca são deletadas: pagas ficam intactas, pendentes viram
+ * 'cancelada'. Tudo num batch.
  */
-export const handleReactivateEnrollment = async (id, { studentName, fee, dueDate, installments, installmentDates }, toastMsg) => {
+export const handleDeleteStudent = async (id, toastMsg, { silencioso = false } = {}) => {
   try {
-    await updateDoc(doc(col("students"), id), {
-      status: 'ativo',
-      reactivatedAt: Date.now(),
-      canceledAt: null,
-      fee: Number(fee),
-      dueDate,
-      installments: Number(installments),
-    });
-
-    if (Number(fee) > 0 && Number(installments) > 0 && dueDate) {
-      const batch = writeBatch(db);
-
-      // installmentDates traz a data (já ajustada manualmente, se for o caso) de
-      // cada parcela; se não vier (chamada legada), cai no cálculo mensal padrão.
-      for (let i = 0; i < Number(installments); i++) {
-        const dataStr = installmentDates?.[i];
-        const d = dataStr ? new Date(dataStr + 'T00:00:00') : addMonthsClamped(new Date(dueDate + 'T00:00:00'), i);
-        batch.set(doc(col('payments')), {
-          studentId: id,
-          studentName,
-          installmentNum: i + 1,
-          valuePlanned: Number(fee),
-          valuePaid: 0,
-          status: 'Pendente',
-          month: d.getMonth() + 1,
-          year: d.getFullYear(),
-          dueDate: toLocalISOString(d),
-        });
-      }
-      await batch.commit();
-    }
-
-    toastMsg('Matrícula reativada com sucesso');
+    const snap = await parcelasPendentes(id);
+    const batch = writeBatch(db);
+    batch.delete(doc(col("students"), id));
+    snap.forEach((p) => batch.update(p.ref, {
+      status: 'cancelada',
+      canceledAt: Date.now(),
+      cancelReason: 'Aluno removido',
+    }));
+    await batch.commit();
+    if (!silencioso) toastMsg('Aluno removido; parcelas preservadas');
+    return true;
   } catch (err) {
     console.error(err);
-    toastMsg('Erro ao reativar matrícula');
+    if (!silencioso) toastMsg('Erro ao remover aluno');
+    return false;
   }
 };
 
-export const handleCancelEnrollment = async (id, toastMsg, motivo = '') => {
-  if (!confirm('Cancelar matrícula deste aluno? As parcelas pendentes serão marcadas como canceladas (nada é excluído).')) return;
-
+/**
+ * Reativa uma matrícula cancelada com novo contrato. O cancelamento anterior
+ * vai pra `historicoCancelamentos` antes de limpar `canceledAt` — antes ele era
+ * simplesmente apagado e o histórico do aluno se perdia.
+ */
+export const handleReactivateEnrollment = async (id, campos, toastMsg, { preCadastroId } = {}) => {
   try {
-    await updateDoc(doc(col("students"), id), {
-      status: 'cancelado',
-      canceledAt: Date.now()
+    const atual = (await getDoc(doc(col("students"), id))).data() || {};
+    const agora = Date.now();
+    const batch = writeBatch(db);
+
+    const update = {
+      status: 'ativo',
+      reactivatedAt: agora,
+      canceledAt: null,
+      cancelReason: null,
+      cancelNote: null,
+      fee: Number(campos.fee),
+      dueDate: campos.dueDate,
+      installments: Number(campos.installments),
+      turmasNoCancelamento: null,
+      parcelasEmAbertoNoCancelamento: null,
+    };
+    for (const k of ['course', 'book', 'teacher', 'professorId']) {
+      if (campos[k] !== undefined) update[k] = campos[k];
+    }
+    if (atual.canceledAt) {
+      update.historicoCancelamentos = arrayUnion({
+        canceladoEm: atual.canceledAt,
+        motivo: atual.cancelReason || null,
+        observacao: atual.cancelNote || null,
+        turmas: atual.turmasNoCancelamento || [],
+        reativadoEm: agora,
+      });
+    }
+    batch.update(doc(col("students"), id), update);
+
+    montarParcelas({
+      studentId: id,
+      studentName: campos.studentName || atual.name,
+      fee: campos.fee,
+      installmentDates: campos.installmentDates,
+      course: update.course ?? atual.course,
+      professorId: update.professorId ?? atual.professorId,
+    }).forEach((p) => batch.set(doc(col('payments')), p));
+
+    // Volta pra(s) turma(s) de onde saiu no cancelamento, se a secretaria marcou.
+    const turmasDeVolta = await Promise.all(
+      (campos.voltarTurmaIds || []).map((tid) => getDoc(doc(db, 'turmas', tid)))
+    );
+    turmasDeVolta.filter((s) => s.exists()).forEach((s) => {
+      const ids = alunosIdsCom(s.data(), id);
+      batch.update(s.ref, { alunosIds: ids, alunosCount: ids.length, updatedAt: new Date(agora).toISOString() });
     });
 
-    const q = query(
-      col("payments"),
-      where("studentId", "==", id),
-      where("status", "==", "Pendente")
-    );
-    const snap = await getDocs(q);
-
-    if (!snap.empty) {
-      const batch = writeBatch(db);
-      snap.forEach(d => batch.update(doc(col("payments"), d.id), {
-        status: 'cancelada',
-        canceledAt: Date.now(),
-        cancelReason: motivo || 'Matrícula cancelada'
-      }));
-      await batch.commit();
+    if (preCadastroId) {
+      batch.update(doc(col('pre-cadastros'), preCadastroId), {
+        status: 'convertido', convertidoEm: agora, studentId: id, reativacao: true,
+      });
     }
 
-    toastMsg('Matrícula cancelada com sucesso');
+    await batch.commit();
+    toastMsg('Matrícula reativada com sucesso');
+    return true;
   } catch (err) {
     console.error(err);
-    toastMsg('Erro ao cancelar matrícula');
+    toastMsg('Erro ao reativar matrícula. Nada foi gravado.');
+    return false;
   }
+};
+
+/**
+ * Cancela a matrícula — uma operação só, num batch:
+ *  - aluno: status, data, motivo, e as turmas de onde saiu (`turmasNoCancelamento`,
+ *    usado pra oferecer a volta na reativação e pra ocupação histórica da turma);
+ *  - turmas: aluno sai de `alunosIds` (antes ficava na chamada e na contagem);
+ *  - parcelas: as que vencem de hoje em diante viram 'cancelada'; as vencidas
+ *    ficam em aberto se `manterVencidas` (é dívida, não pode sumir).
+ * A confirmação (modal com motivo) é de quem chama.
+ */
+export const handleCancelEnrollment = async (
+  id,
+  toastMsg,
+  { motivo = '', observacao = '', manterVencidas = true, silencioso = false } = {}
+) => {
+  try {
+    const agora = Date.now();
+    const [parcelasSnap, turmasSnap] = await Promise.all([
+      parcelasPendentes(id),
+      getDocs(collection(db, 'turmas')),
+    ]);
+    const turmas = turmasSnap.docs.map((d) => ({ id: d.id, ref: d.ref, ...d.data() }));
+    const saiuDe = turmasDoAluno(turmas, id);
+
+    const { cancelar, manter } = separarParcelasNoCancelamento(
+      parcelasSnap.docs.map((d) => ({ ref: d.ref, ...d.data() })),
+      new Date(agora),
+      manterVencidas
+    );
+
+    const batch = writeBatch(db);
+    batch.update(doc(col("students"), id), {
+      status: 'cancelado',
+      canceledAt: agora,
+      cancelReason: motivo || null,
+      cancelNote: observacao || null,
+      turmasNoCancelamento: saiuDe.map((t) => ({ id: t.id, nome: t.nome || '' })),
+      parcelasEmAbertoNoCancelamento: manter.length,
+    });
+    saiuDe.forEach((t) => {
+      const ids = alunosIdsSem(t, id);
+      batch.update(t.ref, { alunosIds: ids, alunosCount: ids.length, updatedAt: new Date(agora).toISOString() });
+    });
+    cancelar.forEach((p) => batch.update(p.ref, {
+      status: 'cancelada',
+      canceledAt: agora,
+      cancelReason: motivo || 'Matrícula cancelada',
+    }));
+    await batch.commit();
+
+    if (!silencioso) {
+      const partes = ['Matrícula cancelada'];
+      if (saiuDe.length) partes.push(`removido de ${saiuDe.map((t) => t.nome).join(', ')}`);
+      if (manter.length) partes.push(`${manter.length} parcela(s) vencida(s) continuam em aberto`);
+      toastMsg(partes.join(' · '));
+    }
+    return true;
+  } catch (err) {
+    console.error(err);
+    if (!silencioso) toastMsg('Erro ao cancelar matrícula. Nada foi gravado.');
+    return false;
+  }
+};
+
+/**
+ * Limpeza única: alunos já cancelados que ficaram em turmas (antes o
+ * cancelamento não tirava). `turmas`/`students` vêm do estado da tela; devolve
+ * quantos saíram. Registra `turmasNoCancelamento` no aluno se ainda não tiver.
+ */
+export const removerCanceladosDasTurmas = async (turmas, students) => {
+  const cancelados = new Map(students.filter((s) => s.status === 'cancelado').map((s) => [s.id, s]));
+  const batch = writeBatch(db);
+  const saidasPorAluno = new Map();
+  let removidos = 0;
+
+  for (const t of turmas) {
+    let ids = t.alunosIds || [];
+    for (const alunoId of ids.map((m) => (m && typeof m === 'object' ? m.id : m))) {
+      if (!cancelados.has(alunoId)) continue;
+      ids = alunosIdsSem({ alunosIds: ids }, alunoId);
+      removidos += 1;
+      if (!saidasPorAluno.has(alunoId)) saidasPorAluno.set(alunoId, []);
+      saidasPorAluno.get(alunoId).push({ id: t.id, nome: t.nome || '' });
+    }
+    if (ids.length !== (t.alunosIds || []).length) {
+      batch.update(doc(db, 'turmas', t.id), { alunosIds: ids, alunosCount: ids.length, updatedAt: new Date().toISOString() });
+    }
+  }
+  saidasPorAluno.forEach((saidas, alunoId) => {
+    if (!cancelados.get(alunoId).turmasNoCancelamento) {
+      batch.update(doc(col('students'), alunoId), { turmasNoCancelamento: saidas });
+    }
+  });
+
+  if (removidos > 0) await batch.commit();
+  return removidos;
 };
 
 /**

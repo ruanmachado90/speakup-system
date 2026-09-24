@@ -445,6 +445,7 @@ function AppContent() {
               handleDeleteStudent={handleDeleteStudent}
               handleExcelUpload={handleExcelUpload}
               dashboardRange={dashboardRange}
+              role={role}
             />}
 
             {page === "finance" && <Finance 

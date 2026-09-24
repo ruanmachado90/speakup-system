@@ -1,244 +1,221 @@
 import { useState } from 'react';
-import { CheckCircle, RotateCcw, X, Loader2, RefreshCw } from 'lucide-react';
-import { addMonthsClamped } from '../../utils/dateMath';
+import { CheckCircle, RotateCcw, X, Loader2 } from 'lucide-react';
+import { CursoBookSelect, TeacherSelect, ContratoFinanceiroFields, AvisoCpfExistente } from './MatriculaFields';
+import { lerCamposMatricula, validarContrato, proximaDataParaDia, MOTIVOS_CANCELAMENTO } from '../../utils/matricula';
 
-// Data (YYYY-MM-DD) da parcela N, somando N meses à data da 1ª parcela —
-// mesmo dia do mês, salvo quando o usuário sobrescreve individualmente.
-function dataParcelaPadrao(primeiraData, indice) {
-  const d = addMonthsClamped(new Date(primeiraData + 'T00:00:00'), indice);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-}
-
-// Lista editável das N datas de vencimento. Cada parcela nasce com a data
-// padrão (mesmo dia, +1 mês por parcela), mas pode ser ajustada individualmente
-// — por exemplo, uma semestralidade em 2x com a 2ª parcela vencendo em julho.
-function ParcelasEditor({ primeiraData, installments, overrides, onChange, onReset, focusColor }) {
-  const n = Number(installments) || 0;
-  if (!primeiraData || n < 1) return null;
-
+function ModalShell({ icon, iconBg, title, subtitle, onClose, children }) {
   return (
-    <div>
-      <label className="block text-sm font-medium text-slate-700 mb-1">Vencimento de cada parcela</label>
-      <div className="border border-slate-200 rounded-lg divide-y divide-slate-100 max-h-52 overflow-y-auto">
-        {Array.from({ length: n }, (_, i) => {
-          const padrao = dataParcelaPadrao(primeiraData, i);
-          const valor = overrides[i] ?? padrao;
-          const alterada = overrides[i] != null && overrides[i] !== padrao;
-          return (
-            <div key={i} className="flex items-center gap-2 px-3 py-2">
-              <span className="text-xs font-semibold text-slate-500 w-14 flex-shrink-0">{i + 1}ª parcela</span>
-              <input
-                type="date"
-                value={valor}
-                onChange={e => onChange(i, e.target.value)}
-                className={`flex-1 border rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 ${focusColor} ${alterada ? 'border-amber-300 bg-amber-50' : 'border-slate-300'}`}
-              />
-              {alterada && (
-                <button
-                  type="button"
-                  onClick={() => onReset(i)}
-                  title="Restaurar data padrão"
-                  className="p-1.5 text-slate-400 hover:text-slate-600 flex-shrink-0"
-                >
-                  <RefreshCw size={14} />
-                </button>
-              )}
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4" role="dialog" aria-modal="true">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xl max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between p-5 border-b border-slate-100">
+          <div className="flex items-center gap-3">
+            <div className={`${iconBg} text-white p-2 rounded-lg`}>{icon}</div>
+            <div>
+              <h3 className="font-bold text-slate-800">{title}</h3>
+              {subtitle && <p className="text-sm text-slate-500">{subtitle}</p>}
             </div>
-          );
-        })}
+          </div>
+          <button type="button" onClick={onClose} aria-label="Fechar" className="p-1 rounded-lg hover:bg-slate-100 text-slate-400"><X size={18} /></button>
+        </div>
+        {children}
       </div>
-      <p className="text-xs text-slate-400 mt-1">
-        Por padrão, cada parcela vence um mês após a anterior. Ajuste a data de qualquer parcela individualmente se precisar (ex: semestralidade).
-      </p>
     </div>
   );
 }
 
-export function ConfirmarMatriculaModal({ preCad, onConfirm, onClose, saving }) {
-  const [fee, setFee] = useState('');
-  const [dueDate, setDueDate] = useState(() => {
-    const hoje = new Date();
-    return `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, '0')}-${String(hoje.getDate()).padStart(2, '0')}`;
-  });
-  const [installments, setInstallments] = useState(12);
-  const [overrides, setOverrides] = useState({});
+/**
+ * Confirma um pré-cadastro online como matrícula: pede curso, book, professor e
+ * o contrato financeiro — antes só o financeiro, e o aluno entrava sem curso e
+ * sem professor. O 1º vencimento já vem no dia que a família escolheu.
+ */
+export function ConfirmarMatriculaModal({ preCad, duplicados = [], onConfirm, onReativarExistente, onDescartar, onClose, saving }) {
   const [erro, setErro] = useState('');
+  const bloqueado = duplicados.some((s) => s.status !== 'cancelado');
 
-  const handleChangeData = (i, valor) => setOverrides(prev => ({ ...prev, [i]: valor }));
-  const handleResetData = (i) => setOverrides(prev => { const n = { ...prev }; delete n[i]; return n; });
-
-  const handleSubmit = () => {
-    if (!dueDate) return setErro('Informe a data de vencimento.');
-    if (!fee || Number(fee) <= 0) return setErro('Informe um valor de mensalidade válido.');
-    if (!installments || Number(installments) < 1) return setErro('Informe ao menos 1 parcela.');
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    const campos = lerCamposMatricula(new FormData(e.currentTarget));
+    const problema = validarContrato(campos);
+    if (problema) return setErro(problema);
     setErro('');
-    const installmentDates = Array.from({ length: Number(installments) }, (_, i) => overrides[i] ?? dataParcelaPadrao(dueDate, i));
-    onConfirm({ fee: Number(fee), dueDate, installments: Number(installments), installmentDates });
+    onConfirm(campos);
   };
 
-  const previewEnd = (() => {
-    if (!dueDate || !installments) return null;
-    const d = addMonthsClamped(new Date(dueDate + 'T00:00:00'), Number(installments) - 1);
-    return d.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
-  })();
-
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between p-5 border-b border-slate-100">
-          <div className="flex items-center gap-3">
-            <div className="bg-[#0e48fe] text-white p-2 rounded-lg"><CheckCircle size={18} /></div>
-            <div>
-              <h3 className="font-bold text-slate-800">Confirmar Matrícula</h3>
-              <p className="text-sm text-slate-500">{preCad.nome}</p>
-            </div>
-          </div>
-          <button onClick={onClose} className="p-1 rounded-lg hover:bg-slate-100 text-slate-400"><X size={18} /></button>
-        </div>
-
+    <ModalShell icon={<CheckCircle size={18} />} iconBg="bg-[#0e48fe]" title="Confirmar Matrícula" subtitle={preCad.nome} onClose={onClose}>
+      <form onSubmit={handleSubmit}>
         <div className="p-5 space-y-4">
+          <AvisoCpfExistente duplicados={duplicados} onReativar={onReativarExistente} onDescartar={onDescartar} />
+
           <div className="bg-slate-50 rounded-xl p-3 space-y-1.5 text-sm border border-slate-100">
-            {preCad.celular && <div className="flex gap-2"><span className="text-slate-400 w-24 shrink-0 text-xs">Celular</span><span className="text-slate-700">{preCad.celular}</span></div>}
-            {preCad.email && <div className="flex gap-2"><span className="text-slate-400 w-24 shrink-0 text-xs">Email</span><span className="text-slate-700">{preCad.email}</span></div>}
-            {preCad.formaPagamento && <div className="flex gap-2"><span className="text-slate-400 w-24 shrink-0 text-xs">Pagamento</span><span className="text-slate-700">{preCad.formaPagamento}{preCad.diaVencimento ? ` · Dia ${preCad.diaVencimento}` : ''}</span></div>}
-            {preCad.responsavelNome && <div className="flex gap-2"><span className="text-slate-400 w-24 shrink-0 text-xs">Responsável</span><span className="text-slate-700">{preCad.responsavelNome}</span></div>}
+            {preCad.cpf && <Linha rotulo="CPF" valor={preCad.cpf} />}
+            {preCad.celular && <Linha rotulo="Celular" valor={preCad.celular} />}
+            {preCad.email && <Linha rotulo="Email" valor={preCad.email} />}
+            {preCad.formaPagamento && <Linha rotulo="Pagamento" valor={`${preCad.formaPagamento}${preCad.diaVencimento ? ` · Dia ${preCad.diaVencimento}` : ''}`} />}
+            {preCad.responsavelNome && <Linha rotulo="Responsável" valor={`${preCad.responsavelNome}${preCad.responsavelCpf ? ` · CPF ${preCad.responsavelCpf}` : ''}`} />}
           </div>
-          <p className="text-sm text-slate-600 bg-blue-50 border border-blue-100 rounded-lg px-3 py-2.5">
-            Defina os valores do contrato para gerar as parcelas automaticamente.
-          </p>
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Valor da mensalidade (R$)</label>
-            <input type="number" min="0" step="0.01" value={fee} onChange={e => setFee(e.target.value)} placeholder="Ex: 350.00"
-              className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0e48fe]" />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Vencimento da 1ª parcela</label>
-            <input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)}
-              className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0e48fe]" />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Número de parcelas</label>
-            <input type="number" min="1" max="24" value={installments} onChange={e => setInstallments(e.target.value)}
-              className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0e48fe]" />
-          </div>
-          <ParcelasEditor
-            primeiraData={dueDate}
-            installments={installments}
-            overrides={overrides}
-            onChange={handleChangeData}
-            onReset={handleResetData}
-            focusColor="focus:ring-[#0e48fe]"
-          />
-          {previewEnd && Number(fee) > 0 && (
-            <div className="bg-blue-50 border border-blue-200 rounded-lg px-3 py-2.5 text-sm text-blue-800">
-              <span className="font-semibold">{installments}x</span> de{' '}
-              <span className="font-semibold">R$ {Number(fee).toFixed(2).replace('.', ',')}</span>
-              {' '}— até <span className="font-semibold">{previewEnd}</span>
-            </div>
-          )}
-          {erro && <p className="text-red-500 text-xs">{erro}</p>}
+
+          <CursoBookSelect />
+          <TeacherSelect required />
+          <ContratoFinanceiroFields defaultFee="" defaultDueDate={proximaDataParaDia(preCad.diaVencimento)} />
+
+          {erro && <p role="alert" className="text-red-600 text-sm">{erro}</p>}
         </div>
 
         <div className="flex gap-3 px-5 pb-5">
-          <button onClick={onClose} className="flex-1 py-2 border border-slate-300 rounded-lg text-slate-600 text-sm hover:bg-slate-50 transition-colors">Cancelar</button>
-          <button onClick={handleSubmit} disabled={saving}
+          <button type="button" onClick={onClose} className="flex-1 py-2 border border-slate-300 rounded-lg text-slate-600 text-sm hover:bg-slate-50 transition-colors">Cancelar</button>
+          <button type="submit" disabled={saving || bloqueado}
             className="flex-1 py-2 bg-[#0e48fe] text-white rounded-lg text-sm font-semibold hover:bg-[#0b3ad4] transition-colors disabled:opacity-60 flex items-center justify-center gap-2">
             {saving ? <><Loader2 size={15} className="animate-spin" /> Salvando...</> : <><CheckCircle size={15} /> Confirmar matrícula</>}
           </button>
         </div>
-      </div>
-    </div>
+      </form>
+    </ModalShell>
   );
 }
 
-export function ReativarMatriculaModal({ aluno, onConfirm, onClose, saving }) {
-  const [fee, setFee] = useState(aluno.fee ?? '');
-  const [dueDate, setDueDate] = useState(() => {
-    if (aluno.dueDate) return aluno.dueDate.slice(0, 10);
-    const hoje = new Date();
-    return `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, '0')}-${String(hoje.getDate()).padStart(2, '0')}`;
-  });
-  const [installments, setInstallments] = useState(aluno.installments ?? 12);
-  const [overrides, setOverrides] = useState({});
+const Linha = ({ rotulo, valor }) => (
+  <div className="flex gap-2"><span className="text-slate-400 w-24 shrink-0 text-xs">{rotulo}</span><span className="text-slate-700">{valor}</span></div>
+);
+
+/**
+ * Reativa uma matrícula cancelada: novo contrato financeiro e, se mudou,
+ * curso/professor (quem volta costuma voltar em outro nível).
+ */
+export function ReativarMatriculaModal({ aluno, turmas = [], onConfirm, onClose, saving }) {
   const [erro, setErro] = useState('');
 
-  const handleChangeData = (i, valor) => setOverrides(prev => ({ ...prev, [i]: valor }));
-  const handleResetData = (i) => setOverrides(prev => { const n = { ...prev }; delete n[i]; return n; });
+  // Turmas de onde saiu no cancelamento que ainda existem.
+  const turmasAnteriores = (aluno.turmasNoCancelamento || [])
+    .map((t) => turmas.find((x) => x.id === t.id))
+    .filter(Boolean);
 
-  const handleSubmit = () => {
-    if (!dueDate) return setErro('Informe a data de vencimento.');
-    if (!fee || Number(fee) <= 0) return setErro('Informe um valor de mensalidade válido.');
-    if (!installments || Number(installments) < 1) return setErro('Informe ao menos 1 parcela.');
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    const fd = new FormData(e.currentTarget);
+    const campos = lerCamposMatricula(fd);
+    const problema = validarContrato(campos);
+    if (problema) return setErro(problema);
     setErro('');
-    const installmentDates = Array.from({ length: Number(installments) }, (_, i) => overrides[i] ?? dataParcelaPadrao(dueDate, i));
-    onConfirm({ studentName: aluno.name, fee: Number(fee), dueDate, installments: Number(installments), installmentDates });
+    onConfirm({ ...campos, studentName: aluno.name, voltarTurmaIds: fd.getAll('voltarTurmaIds') });
   };
 
-  const previewEnd = (() => {
-    if (!dueDate || !installments) return null;
-    const d = addMonthsClamped(new Date(dueDate + 'T00:00:00'), Number(installments) - 1);
-    return d.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
-  })();
-
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between p-5 border-b border-slate-100">
-          <div className="flex items-center gap-3">
-            <div className="bg-emerald-500 text-white p-2 rounded-lg"><RotateCcw size={18} /></div>
-            <div>
-              <h3 className="font-bold text-slate-800">Reativar Matrícula</h3>
-              <p className="text-sm text-slate-500">{aluno.name}</p>
-            </div>
-          </div>
-          <button onClick={onClose} className="p-1 rounded-lg hover:bg-slate-100 text-slate-400"><X size={18} /></button>
-        </div>
-
+    <ModalShell icon={<RotateCcw size={18} />} iconBg="bg-emerald-500" title="Reativar Matrícula" subtitle={aluno.name} onClose={onClose}>
+      <form onSubmit={handleSubmit}>
         <div className="p-5 space-y-4">
           <p className="text-sm text-slate-600 bg-slate-50 rounded-lg px-3 py-2.5">
-            Informe as condições do novo contrato. Novas parcelas serão geradas automaticamente.
+            Confira curso e professor e informe o novo contrato. As parcelas serão geradas automaticamente.
           </p>
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Valor da mensalidade (R$)</label>
-            <input type="number" min="0" step="0.01" value={fee} onChange={e => setFee(e.target.value)} placeholder="Ex: 350.00"
-              className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400" />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Vencimento da 1ª parcela</label>
-            <input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)}
-              className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400" />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Número de parcelas</label>
-            <input type="number" min="1" max="24" value={installments} onChange={e => setInstallments(e.target.value)}
-              className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400" />
-          </div>
-          <ParcelasEditor
-            primeiraData={dueDate}
-            installments={installments}
-            overrides={overrides}
-            onChange={handleChangeData}
-            onReset={handleResetData}
-            focusColor="focus:ring-emerald-400"
-          />
-          {previewEnd && Number(fee) > 0 && (
-            <div className="bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2.5 text-sm text-emerald-800">
-              <span className="font-semibold">{installments}x</span> de{' '}
-              <span className="font-semibold">R$ {Number(fee).toFixed(2).replace('.', ',')}</span>
-              {' '}— até <span className="font-semibold">{previewEnd}</span>
-            </div>
+          <CursoBookSelect defaultCurso={aluno.course} defaultBook={aluno.book} />
+          <TeacherSelect defaultValue={aluno.teacher} defaultProfessorId={aluno.professorId} required />
+          {turmasAnteriores.length > 0 && (
+            <fieldset className="border border-slate-200 rounded-lg px-3 py-2.5">
+              <legend className="text-sm font-bold text-slate-600 px-1">Voltar para a turma anterior</legend>
+              {turmasAnteriores.map((t) => {
+                const ocupados = (t.alunosIds || []).length;
+                const lotada = t.maxAlunos && ocupados >= t.maxAlunos;
+                return (
+                  <label key={t.id} className="flex items-center gap-2 text-sm py-1 cursor-pointer">
+                    <input type="checkbox" name="voltarTurmaIds" value={t.id} defaultChecked={!lotada} />
+                    <span>{t.nome} <span className="text-slate-400">· {t.professor} · {ocupados}/{t.maxAlunos || '?'} alunos</span></span>
+                    {lotada && <span className="text-xs font-semibold text-amber-700">lotada</span>}
+                  </label>
+                );
+              })}
+            </fieldset>
           )}
-          {erro && <p className="text-red-500 text-xs">{erro}</p>}
+          <ContratoFinanceiroFields
+            accent="green"
+            defaultFee={aluno.fee ?? ''}
+            defaultDueDate={proximaDataParaDia(aluno.dueDate ? Number(String(aluno.dueDate).slice(8, 10)) : null)}
+            defaultInstallments={aluno.installments ?? 12}
+          />
+          {erro && <p role="alert" className="text-red-600 text-sm">{erro}</p>}
         </div>
 
-        <div className="flex justify-between items-center px-5 pb-5 gap-3">
-          <button onClick={onClose} className="flex-1 py-2 border border-slate-300 rounded-lg text-slate-600 text-sm hover:bg-slate-50 transition-colors">Cancelar</button>
-          <button onClick={handleSubmit} disabled={saving}
+        <div className="flex gap-3 px-5 pb-5">
+          <button type="button" onClick={onClose} className="flex-1 py-2 border border-slate-300 rounded-lg text-slate-600 text-sm hover:bg-slate-50 transition-colors">Cancelar</button>
+          <button type="submit" disabled={saving}
             className="flex-1 py-2 bg-emerald-500 text-white rounded-lg text-sm font-semibold hover:bg-emerald-600 transition-colors disabled:opacity-60 flex items-center justify-center gap-2">
             {saving ? <><Loader2 size={15} className="animate-spin" /> Salvando...</> : <><RotateCcw size={15} /> Reativar</>}
           </button>
         </div>
-      </div>
-    </div>
+      </form>
+    </ModalShell>
+  );
+}
+
+/**
+ * Cancelamento com motivo obrigatório (lista fechada) — serve pra um aluno ou
+ * pra seleção em lote. Substitui o confirm() do navegador.
+ */
+export function CancelarMatriculaModal({ nomes, resumo, onConfirm, onClose, saving }) {
+  const [motivo, setMotivo] = useState('');
+  const [observacao, setObservacao] = useState('');
+  const [manterVencidas, setManterVencidas] = useState(true);
+  const [erro, setErro] = useState('');
+  const varios = nomes.length > 1;
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (!motivo) return setErro('Escolha o motivo do cancelamento.');
+    setErro('');
+    onConfirm({ motivo, observacao: observacao.trim(), manterVencidas });
+  };
+
+  const brl = (v) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+
+  return (
+    <ModalShell
+      icon={<X size={18} />}
+      iconBg="bg-red-500"
+      title={varios ? `Cancelar ${nomes.length} matrículas` : 'Cancelar matrícula'}
+      subtitle={varios ? `${nomes.slice(0, 3).join(', ')}${nomes.length > 3 ? '…' : ''}` : nomes[0]}
+      onClose={onClose}
+    >
+      <form onSubmit={handleSubmit}>
+        <div className="p-5 space-y-4">
+          <ul className="text-sm text-slate-600 bg-slate-50 rounded-lg px-4 py-2.5 space-y-1 list-disc list-inside">
+            <li>
+              {resumo?.turmas?.length
+                ? <>Sai {varios ? 'das turmas' : 'da turma'} <strong>{resumo.turmas.join(', ')}</strong> (vaga liberada, some da chamada).</>
+                : 'Não está em nenhuma turma.'}
+            </li>
+            <li>Parcelas que vencem de hoje em diante são canceladas. Parcelas pagas continuam no histórico.</li>
+          </ul>
+          {resumo?.vencidas > 0 && (
+            <label className="flex items-start gap-2 text-sm bg-amber-50 border border-amber-200 rounded-lg px-3 py-2.5 cursor-pointer">
+              <input type="checkbox" checked={manterVencidas} onChange={(e) => setManterVencidas(e.target.checked)} className="mt-0.5" />
+              <span>
+                Manter em aberto <strong>{resumo.vencidas} parcela(s) vencida(s)</strong> ({brl(resumo.valorVencido)}). O valor continua na inadimplência para cobrança.
+                <span className="block text-xs text-amber-700 mt-0.5">Desmarque só se a dívida foi negociada ou perdoada.</span>
+              </span>
+            </label>
+          )}
+          <div className="flex flex-col">
+            <label htmlFor="cancel-motivo" className="text-sm font-bold text-slate-600 mb-1">Motivo</label>
+            <select id="cancel-motivo" value={motivo} onChange={(e) => setMotivo(e.target.value)} required
+              className="border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-300 bg-white">
+              <option value="">Selecione o motivo</option>
+              {MOTIVOS_CANCELAMENTO.map((m) => <option key={m} value={m}>{m}</option>)}
+            </select>
+          </div>
+          <div className="flex flex-col">
+            <label htmlFor="cancel-obs" className="text-sm font-bold text-slate-600 mb-1">Observação (opcional)</label>
+            <textarea id="cancel-obs" rows={2} value={observacao} onChange={(e) => setObservacao(e.target.value)}
+              className="border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-300" />
+          </div>
+          {erro && <p role="alert" className="text-red-600 text-sm">{erro}</p>}
+        </div>
+        <div className="flex gap-3 px-5 pb-5">
+          <button type="button" onClick={onClose} className="flex-1 py-2 border border-slate-300 rounded-lg text-slate-600 text-sm hover:bg-slate-50 transition-colors">Voltar</button>
+          <button type="submit" disabled={saving}
+            className="flex-1 py-2 bg-red-500 text-white rounded-lg text-sm font-semibold hover:bg-red-600 transition-colors disabled:opacity-60 flex items-center justify-center gap-2">
+            {saving ? <><Loader2 size={15} className="animate-spin" /> Cancelando...</> : 'Cancelar matrícula'}
+          </button>
+        </div>
+      </form>
+    </ModalShell>
   );
 }

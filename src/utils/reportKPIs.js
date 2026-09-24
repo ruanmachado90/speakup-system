@@ -357,10 +357,27 @@ export function custoProfessorTurma(turma, params = PARAMETROS_PADRAO) {
   return horas * custoHoraAula(params);
 }
 
+/**
+ * Alunos ativos (no instante de `ativosById`) que eram da turma. Além de
+ * `alunosIds` (quem está na turma hoje), conta quem saiu dela ao cancelar
+ * (`turmasNoCancelamento`) mas ainda estava ativo naquele mês — senão o
+ * relatório de um mês passado perde o aluno quando ele cancela depois.
+ */
+function membrosAtivosDaTurma(turma, ativosById) {
+  const ids = new Set(
+    (Array.isArray(turma.alunosIds) ? turma.alunosIds : []).map((m) => (m && typeof m === 'object' ? m.id : m))
+  );
+  const membros = [];
+  ativosById.forEach((aluno, id) => {
+    const saiuDestaTurma = (aluno.turmasNoCancelamento || []).some((t) => t.id === turma.id);
+    if (ids.has(id) || saiuDestaTurma) membros.push(aluno);
+  });
+  return membros;
+}
+
 /** Nº de alunos ativos matriculados numa turma. */
 function alunosAtivosDaTurma(turma, ativosById) {
-  const ids = Array.isArray(turma.alunosIds) ? turma.alunosIds : [];
-  return ids.filter((id) => ativosById.has(id)).length;
+  return membrosAtivosDaTurma(turma, ativosById).length;
 }
 
 /** Taxa de ocupação (%) de uma turma = matriculados ativos ÷ capacidade. */
@@ -382,10 +399,7 @@ export function detalhamentoPorTurma(turmas = [], students = [], mes, ano, param
     const prof = (t.professor || '—').trim();
     const matriculados = alunosAtivosDaTurma(t, ativosById);
     const cap = num(t.maxAlunos);
-    const receita = (Array.isArray(t.alunosIds) ? t.alunosIds : [])
-      .map((id) => ativosById.get(id))
-      .filter(Boolean)
-      .reduce((s, a) => s + num(a.fee), 0);
+    const receita = membrosAtivosDaTurma(t, ativosById).reduce((s, a) => s + num(a.fee), 0);
     const custoProf = custoProfessorTurma(t, params);
     return {
       id: t.id,

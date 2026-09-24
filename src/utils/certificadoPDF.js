@@ -23,7 +23,6 @@ const COR = {
   tinta: '#101214',
   mudo: '#5B6169',
   azul: '#0E48FE',
-  azulEscuro: '#0A2FAB',
   azulFaixa: '#EEF2FF',
   azulLinha: '#B9C8FF',
   roseta: '#E9EEFD',
@@ -397,7 +396,7 @@ export async function montarCertificadoPDF(certificado) {
   p.fonte('corpo', 15).cor(COR.mudo);
   p.centro('This is to certify that', 80);
 
-  p.fonte('nome', 38).cor(COR.azulEscuro);
+  p.fonte('nome', 38).cor(COR.azul);
   p.caber(certificado.nome, 215, 38, 20);
   p.centro(certificado.nome, 98);
   separador(p, 104.5, 78);

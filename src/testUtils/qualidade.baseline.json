@@ -1,6 +1,7 @@
 {
   "hex": {
-    "src/App.jsx": 11,
+    "src/App.jsx": 3,
+    "src/components/auth/RequireAuth.jsx": 1,
     "src/components/charts/DonutChart.jsx": 12,
     "src/components/charts/ExpenseEvolutionChart.jsx": 7,
     "src/components/charts/PaymentMethodChart.jsx": 12,
@@ -9,6 +10,7 @@
     "src/components/FrequenciaAlunoModal.jsx": 64,
     "src/components/HistoricoAulas.jsx": 22,
     "src/components/navigation/Nav.jsx": 1,
+    "src/components/notas/BoletimNotasModal.jsx": 66,
     "src/components/professor/PageLoading.jsx": 1,
     "src/components/professor/ProfessorRelatorio.jsx": 43,
     "src/components/professor/RankingTarefas.jsx": 17,
@@ -26,10 +28,11 @@
     "src/pages/HistoricoPage.jsx": 12,
     "src/pages/Leads.jsx": 1,
     "src/pages/LoginPage.jsx": 6,
-    "src/pages/Notas.jsx": 114,
+    "src/pages/Notas.jsx": 48,
     "src/pages/NotasParciais.jsx": 3,
     "src/pages/PaymentLink.jsx": 12,
     "src/pages/ProfessorDashboard.jsx": 9,
+    "src/pages/ProfessoresAdmin.jsx": 5,
     "src/pages/ProfessorHome.jsx": 13,
     "src/pages/ProfessorLoginPage.jsx": 2,
     "src/pages/ProfessorWikiPage.jsx": 3,
@@ -52,11 +55,10 @@
     "src/utils/timbre.js": 9
   },
   "linhas": {
-    "src/App.jsx": 1338,
+    "src/App.jsx": 840,
     "src/pages/AIManager.jsx": 638,
     "src/pages/AulasAdmin.jsx": 698,
     "src/pages/Finance.jsx": 979,
-    "src/pages/Notas.jsx": 1080,
     "src/pages/ProfessorDashboard.jsx": 1869,
     "src/pages/Students.jsx": 1040,
     "src/pages/Turmas.jsx": 694,

@@ -83,7 +83,7 @@ const PaymentLink = () => {
       <div className="min-h-screen bg-gradient-to-br from-[#eaf0ff] to-[#c7d6ff] flex items-center justify-center p-3 sm:p-4">
         <div className="bg-white rounded-lg shadow-xl p-6 sm:p-8 max-w-md w-full">
           <div className="flex flex-col items-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2" style={{ borderColor: '#eaf0ff', borderBottomColor: '#0e48fe' }}></div>
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2" style={{ borderColor: '#eaf0ff', borderBottomColor: 'var(--su-blue)' }}></div>
             <p className="mt-4 text-gray-600 text-sm sm:text-base">Carregando informações de pagamento...</p>
           </div>
         </div>
@@ -109,14 +109,14 @@ const PaymentLink = () => {
     <div className="min-h-screen bg-gradient-to-br from-[#eaf0ff] to-[#c7d6ff] flex items-center justify-center p-2 sm:p-4">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md my-2 sm:my-0 border border-[#eaf0ff]">
         {/* Logo e título */}
-        <div className="flex flex-col items-center justify-center" style={{ background: '#0e48fe', borderTopLeftRadius: '1rem', borderTopRightRadius: '1rem', padding: '2rem 0 0 0' }}>
+        <div className="flex flex-col items-center justify-center" style={{ background: 'var(--su-blue)', borderTopLeftRadius: '1rem', borderTopRightRadius: '1rem', padding: '2rem 0 0 0' }}>
           <img 
             src="https://www.speakupcataguases.com/wp-content/uploads/2025/11/logo-speakup-brancal-1.png" 
             alt="SpeakUp English School" 
             className="h-10 sm:h-14 w-auto mb-2 drop-shadow-lg"
           />
           {/* Linha separadora laranja */}
-          <div style={{ height: '5px', width: '100%', background: '#ffae1e', border: 'none', margin: 0, marginTop: '1rem' }} />
+          <div style={{ height: '5px', width: '100%', background: 'var(--su-yellow)', border: 'none', margin: 0, marginTop: '1rem' }} />
         </div>
 
         <div className="p-4 sm:p-6 md:p-8">

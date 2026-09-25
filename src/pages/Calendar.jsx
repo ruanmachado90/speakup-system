@@ -282,11 +282,11 @@ export default function Calendar() {
                   `}
                   style={holiday && !isToday ? {
                     backgroundColor: '#fce7f0',
-                    borderColor: '#f30961'
-                  } : isToday ? { backgroundColor: '#0e48fe' } : recoveryPeriod && !isToday ? {
+                    borderColor: 'var(--su-pink)'
+                  } : isToday ? { backgroundColor: 'var(--su-blue)' } : recoveryPeriod && !isToday ? {
                     backgroundColor: '#e6f2ff'
                   } : examWeek && !isToday ? {
-                    backgroundColor: '#ffae1e'
+                    backgroundColor: 'var(--su-yellow)'
                   } : schoolBreakDay && !isToday ? {
                     backgroundColor: '#e2e8f0'
                   } : {}}
@@ -295,18 +295,18 @@ export default function Calendar() {
                   {day && (
                     <>
                       <span className={`text-lg font-bold ${isToday ? 'text-white' : ''}`}
-                            style={holiday && !isToday ? { color: '#f30961' } : recoveryPeriod && !isToday ? { color: '#0e48fe' } : examWeek && !isToday ? { color: '#b8860b' } : schoolBreakDay && !isToday ? { color: '#64748b' } : schoolEvent && !isToday ? { color: '#0e48fe' } : {}}>
+                            style={holiday && !isToday ? { color: 'var(--su-pink)' } : recoveryPeriod && !isToday ? { color: 'var(--su-blue)' } : examWeek && !isToday ? { color: '#b8860b' } : schoolBreakDay && !isToday ? { color: '#64748b' } : schoolEvent && !isToday ? { color: 'var(--su-blue)' } : {}}>
                         {day}
                       </span>
                       {holiday && (
                         <div className={`text-[10px] text-center mt-1 leading-tight w-full ${isToday ? 'text-white' : ''}`}
-                             style={!isToday ? { color: '#f30961' } : {}}>
+                             style={!isToday ? { color: 'var(--su-pink)' } : {}}>
                           {holiday.name}
                         </div>
                       )}
                       {recoveryPeriod && !holiday && (
                         <div className={`text-[10px] text-center mt-1 leading-tight w-full font-semibold ${isToday ? 'text-white' : ''}`}
-                             style={!isToday ? { color: '#0e48fe' } : {}}>
+                             style={!isToday ? { color: 'var(--su-blue)' } : {}}>
                           {recoveryPeriod.name}
                         </div>
                       )}
@@ -324,7 +324,7 @@ export default function Calendar() {
                       )}
                       {schoolEvent && !holiday && !examWeek && !recoveryPeriod && (
                         <div className={`text-[10px] text-center mt-1 leading-tight w-full font-semibold ${isToday ? 'text-white' : ''}`}
-                             style={!isToday ? { color: '#0e48fe' } : {}}>
+                             style={!isToday ? { color: 'var(--su-blue)' } : {}}>
                           {schoolEvent.name}
                         </div>
                       )}
@@ -419,11 +419,11 @@ export default function Calendar() {
                             ${schoolBreakDay && !isToday && !holiday && !examWeek && !recoveryPeriod ? 'bg-slate-200' : ''}
                             ${!isToday && !holiday && !schoolBreakDay && !schoolEvent && !examWeek && !recoveryPeriod && day ? 'hover:bg-slate-100' : ''}
                           `}
-                          style={holiday && !isToday ? { backgroundColor: '#fce7f0', color: '#f30961' } : 
-                                recoveryPeriod && !isToday && !holiday ? { backgroundColor: '#e6f2ff', color: '#0e48fe' } : 
-                                examWeek && !isToday && !holiday ? { backgroundColor: '#ffae1e', color: '#b8860b' } : 
+                          style={holiday && !isToday ? { backgroundColor: '#fce7f0', color: 'var(--su-pink)' } : 
+                                recoveryPeriod && !isToday && !holiday ? { backgroundColor: '#e6f2ff', color: 'var(--su-blue)' } : 
+                                examWeek && !isToday && !holiday ? { backgroundColor: 'var(--su-yellow)', color: '#b8860b' } : 
                                 schoolBreakDay && !isToday && !holiday ? { backgroundColor: '#e2e8f0', color: '#64748b' } : 
-                                schoolEvent && !isToday ? { color: '#0e48fe' } : {}}
+                                schoolEvent && !isToday ? { color: 'var(--su-blue)' } : {}}
                           title={holiday ? holiday.name : recoveryPeriod ? recoveryPeriod.name : examWeek ? examWeek.name : schoolBreakDay ? schoolBreakDay.name : schoolEvent ? schoolEvent.name : ''}
                         >
                           {day}
@@ -438,7 +438,7 @@ export default function Calendar() {
                       {monthHolidaysList.map((holiday, idx) => (
                         <div key={idx} className="flex items-start gap-1.5">
                           <div className="flex-shrink-0 w-4 h-4 rounded text-[9px] font-bold flex items-center justify-center"
-                               style={{ backgroundColor: '#fce7f0', color: '#f30961' }}>
+                               style={{ backgroundColor: '#fce7f0', color: 'var(--su-pink)' }}>
                             {holiday.day}
                           </div>
                           <div className="text-[10px] text-slate-700 leading-tight">
@@ -470,7 +470,7 @@ export default function Calendar() {
                     <div className={`${monthHolidaysList.length > 0 || monthSchoolBreakList.length > 0 ? '' : 'border-t'} pt-2 space-y-1`}>
                       {monthExamWeeksList.map((ew, idx) => (
                         <div key={idx} className="flex items-start gap-1.5">
-                          <div className="flex-shrink-0 w-4 h-4 rounded text-[9px] font-bold flex items-center justify-center text-white" style={{ backgroundColor: '#ffae1e' }}>
+                          <div className="flex-shrink-0 w-4 h-4 rounded text-[9px] font-bold flex items-center justify-center text-white" style={{ backgroundColor: 'var(--su-yellow)' }}>
                             {ew.startDay}
                           </div>
                           <div className="text-[10px] text-slate-700 leading-tight font-semibold">
@@ -486,7 +486,7 @@ export default function Calendar() {
                     <div className={`${monthHolidaysList.length > 0 || monthSchoolBreakList.length > 0 || monthExamWeeksList.length > 0 ? '' : 'border-t'} pt-2 space-y-1`}>
                       {monthRecoveryPeriodsList.map((rp, idx) => (
                         <div key={idx} className="flex items-start gap-1.5">
-                          <div className="flex-shrink-0 w-4 h-4 rounded text-[9px] font-bold flex items-center justify-center" style={{ backgroundColor: '#e6f2ff', color: '#0e48fe' }}>
+                          <div className="flex-shrink-0 w-4 h-4 rounded text-[9px] font-bold flex items-center justify-center" style={{ backgroundColor: '#e6f2ff', color: 'var(--su-blue)' }}>
                             {rp.startDay}
                           </div>
                           <div className="text-[10px] text-slate-700 leading-tight font-semibold">

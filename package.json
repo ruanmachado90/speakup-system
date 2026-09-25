@@ -11,7 +11,8 @@
     "check-deploy": "node scripts/check-deploy.js",
     "migrate-professores": "node scripts/migrate-professores.mjs",
     "add-professor": "node scripts/add-professor.mjs",
-    "test": "jest"
+    "test": "jest",
+    "qualidade:baseline": "node scripts/qualidade-baseline.cjs"
   },
   "dependencies": {
     "@emailjs/browser": "^4.4.1",

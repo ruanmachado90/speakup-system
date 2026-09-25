@@ -55,13 +55,13 @@ function ModalAddAvaliacao({ tipo, onSave, onClose }) {
               value={pontos}
               onChange={e => setPontos(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter') handleSave(); }}
-              className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-[#0e48fe] focus:ring-1 focus:ring-[#0e48fe] transition-all"
+              className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-all"
             />
           </div>
           {err && <p className="text-red-500 text-xs">{err}</p>}
           <div className="flex gap-2 justify-end">
             <button onClick={onClose} className="px-4 py-2 bg-slate-100 text-slate-700 border border-slate-200 rounded-xl text-sm font-semibold hover:bg-slate-200 transition-all">Cancelar</button>
-            <button onClick={handleSave} className="px-4 py-2 bg-[#0e48fe] text-white rounded-xl text-sm font-semibold hover:bg-[#0b3ad4] transition-all flex items-center gap-1.5"><Plus size={13} /> Adicionar</button>
+            <button onClick={handleSave} className="px-4 py-2 bg-accent text-white rounded-xl text-sm font-semibold hover:bg-accent-hover transition-all flex items-center gap-1.5"><Plus size={13} /> Adicionar</button>
           </div>
         </div>
       </div>
@@ -688,7 +688,7 @@ export function NotasView({ professorSlug, professorNome, turmas, alunosPorTurma
 
       {/* Header */}
       <div className="rounded-2xl overflow-hidden shadow-sm">
-        <div className="bg-gradient-to-r from-[#0e48fe] to-[#0b3ad4] px-6 py-4">
+        <div className="bg-gradient-to-r from-accent to-accent-hover px-6 py-4">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-3">
               <button
@@ -718,9 +718,9 @@ export function NotasView({ professorSlug, professorNome, turmas, alunosPorTurma
               <label className="text-white/80 text-xs font-semibold block mb-1.5 uppercase tracking-wide">Turma</label>
               <select value={selectedTurma} onChange={e => setSelectedTurma(e.target.value)}
                 className="w-full bg-white/15 border border-white/30 rounded-xl px-3 py-2 text-white text-sm font-semibold outline-none cursor-pointer focus:border-white/60 transition-all">
-                <option value="" className="bg-[#0b3ad4]">— Selecione a turma —</option>
+                <option value="" className="bg-accent-hover">— Selecione a turma —</option>
                 {turmas.map(t => (
-                  <option key={t.id} value={t.id} className="bg-[#0b3ad4]">{t.nome}</option>
+                  <option key={t.id} value={t.id} className="bg-accent-hover">{t.nome}</option>
                 ))}
               </select>
             </div>
@@ -729,7 +729,7 @@ export function NotasView({ professorSlug, professorNome, turmas, alunosPorTurma
               <select value={semestre} onChange={e => setSemestre(e.target.value)}
                 className="w-full bg-white/15 border border-white/30 rounded-xl px-3 py-2 text-white text-sm font-semibold outline-none cursor-pointer focus:border-white/60 transition-all">
                 {semestres.map(s => (
-                  <option key={s} value={s} className="bg-[#0b3ad4]">{semestreLabel(s)}</option>
+                  <option key={s} value={s} className="bg-accent-hover">{semestreLabel(s)}</option>
                 ))}
               </select>
             </div>
@@ -757,7 +757,7 @@ export function NotasView({ professorSlug, professorNome, turmas, alunosPorTurma
           ))}
           <div className="bg-white rounded-xl px-4 py-2.5 shadow-sm border border-slate-100 flex items-center gap-2">
             <span className="text-slate-500 text-xs">Total</span>
-            <span className="bg-[#0e48fe] text-white rounded px-2 py-0.5 text-xs font-bold">100 pts</span>
+            <span className="bg-accent text-white rounded px-2 py-0.5 text-xs font-bold">100 pts</span>
           </div>
         </div>
       )}

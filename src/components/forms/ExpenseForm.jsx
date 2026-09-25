@@ -47,7 +47,7 @@ export const ExpenseForm = ({
             name="category" 
             value={expenseCategorySelect} 
             onChange={e=>setExpenseCategorySelect(e.target.value)} 
-            className="w-full border rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#0e48fe] transition-all"
+            className="w-full border rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-accent transition-all"
             required
           >
             <option value="">Selecione uma categoria</option>
@@ -65,7 +65,7 @@ export const ExpenseForm = ({
               name="categoryOther" 
               defaultValue={modal.data?.category && !['Aluguel', 'Materiais', 'Salários', 'Serviços', 'Marketing', 'Transporte', 'Tecnologia'].includes(modal.data.category) ? modal.data.category : expenseCategoryOther} 
               placeholder="Descreva a categoria" 
-              className="w-full border rounded-xl px-4 py-3 mt-2 focus:outline-none focus:ring-2 focus:ring-[#0e48fe] transition-all" 
+              className="w-full border rounded-xl px-4 py-3 mt-2 focus:outline-none focus:ring-2 focus:ring-accent transition-all" 
               required
             />
           )}
@@ -97,7 +97,7 @@ export const ExpenseForm = ({
           <select
             name="paymentMethod"
             defaultValue={modal.data?.paymentMethod || ''}
-            className="w-full border rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#0e48fe] transition-all"
+            className="w-full border rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-accent transition-all"
             required
           >
             <option value="">Selecione a forma de pagamento</option>
@@ -118,7 +118,7 @@ export const ExpenseForm = ({
           <select
             name="tipoSaida"
             defaultValue={modal.data?.tipoSaida || 'operacional'}
-            className="w-full border rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#0e48fe] transition-all"
+            className="w-full border rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-accent transition-all"
             required
           >
             <option value="operacional">Operacional (custo do negócio)</option>
@@ -136,7 +136,7 @@ export const ExpenseForm = ({
             type="checkbox"
             name="recorrente"
             defaultChecked={!!modal.data?.recorrente}
-            className="mt-0.5 h-4 w-4 rounded border-slate-300 text-[#0e48fe] focus:ring-[#0e48fe]"
+            className="mt-0.5 h-4 w-4 rounded border-slate-300 text-accent focus:ring-accent"
           />
           <span>
             <span className="block text-sm font-semibold text-slate-700">Despesa recorrente (custo fixo)</span>
@@ -162,7 +162,7 @@ export const ExpenseForm = ({
           className={`w-full py-3 rounded-xl font-bold transition-all ${
             expenseSaving
               ? "bg-slate-300 text-slate-600 cursor-not-allowed" 
-              : "bg-[#0e48fe] text-white hover:bg-[#0b3ad4] active:scale-95"
+              : "bg-accent text-white hover:bg-accent-hover active:scale-95"
           }`}
         >
           {expenseSaving ? "Salvando..." : isEditing ? "Atualizar Despesa" : "Salvar Despesa"}

@@ -543,15 +543,15 @@ export const Students = ({
       {teacherFilter !== 'all' && (
         <Card className="mb-4">
           <div className="flex items-center gap-4 p-4 bg-gradient-to-r from-blue-50 to-blue-100 rounded-lg">
-            <div className="p-3 bg-[#0e48fe] rounded-full">
+            <div className="p-3 bg-accent rounded-full">
               <School size={32} className="text-white" />
             </div>
             <div className="flex-1">
               <h3 className="text-sm font-semibold text-gray-600 mb-1">Professor(a) - {dashboardRange === 'month' ? 'Mês Atual' : 'Ano Atual'}</h3>
-              <p className="text-2xl font-bold text-[#0e48fe] mb-1">{nomeProfessorFiltro}</p>
+              <p className="text-2xl font-bold text-accent mb-1">{nomeProfessorFiltro}</p>
               <div className="flex items-center gap-4 text-sm">
                 <span className="text-gray-700">
-                  <strong className="text-[#0e48fe] text-xl">{teacherFilteredStats.count}</strong> aluno{teacherFilteredStats.count !== 1 ? 's' : ''} com pagamento{teacherFilteredStats.count !== 1 ? 's' : ''} no período
+                  <strong className="text-accent text-xl">{teacherFilteredStats.count}</strong> aluno{teacherFilteredStats.count !== 1 ? 's' : ''} com pagamento{teacherFilteredStats.count !== 1 ? 's' : ''} no período
                 </span>
                 <span className="text-gray-400">"¢</span>
                 <span className="text-gray-700">
@@ -572,7 +572,7 @@ export const Students = ({
               onClick={() => setStatusFilter('all')}
               className={`px-4 py-2 rounded-full font-bold text-xs ${
                 statusFilter === 'all' 
-                  ? 'bg-[#0e48fe] text-white' 
+                  ? 'bg-accent text-white' 
                   : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
               }`}
             >
@@ -690,7 +690,7 @@ export const Students = ({
             <>
               <button 
                 onClick={handleBulkPayment}
-                className="bg-[#0e48fe] text-white px-4 py-2 rounded-full font-bold flex gap-2 items-center hover:bg-blue-700"
+                className="bg-accent text-white px-4 py-2 rounded-full font-bold flex gap-2 items-center hover:bg-blue-700"
               >
                 Dar Baixa ({selectedStudents.length})
               </button>
@@ -775,7 +775,7 @@ export const Students = ({
               <button
                 onClick={() => setConfirmarMatricula(s)}
                 title="Confirmar matrícula"
-                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#0e48fe] text-white text-xs font-semibold hover:bg-[#0b3ad4] transition-colors"
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-accent text-white text-xs font-semibold hover:bg-accent-hover transition-colors"
               >
                 <CheckCircle size={12} /> Confirmar
               </button>
@@ -786,7 +786,7 @@ export const Students = ({
             <td key="select" className="px-6 py-3">
               <button onClick={() => toggleStudent(s.id)}>
                 {selectedStudents.includes(s.id) ?
-                  <CheckSquare size={18} className="text-[#0e48fe]"/> :
+                  <CheckSquare size={18} className="text-accent"/> :
                   <Square size={18} className="text-slate-300"/>
                 }
               </button>
@@ -805,7 +805,7 @@ export const Students = ({
               )}
               {alunoTurmaMap.has(s.id) && (
                 <div className="mt-1">
-                  <span className="inline-flex items-center gap-1 bg-[#0e48fe]/8 text-[#0e48fe] text-[10px] font-semibold px-2 py-0.5 rounded-full border border-[#0e48fe]/20">
+                  <span className="inline-flex items-center gap-1 bg-[#0e48fe]/8 text-accent text-[10px] font-semibold px-2 py-0.5 rounded-full border border-[#0e48fe]/20">
                     <GraduationCap size={10} />
                     {alunoTurmaMap.get(s.id).nome || alunoTurmaMap.get(s.id).name || 'Turma'}
                   </span>

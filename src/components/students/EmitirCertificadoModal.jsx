@@ -75,7 +75,7 @@ export default function EmitirCertificadoModal({ aluno, turma, onClose, toastMsg
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between p-5 border-b border-slate-100">
           <div className="flex items-center gap-3">
-            <div className="bg-[#0e48fe] text-white p-2 rounded-lg"><Award size={18} /></div>
+            <div className="bg-accent text-white p-2 rounded-lg"><Award size={18} /></div>
             <div>
               <h3 className="font-bold text-slate-800">Emitir certificado</h3>
               <p className="text-sm text-slate-500">{aluno.name}</p>
@@ -94,7 +94,7 @@ export default function EmitirCertificadoModal({ aluno, turma, onClose, toastMsg
           <div className="flex flex-col">
             <label htmlFor="cert-nivel" className="text-sm font-bold text-slate-600 mb-1">Nível</label>
             <select id="cert-nivel" value={nivel} onChange={(e) => trocarNivel(e.target.value)}
-              className="border border-slate-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-[#0e48fe]">
+              className="border border-slate-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-accent">
               <option value="">{nivelInicial ? 'Outro (digitar título)' : 'Selecione o nível'}</option>
               {Object.keys(NIVEIS_CERTIFICADO).map((n) => <option key={n} value={n}>{n}</option>)}
             </select>
@@ -108,19 +108,19 @@ export default function EmitirCertificadoModal({ aluno, turma, onClose, toastMsg
           <div className="flex flex-col">
             <label htmlFor="cert-titulo" className="text-sm font-bold text-slate-600 mb-1">Título no certificado</label>
             <input id="cert-titulo" value={titulo} onChange={(e) => setTitulo(e.target.value)} required maxLength={120}
-              className="border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#0e48fe]" />
+              className="border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-accent" />
           </div>
 
           <div className="flex flex-col">
             <label htmlFor="cert-data" className="text-sm font-bold text-slate-600 mb-1">Data de emissão</label>
             <input id="cert-data" type="date" value={data} onChange={(e) => setData(e.target.value)} required
-              className="border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#0e48fe]" />
+              className="border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-accent" />
           </div>
 
           {erro && <p role="alert" className="text-red-600 text-sm">{erro}</p>}
 
           <button type="submit" disabled={salvando || emitidos === null}
-            className="w-full py-2.5 bg-[#0e48fe] text-white rounded-lg font-semibold hover:bg-[#0b3ad4] transition-colors disabled:opacity-60 flex items-center justify-center gap-2">
+            className="w-full py-2.5 bg-accent text-white rounded-lg font-semibold hover:bg-accent-hover transition-colors disabled:opacity-60 flex items-center justify-center gap-2">
             {salvando ? <><Loader2 size={16} className="animate-spin" /> Emitindo...</> : <><Award size={16} /> Emitir e baixar PDF</>}
           </button>
         </form>

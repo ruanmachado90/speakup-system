@@ -573,7 +573,7 @@ export default function ProfessorDashboard() {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#0e48fe] mx-auto mb-4"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-accent mx-auto mb-4"></div>
           <p className="text-slate-600">Carregando...</p>
         </div>
       </div>
@@ -591,7 +591,7 @@ export default function ProfessorDashboard() {
           </p>
           <button
             onClick={() => navigate('/')}
-            className="px-4 py-2 bg-[#0e48fe] text-white rounded-lg hover:bg-[#0b3ad4]"
+            className="px-4 py-2 bg-accent text-white rounded-lg hover:bg-accent-hover"
           >
             Voltar ao início
           </button>
@@ -639,7 +639,7 @@ export default function ProfessorDashboard() {
           {sidebarMode === 'open' && (
             <button
               onClick={() => setSidebarMode('mini')}
-              className="p-1.5 text-slate-400 hover:text-[#0e48fe] hover:bg-slate-50 rounded-lg transition-colors"
+              className="p-1.5 text-slate-400 hover:text-accent hover:bg-slate-50 rounded-lg transition-colors"
               title="Recolher sidebar"
             >
               <ChevronLeft size={18} />
@@ -703,7 +703,7 @@ export default function ProfessorDashboard() {
         <div className="flex-shrink-0 border-t border-slate-100 py-3">
           {sidebarMode === 'mini' ? (
             <div className="flex flex-col items-center gap-2">
-              <div className="w-9 h-9 rounded-full bg-[#0e48fe]/10 flex items-center justify-center text-sm font-bold text-[#0e48fe]" title={professorNomeReal}>
+              <div className="w-9 h-9 rounded-full bg-[#0e48fe]/10 flex items-center justify-center text-sm font-bold text-accent" title={professorNomeReal}>
                 {professorPrimeiroNome[0]?.toUpperCase()}
               </div>
               <button
@@ -717,7 +717,7 @@ export default function ProfessorDashboard() {
           ) : (
             <div className="px-4">
               <div className="flex items-center gap-3 mb-2">
-                <div className="w-9 h-9 rounded-full bg-[#0e48fe]/10 flex items-center justify-center text-sm font-bold text-[#0e48fe] flex-shrink-0">
+                <div className="w-9 h-9 rounded-full bg-[#0e48fe]/10 flex items-center justify-center text-sm font-bold text-accent flex-shrink-0">
                   {professorPrimeiroNome[0]?.toUpperCase()}
                 </div>
                 <div className="flex-1 min-w-0">
@@ -873,7 +873,7 @@ export default function ProfessorDashboard() {
         <Card className="mb-8">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
-              <Clock size={24} className="text-[#0e48fe]" />
+              <Clock size={24} className="text-accent" />
               Aulas de Hoje
             </h2>
           </div>
@@ -885,10 +885,10 @@ export default function ProfessorDashboard() {
               return (
                 <div
                   key={turma.id}
-                  className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-4 bg-slate-50 rounded-lg border border-slate-200 hover:border-[#0e48fe] transition-all"
+                  className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-4 bg-slate-50 rounded-lg border border-slate-200 hover:border-accent transition-all"
                 >
                   <div className="flex items-center gap-4">
-                    <div className="bg-[#0e48fe] text-white rounded-lg p-3">
+                    <div className="bg-accent text-white rounded-lg p-3">
                       <BookOpen size={24} />
                     </div>
                     <div>
@@ -912,7 +912,7 @@ export default function ProfessorDashboard() {
                           setSelectedDate(null); // hoje
                           setShowRegistroAula(true);
                         }}
-                        className="flex items-center gap-2 px-4 py-2 bg-[#0e48fe] text-white rounded-lg hover:bg-[#0b3ad4] transition-all"
+                        className="flex items-center gap-2 px-4 py-2 bg-accent text-white rounded-lg hover:bg-accent-hover transition-all"
                       >
                         <Plus size={18} />
                         Registrar Aula
@@ -930,13 +930,13 @@ export default function ProfessorDashboard() {
       <div className="mb-8">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
-            <Calendar size={22} className="text-[#0e48fe]" />
+            <Calendar size={22} className="text-accent" />
             {semanaOffset === 0 ? 'Agenda da Semana' : semanaOffset === -1 ? 'Semana Passada' : `${Math.abs(semanaOffset)} semanas atrás`}
           </h2>
           <div className="flex items-center gap-2">
             <button
               onClick={() => setSemanaOffset(o => o - 1)}
-              className="p-2 rounded-lg border border-slate-200 hover:border-[#0e48fe] hover:text-[#0e48fe] text-slate-500 transition-all"
+              className="p-2 rounded-lg border border-slate-200 hover:border-accent hover:text-accent text-slate-500 transition-all"
               title="Semana anterior"
             >
               ←
@@ -944,7 +944,7 @@ export default function ProfessorDashboard() {
             {semanaOffset !== 0 && (
               <button
                 onClick={() => setSemanaOffset(0)}
-                className="px-3 py-1.5 text-xs rounded-lg border border-slate-200 hover:border-[#0e48fe] hover:text-[#0e48fe] text-slate-500 transition-all"
+                className="px-3 py-1.5 text-xs rounded-lg border border-slate-200 hover:border-accent hover:text-accent text-slate-500 transition-all"
               >
                 Hoje
               </button>
@@ -952,7 +952,7 @@ export default function ProfessorDashboard() {
             <button
               onClick={() => setSemanaOffset(o => o + 1)}
               disabled={semanaOffset >= 0}
-              className="p-2 rounded-lg border border-slate-200 hover:border-[#0e48fe] hover:text-[#0e48fe] text-slate-500 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+              className="p-2 rounded-lg border border-slate-200 hover:border-accent hover:text-accent text-slate-500 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
               title="Próxima semana"
             >
               →
@@ -968,15 +968,15 @@ export default function ProfessorDashboard() {
                 key={dia}
                 className={`rounded-2xl border p-3 flex flex-col gap-2 min-h-[100px] ${
                   isHoje
-                    ? 'border-[#0e48fe] bg-blue-50 shadow-md'
+                    ? 'border-accent bg-blue-50 shadow-md'
                     : !isFuturo && turmasDia.length > 0 && turmasDia.some(t => !aulas.some(a => a.turmaId === t.id && a.data === dateStr))
                     ? 'border-orange-300 bg-orange-50'
                     : 'border-slate-200 bg-white'
                 }`}
               >
                 <div className="flex items-center justify-between">
-                  <span className={`text-xs font-bold ${isHoje ? 'text-[#0e48fe]' : 'text-slate-500'}`}>{dia}</span>
-                  <span className={`text-xs ${isHoje ? 'text-[#0e48fe] font-semibold' : 'text-slate-400'}`}>{label}</span>
+                  <span className={`text-xs font-bold ${isHoje ? 'text-accent' : 'text-slate-500'}`}>{dia}</span>
+                  <span className={`text-xs ${isHoje ? 'text-accent font-semibold' : 'text-slate-400'}`}>{label}</span>
                 </div>
                 {turmasDia.length === 0 ? (
                   <p className="text-xs text-slate-300 text-center mt-2">—</p>
@@ -999,7 +999,7 @@ export default function ProfessorDashboard() {
                         className={`w-full text-left rounded-xl px-2 py-1.5 text-xs transition-all border ${
                           registrada
                             ? 'bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100'
-                            : 'bg-white border-slate-200 text-slate-700 hover:border-[#0e48fe] hover:bg-blue-50'
+                            : 'bg-white border-slate-200 text-slate-700 hover:border-accent hover:bg-blue-50'
                         }`}
                       >
                         <div className="flex items-center justify-between gap-1">
@@ -1013,7 +1013,7 @@ export default function ProfessorDashboard() {
                 )}
                 {isHoje && turmasDia.length > 0 && (
                   <div className="mt-auto pt-1">
-                    <div className="h-0.5 w-6 bg-[#0e48fe] rounded-full mx-auto opacity-60" />
+                    <div className="h-0.5 w-6 bg-accent rounded-full mx-auto opacity-60" />
                   </div>
                 )}
               </div>
@@ -1040,7 +1040,7 @@ export default function ProfessorDashboard() {
               className="w-full flex items-center justify-between px-5 py-4 hover:bg-slate-50 transition-colors"
             >
               <div className="flex items-center gap-2">
-                <Bell size={20} className="text-[#0e48fe]" />
+                <Bell size={20} className="text-accent" />
                 <h2 className="text-base font-bold text-slate-800">Avisos &amp; Lembretes</h2>
                 {totalAvisos > 0 && (
                   <span className="ml-1 inline-flex items-center justify-center w-5 h-5 bg-red-500 text-white text-xs font-bold rounded-full">
@@ -1070,7 +1070,7 @@ export default function ProfessorDashboard() {
                       {aviso.turmaObj && (
                         <button
                           onClick={() => { setSelectedTurma(aviso.turmaObj); setSelectedDate(aviso.dataPendente || null); setShowRegistroAula(true); }}
-                          className="mt-1.5 text-xs text-[#0e48fe] font-medium hover:underline"
+                          className="mt-1.5 text-xs text-accent font-medium hover:underline"
                         >
                           Registrar agora →
                         </button>
@@ -1127,12 +1127,12 @@ export default function ProfessorDashboard() {
                   value={novoLembrete}
                   onChange={e => setNovoLembrete(e.target.value)}
                   placeholder="Adicionar lembrete... ex: Feriado na sexta, avisar os pais"
-                  className="flex-1 text-sm border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#0e48fe] focus:border-[#0e48fe]"
+                  className="flex-1 text-sm border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent"
                 />
                 <button
                   type="submit"
                   disabled={!novoLembrete.trim()}
-                  className="flex items-center gap-1.5 px-4 py-2 bg-[#0e48fe] text-white rounded-lg text-sm font-medium hover:bg-[#0b3ad4] disabled:opacity-40 transition-colors"
+                  className="flex items-center gap-1.5 px-4 py-2 bg-accent text-white rounded-lg text-sm font-medium hover:bg-accent-hover disabled:opacity-40 transition-colors"
                 >
                   <Send size={14} /> Adicionar
                 </button>
@@ -1206,12 +1206,12 @@ export default function ProfessorDashboard() {
                               value={respostasRecados[r.id] || ''}
                               onChange={e => setRespostasRecados(prev => ({ ...prev, [r.id]: e.target.value }))}
                               onKeyDown={e => e.key === 'Enter' && enviarRespostaRecado(r.id)}
-                              className="flex-1 text-sm border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#0e48fe] bg-white"
+                              className="flex-1 text-sm border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-accent bg-white"
                             />
                             <button
                               onClick={() => enviarRespostaRecado(r.id)}
                               disabled={sendingResposta[r.id] || !respostasRecados[r.id]?.trim()}
-                              className="flex items-center gap-1 px-3 py-2 bg-[#0e48fe] text-white rounded-lg hover:bg-[#0b3ad4] disabled:opacity-40 transition-colors text-sm"
+                              className="flex items-center gap-1 px-3 py-2 bg-accent text-white rounded-lg hover:bg-accent-hover disabled:opacity-40 transition-colors text-sm"
                             >
                               <Send size={14} />
                             </button>
@@ -1271,7 +1271,7 @@ export default function ProfessorDashboard() {
                     setSelectedDate(aviso.dataPendente);
                     setShowRegistroAula(true);
                   }}
-                  className="mt-3 text-sm text-[#0e48fe] hover:underline font-medium"
+                  className="mt-3 text-sm text-accent hover:underline font-medium"
                 >
                   Registrar agora
                 </button>
@@ -1312,7 +1312,7 @@ export default function ProfessorDashboard() {
       <Card>
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
           <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
-            <Users size={24} className="text-[#0e48fe]" />
+            <Users size={24} className="text-accent" />
             Minhas Turmas
             <span className="text-sm font-normal text-slate-400">({turmasFiltradas.length}/{turmas.length})</span>
           </h2>
@@ -1328,7 +1328,7 @@ export default function ProfessorDashboard() {
               placeholder="Buscar turma..."
               value={turmaFiltro.busca}
               onChange={e => setTurmaFiltro(f => ({ ...f, busca: e.target.value }))}
-              className="w-full pl-8 pr-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0e48fe] focus:border-[#0e48fe]"
+              className="w-full pl-8 pr-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent"
             />
           </div>
 
@@ -1336,7 +1336,7 @@ export default function ProfessorDashboard() {
           <select
             value={turmaFiltro.nivel}
             onChange={e => setTurmaFiltro(f => ({ ...f, nivel: e.target.value }))}
-            className="text-sm border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#0e48fe] focus:border-[#0e48fe] bg-white text-slate-700"
+            className="text-sm border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent bg-white text-slate-700"
           >
             <option value="">Todos os níveis</option>
             {niveisUnicos.map(n => <option key={n} value={n}>{n}</option>)}
@@ -1346,7 +1346,7 @@ export default function ProfessorDashboard() {
           <select
             value={turmaFiltro.dia}
             onChange={e => setTurmaFiltro(f => ({ ...f, dia: e.target.value }))}
-            className="text-sm border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#0e48fe] focus:border-[#0e48fe] bg-white text-slate-700"
+            className="text-sm border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent bg-white text-slate-700"
           >
             <option value="">Todos os dias</option>
             {diasUnicos.map(d => <option key={d} value={d}>{d}</option>)}
@@ -1356,7 +1356,7 @@ export default function ProfessorDashboard() {
           <select
             value={turmaFiltro.ordenar}
             onChange={e => setTurmaFiltro(f => ({ ...f, ordenar: e.target.value }))}
-            className="text-sm border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#0e48fe] focus:border-[#0e48fe] bg-white text-slate-700"
+            className="text-sm border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent bg-white text-slate-700"
           >
             <option value="nome">Ordenar: Nome A-Z</option>
             <option value="nivel">Ordenar: Nível</option>
@@ -1442,7 +1442,7 @@ export default function ProfessorDashboard() {
                         </span>
                         <div className="w-16 bg-slate-200 rounded-full h-1">
                           <div
-                            className={`h-1 rounded-full ${aulasProgress >= 100 ? 'bg-emerald-500' : 'bg-[#0e48fe]'}`}
+                            className={`h-1 rounded-full ${aulasProgress >= 100 ? 'bg-emerald-500' : 'bg-accent'}`}
                             style={{ width: `${aulasProgress}%` }}
                           />
                         </div>
@@ -1484,7 +1484,7 @@ export default function ProfessorDashboard() {
                       <div className="flex items-center justify-end gap-2 opacity-80 group-hover:opacity-100 transition-opacity">
                         <button
                           onClick={() => { setSelectedTurma(turma); setShowDetalheTurma(true); }}
-                          className="text-xs px-3 py-1.5 border border-slate-300 text-slate-700 rounded-lg hover:border-[#0e48fe] hover:text-[#0e48fe] transition-all"
+                          className="text-xs px-3 py-1.5 border border-slate-300 text-slate-700 rounded-lg hover:border-accent hover:text-accent transition-all"
                         >
                           Ver
                         </button>
@@ -1497,7 +1497,7 @@ export default function ProfessorDashboard() {
                         </button>
                         <button
                           onClick={() => { setSelectedTurma(turma); setSelectedDate(null); setShowRegistroAula(true); }}
-                          className="text-xs px-3 py-1.5 bg-[#0e48fe] text-white rounded-lg hover:bg-[#0b3ad4] transition-all flex items-center gap-1"
+                          className="text-xs px-3 py-1.5 bg-accent text-white rounded-lg hover:bg-accent-hover transition-all flex items-center gap-1"
                         >
                           <Plus size={12} />
                           Registrar
@@ -1557,7 +1557,7 @@ export default function ProfessorDashboard() {
               return (
                 <div className="grid grid-cols-3 gap-4 p-6 border-b border-slate-100">
                   <div className="text-center">
-                    <p className="text-2xl font-bold text-[#0e48fe]">
+                    <p className="text-2xl font-bold text-accent">
                       {selectedTurma.alunosIds?.length || selectedTurma.alunosCount || 0}
                     </p>
                     <p className="text-xs text-slate-500">Alunos</p>
@@ -1588,7 +1588,7 @@ export default function ProfessorDashboard() {
             {/* Lista de alunos */}
             <div className="flex-1 overflow-y-auto p-6">
               <h3 className="font-semibold text-slate-700 mb-3 flex items-center gap-2">
-                <Users size={16} className="text-[#0e48fe]" />
+                <Users size={16} className="text-accent" />
                 Alunos da turma
               </h3>
               {(alunosPorTurma[selectedTurma.id] || []).length === 0 ? (
@@ -1604,7 +1604,7 @@ export default function ProfessorDashboard() {
                     return (
                       <div key={aluno.id} className={`flex items-center justify-between p-3 rounded-lg border ${lowFreq ? 'bg-red-50 border-red-200' : 'bg-slate-50 border-transparent'}`}>
                         <div className="flex items-center gap-3">
-                          <div className={`w-8 h-8 text-white rounded-full flex items-center justify-center text-sm font-bold ${lowFreq ? 'bg-red-500' : 'bg-[#0e48fe]'}`}>
+                          <div className={`w-8 h-8 text-white rounded-full flex items-center justify-center text-sm font-bold ${lowFreq ? 'bg-red-500' : 'bg-accent'}`}>
                             {(aluno.nome || aluno.name || '?')[0].toUpperCase()}
                           </div>
                           <div>
@@ -1624,7 +1624,7 @@ export default function ProfessorDashboard() {
                           )}
                           <button
                             onClick={() => setFreqAluno({ aluno, turma: selectedTurma })}
-                            className="flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium border border-[#0e48fe]/20 bg-[#0e48fe]/5 text-[#0e48fe] hover:bg-[#0e48fe]/10 transition-all"
+                            className="flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium border border-[#0e48fe]/20 bg-[#0e48fe]/5 text-accent hover:bg-[#0e48fe]/10 transition-all"
                             title="Ver relatório de frequência"
                           >
                             <TrendingUp size={11} /> Ver
@@ -1640,7 +1640,7 @@ export default function ProfessorDashboard() {
               {aulas.filter(a => a.turmaId === selectedTurma.id).length > 0 && (
                 <div className="mt-6">
                   <h3 className="font-semibold text-slate-700 mb-3 flex items-center gap-2">
-                    <BookOpen size={16} className="text-[#0e48fe]" />
+                    <BookOpen size={16} className="text-accent" />
                     Aulas Registradas ({aulas.filter(a => a.turmaId === selectedTurma.id).length})
                   </h3>
                   <div className="space-y-2">
@@ -1669,7 +1669,7 @@ export default function ProfessorDashboard() {
                                 )}
                                 <button
                                   onClick={() => setEditAula(aula)}
-                                  className="flex items-center gap-1 px-2 py-0.5 rounded border border-slate-300 text-slate-500 hover:bg-white hover:border-[#0e48fe] hover:text-[#0e48fe] transition-all"
+                                  className="flex items-center gap-1 px-2 py-0.5 rounded border border-slate-300 text-slate-500 hover:bg-white hover:border-accent hover:text-accent transition-all"
                                   title="Editar chamada"
                                 >
                                   <Pencil size={10} /> Editar
@@ -1694,14 +1694,14 @@ export default function ProfessorDashboard() {
                   setSelectedDate(null);
                   setShowRegistroAula(true);
                 }}
-                className="flex-1 py-3 bg-[#0e48fe] text-white rounded-xl hover:bg-[#0b3ad4] transition-all font-medium flex items-center justify-center gap-2"
+                className="flex-1 py-3 bg-accent text-white rounded-xl hover:bg-accent-hover transition-all font-medium flex items-center justify-center gap-2"
               >
                 <Plus size={18} />
                 Registrar aula desta turma
               </button>
               <button
                 onClick={() => { setHistoricoTurmaFiltro(selectedTurma.id); setShowDetalheTurma(false); setActiveView('historico'); }}
-                className="py-3 px-5 border border-slate-300 text-slate-700 rounded-xl hover:border-[#0e48fe] hover:text-[#0e48fe] transition-all"
+                className="py-3 px-5 border border-slate-300 text-slate-700 rounded-xl hover:border-accent hover:text-accent transition-all"
               >
                 Ver histórico
               </button>
@@ -1842,7 +1842,7 @@ export default function ProfessorDashboard() {
               <button
                 key={turma.id}
                 onClick={() => { setSelectedTurma(turma); setSelectedDate(null); setShowRegistroAula(true); setShowFAB(false); }}
-                className="w-full text-left px-3 py-2.5 rounded-xl hover:bg-blue-50 hover:text-[#0e48fe] text-sm text-slate-700 transition-colors"
+                className="w-full text-left px-3 py-2.5 rounded-xl hover:bg-blue-50 hover:text-accent text-sm text-slate-700 transition-colors"
               >
                 <div className="font-medium">{turma.nome}</div>
                 <div className="text-xs text-slate-400 mt-0.5">{turma.dias} • {turma.horario}</div>
@@ -1852,7 +1852,7 @@ export default function ProfessorDashboard() {
         )}
         <button
           onClick={() => setShowFAB(v => !v)}
-          className="w-14 h-14 bg-[#0e48fe] text-white rounded-full shadow-lg hover:bg-[#0b3ad4] transition-all flex items-center justify-center text-2xl font-light"
+          className="w-14 h-14 bg-accent text-white rounded-full shadow-lg hover:bg-accent-hover transition-all flex items-center justify-center text-2xl font-light"
           title="Nova Aula"
         >
           {showFAB ? '×' : '+'}

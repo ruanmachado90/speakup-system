@@ -38,7 +38,7 @@ export const EditDueDateForm = ({ modal, saving, onSubmit, onCancel }) => {
           type="date"
           value={dueDate}
           onChange={(e) => setDueDate(e.target.value)}
-          className="w-full px-4 py-3 rounded-xl border focus:outline-none focus:ring-2 focus:ring-[#0e48fe]"
+          className="w-full px-4 py-3 rounded-xl border focus:outline-none focus:ring-2 focus:ring-accent"
         />
         {erro && <p className="text-red-500 text-xs mt-1">{erro}</p>}
       </div>
@@ -54,7 +54,7 @@ export const EditDueDateForm = ({ modal, saving, onSubmit, onCancel }) => {
         <button
           type="submit"
           disabled={saving}
-          className={`w-full py-3 rounded-xl font-bold ${saving ? 'bg-slate-300 text-slate-600' : 'bg-[#0e48fe] text-white'}`}
+          className={`w-full py-3 rounded-xl font-bold ${saving ? 'bg-slate-300 text-slate-600' : 'bg-accent text-white'}`}
         >
           {saving ? 'Salvando...' : 'Salvar vencimento'}
         </button>

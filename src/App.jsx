@@ -325,7 +325,7 @@ function AppContent() {
               {authUser?.photoURL ? (
                 <img src={authUser.photoURL} alt="" title={authUser?.displayName || authUser?.email} className="w-8 h-8 rounded-full border-2 border-slate-200 cursor-pointer" />
               ) : (
-                <div className="w-8 h-8 rounded-full bg-[#0e48fe]/10 flex items-center justify-center text-sm font-bold text-[#0e48fe] cursor-pointer" title={authUser?.displayName || authUser?.email}>
+                <div className="w-8 h-8 rounded-full bg-[#0e48fe]/10 flex items-center justify-center text-sm font-bold text-accent cursor-pointer" title={authUser?.displayName || authUser?.email}>
                   {(authUser?.displayName || authUser?.email || '?')[0].toUpperCase()}
                 </div>
               )}
@@ -336,7 +336,7 @@ function AppContent() {
                 {authUser?.photoURL ? (
                   <img src={authUser.photoURL} alt="" className="w-8 h-8 rounded-full border-2 border-slate-200 flex-shrink-0" />
                 ) : (
-                  <div className="w-8 h-8 rounded-full bg-[#0e48fe]/10 flex items-center justify-center text-sm font-bold text-[#0e48fe] flex-shrink-0">
+                  <div className="w-8 h-8 rounded-full bg-[#0e48fe]/10 flex items-center justify-center text-sm font-bold text-accent flex-shrink-0">
                     {(authUser?.displayName || authUser?.email || '?')[0].toUpperCase()}
                   </div>
                 )}
@@ -412,7 +412,7 @@ function AppContent() {
             {page !== "dashboard" && (
               <button
                 onClick={() => setModal({ open: true, type: page === 'expenses' ? 'expense' : 'student' })}
-                className="bg-[#0e48fe] text-white px-4 py-2 rounded-full font-semibold text-sm flex gap-2 items-center hover:bg-[#0b3ad4] transition-colors"
+                className="bg-accent text-white px-4 py-2 rounded-full font-semibold text-sm flex gap-2 items-center hover:bg-accent-hover transition-colors"
               >
                 <PlusCircle size={15}/> Novo
               </button>
@@ -642,7 +642,7 @@ function AppContent() {
                       {modal.data?.turmaInfo ? (
                         <div className="border rounded-lg p-3 flex items-center justify-between bg-[#f0f2f7]">
                           <div>
-                            <span className="font-semibold text-[#0e48fe]">{modal.data.turmaInfo.nome || modal.data.turmaInfo.name || '—'}</span>
+                            <span className="font-semibold text-accent">{modal.data.turmaInfo.nome || modal.data.turmaInfo.name || '—'}</span>
                             {modal.data.turmaInfo.professor && (
                               <span className="text-xs text-slate-400 ml-2">• Prof. {modal.data.turmaInfo.professor}</span>
                             )}
@@ -652,7 +652,7 @@ function AppContent() {
                           </div>
                           <button
                             onClick={() => { setModal({open:false,type:null,data:null}); setPage('turmas'); }}
-                            className="text-xs text-[#0e48fe] hover:underline font-semibold ml-4 flex-shrink-0"
+                            className="text-xs text-accent hover:underline font-semibold ml-4 flex-shrink-0"
                           >
                             Ver turma →
                           </button>
@@ -731,7 +731,7 @@ function AppContent() {
                     )}
                   </span>
                 )}
-                <button onClick={printFicha} className="px-4 py-2 rounded bg-[#0e48fe] text-white">Imprimir ficha</button>
+                <button onClick={printFicha} className="px-4 py-2 rounded bg-accent text-white">Imprimir ficha</button>
                 <button
                   onClick={async () => {
                     if (modal.data?.id) {
@@ -789,7 +789,7 @@ function AppContent() {
       )}
 
       {toast && (
-        <div className="fixed bottom-6 right-6 bg-[#0e48fe] text-white px-6 py-3 rounded-xl shadow-xl">
+        <div className="fixed bottom-6 right-6 bg-accent text-white px-6 py-3 rounded-xl shadow-xl">
           {toast}
         </div>
       )}
@@ -956,7 +956,7 @@ function ProfessoresAdmin() {
     <div className="space-y-6 p-1">
       <div className="flex items-center justify-between gap-3 mb-2">
         <div className="flex items-center gap-3">
-          <GraduationCap size={22} className="text-[#0e48fe]" />
+          <GraduationCap size={22} className="text-accent" />
           <h2 className="text-xl font-bold text-slate-800">Gerenciar Professores</h2>
         </div>
         <div className="flex items-center gap-2">
@@ -983,7 +983,7 @@ function ProfessoresAdmin() {
         <div className="bg-blue-50 border border-[#0e48fe]/30 rounded-2xl p-5">
           <div className="flex items-start justify-between gap-4">
             <div>
-              <p className="text-sm font-semibold text-[#0e48fe] mb-2">✅ Conta de <span className="font-bold">{createdCredentials.nome}</span> pronta!</p>
+              <p className="text-sm font-semibold text-accent mb-2">✅ Conta de <span className="font-bold">{createdCredentials.nome}</span> pronta!</p>
               <p className="text-xs text-slate-600 mb-1">Passe estas credenciais para o professor:</p>
               <div className="mt-2 space-y-1 font-mono text-sm bg-white border border-slate-200 rounded-xl px-4 py-3">
                 <p><span className="text-slate-400 text-xs">E-mail:</span> <span className="text-slate-800 font-medium">{createdCredentials.email}</span></p>
@@ -996,7 +996,7 @@ function ProfessoresAdmin() {
                 const txt = `Professor: ${createdCredentials.nome}\nE-mail: ${createdCredentials.email}\nSenha: ${createdCredentials.senha}\nAcesso: ${window.location.origin}/professor-login`;
                 navigator.clipboard.writeText(txt);
               }}
-              className="flex-shrink-0 px-3 py-1.5 text-xs border border-[#0e48fe]/40 text-[#0e48fe] rounded-lg hover:bg-[#0e48fe]/10 transition-colors"
+              className="flex-shrink-0 px-3 py-1.5 text-xs border border-[#0e48fe]/40 text-accent rounded-lg hover:bg-[#0e48fe]/10 transition-colors"
             >Copiar</button>
           </div>
           <button onClick={() => setCreatedCredentials(null)} className="mt-3 text-xs text-slate-400 hover:text-slate-600">Fechar</button>
@@ -1006,7 +1006,7 @@ function ProfessoresAdmin() {
       {/* Formulário de criação */}
       <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
         <h3 className="font-semibold text-slate-700 mb-4 flex items-center gap-2">
-          <UserPlus size={16} className="text-[#0e48fe]" /> Novo Professor
+          <UserPlus size={16} className="text-accent" /> Novo Professor
         </h3>
         <form onSubmit={handleCreate} className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
@@ -1015,7 +1015,7 @@ function ProfessoresAdmin() {
               value={form.nome}
               onChange={handleNomeChange}
               placeholder="Ex: Cecília Lima"
-              className="w-full border border-slate-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#0e48fe]"
+              className="w-full border border-slate-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-accent"
             />
           </div>
           <div>
@@ -1024,7 +1024,7 @@ function ProfessoresAdmin() {
               value={form.slug}
               onChange={e => setForm(f => ({ ...f, slug: e.target.value }))}
               placeholder="Ex: cecilia-lima"
-              className="w-full border border-slate-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#0e48fe] font-mono"
+              className="w-full border border-slate-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-accent font-mono"
             />
             {form.slug && <p className="text-xs text-slate-400 mt-1">/professor/{form.slug}</p>}
           </div>
@@ -1035,7 +1035,7 @@ function ProfessoresAdmin() {
               value={form.email}
               onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
               placeholder="professor@email.com"
-              className="w-full border border-slate-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#0e48fe]"
+              className="w-full border border-slate-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-accent"
             />
           </div>
           <div>
@@ -1046,7 +1046,7 @@ function ProfessoresAdmin() {
                 value={form.senha}
                 onChange={e => setForm(f => ({ ...f, senha: e.target.value }))}
                 placeholder="Mínimo 6 caracteres"
-                className="w-full border border-slate-300 rounded-xl px-4 py-2.5 pr-10 text-sm focus:outline-none focus:ring-2 focus:ring-[#0e48fe]"
+                className="w-full border border-slate-300 rounded-xl px-4 py-2.5 pr-10 text-sm focus:outline-none focus:ring-2 focus:ring-accent"
               />
               <button type="button" onClick={() => setShowSenha(v => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600" tabIndex={-1}>
                 {showSenha ? <EyeOff size={16} /> : <Eye size={16} />}
@@ -1057,7 +1057,7 @@ function ProfessoresAdmin() {
             <button
               type="submit"
               disabled={saving}
-              className="px-6 py-2.5 bg-[#0e48fe] text-white rounded-xl text-sm font-semibold hover:bg-[#0b3ad4] disabled:opacity-50 transition-colors"
+              className="px-6 py-2.5 bg-accent text-white rounded-xl text-sm font-semibold hover:bg-accent-hover disabled:opacity-50 transition-colors"
             >
               {saving ? 'Criando...' : 'Criar conta'}
             </button>
@@ -1080,7 +1080,7 @@ function ProfessoresAdmin() {
               <div key={p.uid} className="px-6 py-4">
                 <div className="flex items-center gap-4">
                   <div className="w-9 h-9 rounded-full bg-[#0e48fe]/10 flex items-center justify-center flex-shrink-0">
-                    <GraduationCap size={16} className="text-[#0e48fe]" />
+                    <GraduationCap size={16} className="text-accent" />
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="font-medium text-slate-800 text-sm">{p.nome}</p>
@@ -1089,7 +1089,7 @@ function ProfessoresAdmin() {
                   <div className="flex items-center gap-2">
                     <button
                       onClick={() => { setResetUid(resetUid === p.uid ? null : p.uid); setNovaSenha(''); setError(''); setSuccess(''); }}
-                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-slate-300 rounded-lg text-slate-600 hover:border-[#0e48fe] hover:text-[#0e48fe] transition-colors"
+                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-slate-300 rounded-lg text-slate-600 hover:border-accent hover:text-accent transition-colors"
                       title="Redefinir senha"
                     >
                       <KeyRound size={13} /> Senha
@@ -1113,7 +1113,7 @@ function ProfessoresAdmin() {
                         value={novaSenha}
                         onChange={e => setNovaSenha(e.target.value)}
                         placeholder="Nova senha (mín. 6 caracteres)"
-                        className="w-full border border-slate-300 rounded-lg px-3 py-2 pr-9 text-sm focus:outline-none focus:ring-2 focus:ring-[#0e48fe]"
+                        className="w-full border border-slate-300 rounded-lg px-3 py-2 pr-9 text-sm focus:outline-none focus:ring-2 focus:ring-accent"
                       />
                       <button type="button" onClick={() => setShowNovaSenha(v => !v)} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400" tabIndex={-1}>
                         {showNovaSenha ? <EyeOff size={14} /> : <Eye size={14} />}
@@ -1122,7 +1122,7 @@ function ProfessoresAdmin() {
                     <button
                       onClick={() => handleResetSenha(p.uid)}
                       disabled={resetSaving}
-                      className="px-4 py-2 bg-[#0e48fe] text-white text-xs rounded-lg hover:bg-[#0b3ad4] disabled:opacity-50"
+                      className="px-4 py-2 bg-accent text-white text-xs rounded-lg hover:bg-accent-hover disabled:opacity-50"
                     >
                       {resetSaving ? 'Salvando...' : 'Salvar'}
                     </button>
@@ -1138,7 +1138,7 @@ function ProfessoresAdmin() {
       {/* ── Diretório de professores — usado nos <select> de Turmas e Alunos ── */}
       <div className="pt-2 border-t border-slate-200">
         <div className="flex items-center gap-3 mb-4 mt-2">
-          <Users size={20} className="text-[#0e48fe]" />
+          <Users size={20} className="text-accent" />
           <h2 className="text-lg font-bold text-slate-800">Diretório de Professores</h2>
         </div>
         <p className="text-xs text-slate-500 mb-4 -mt-2">
@@ -1155,7 +1155,7 @@ function ProfessoresAdmin() {
                 value={diretorioForm.nome}
                 onChange={e => setDiretorioForm(f => ({ ...f, nome: e.target.value }))}
                 placeholder="Ex: Cecília Lima"
-                className="w-full border border-slate-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#0e48fe]"
+                className="w-full border border-slate-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-accent"
               />
             </div>
             <div>
@@ -1165,7 +1165,7 @@ function ProfessoresAdmin() {
                 value={diretorioForm.email}
                 onChange={e => setDiretorioForm(f => ({ ...f, email: e.target.value }))}
                 placeholder="professor@email.com"
-                className="w-full border border-slate-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#0e48fe]"
+                className="w-full border border-slate-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-accent"
               />
             </div>
             <div>
@@ -1174,14 +1174,14 @@ function ProfessoresAdmin() {
                 value={diretorioForm.telefone}
                 onChange={e => setDiretorioForm(f => ({ ...f, telefone: e.target.value }))}
                 placeholder="(32) 99999-9999"
-                className="w-full border border-slate-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#0e48fe]"
+                className="w-full border border-slate-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-accent"
               />
             </div>
             <div className="md:col-span-3 flex justify-end">
               <button
                 type="submit"
                 disabled={diretorioSaving}
-                className="px-6 py-2.5 bg-[#0e48fe] text-white rounded-xl text-sm font-semibold hover:bg-[#0b3ad4] disabled:opacity-50 transition-colors"
+                className="px-6 py-2.5 bg-accent text-white rounded-xl text-sm font-semibold hover:bg-accent-hover disabled:opacity-50 transition-colors"
               >
                 {diretorioSaving ? 'Cadastrando...' : 'Cadastrar no diretório'}
               </button>
@@ -1200,7 +1200,7 @@ function ProfessoresAdmin() {
               {diretorio.map(p => (
                 <div key={p.id} className="px-6 py-4 flex items-center gap-4">
                   <div className="w-9 h-9 rounded-full bg-[#0e48fe]/10 flex items-center justify-center flex-shrink-0">
-                    <Users size={16} className="text-[#0e48fe]" />
+                    <Users size={16} className="text-accent" />
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="font-medium text-slate-800 text-sm">{p.nome}</p>
@@ -1211,7 +1211,7 @@ function ProfessoresAdmin() {
                   </span>
                   <button
                     onClick={() => handleToggleStatusDiretorio(p)}
-                    className="px-3 py-1.5 text-xs border border-slate-300 rounded-lg text-slate-600 hover:border-[#0e48fe] hover:text-[#0e48fe] transition-colors"
+                    className="px-3 py-1.5 text-xs border border-slate-300 rounded-lg text-slate-600 hover:border-accent hover:text-accent transition-colors"
                   >
                     {p.status === 'inativo' ? 'Ativar' : 'Desativar'}
                   </button>

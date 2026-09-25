@@ -70,7 +70,7 @@ function LegendaConceitos({ aberta, onToggle }) {
         className="w-full flex items-center justify-between px-4 py-3"
       >
         <div className="flex items-center gap-2">
-          <Info size={15} className="text-[#0e48fe]" />
+          <Info size={15} className="text-accent" />
           <span className="text-xs font-bold text-slate-600">Escala de Conceitos</span>
         </div>
         <span className="text-[10px] text-slate-400 font-semibold">{aberta ? 'ocultar' : 'ver'}</span>
@@ -215,11 +215,11 @@ export default function RelatorioNotas() {
 
           {/* Seletores */}
           <div className="px-3 pt-3 grid grid-cols-2 gap-2 flex-shrink-0">
-            <div className="relative bg-white border-2 border-[#0e48fe] rounded-xl px-3 py-2.5 col-span-2">
-              <label className="block text-xs font-semibold text-[#0e48fe] mb-0.5">Turma</label>
+            <div className="relative bg-white border-2 border-accent rounded-xl px-3 py-2.5 col-span-2">
+              <label className="block text-xs font-semibold text-accent mb-0.5">Turma</label>
               <div className="flex items-center justify-between">
-                <span className="text-sm font-bold text-[#0e48fe] truncate pr-2">{turma}</span>
-                <svg className="w-4 h-4 text-[#0e48fe]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <span className="text-sm font-bold text-accent truncate pr-2">{turma}</span>
+                <svg className="w-4 h-4 text-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" />
                 </svg>
               </div>
@@ -234,8 +234,8 @@ export default function RelatorioNotas() {
                 onClick={() => setEtapa(e)}
                 className={`py-2.5 rounded-xl text-sm font-bold transition-all border-2 ${
                   etapa === e
-                    ? 'bg-[#0e48fe] border-[#0e48fe] text-white'
-                    : 'bg-white border-[#0e48fe] text-[#0e48fe]'
+                    ? 'bg-accent border-accent text-white'
+                    : 'bg-white border-accent text-accent'
                 }`}
               >
                 {e}
@@ -269,7 +269,7 @@ export default function RelatorioNotas() {
                 <p className="text-slate-400 text-sm mt-1">Vá em Notas Parciais e registre as avaliações.</p>
                 <button
                   onClick={() => navigate(`/professor/${professorSlug}/notas`)}
-                  className="mt-4 px-5 py-2 bg-[#0e48fe] text-white rounded-xl text-sm font-semibold"
+                  className="mt-4 px-5 py-2 bg-accent text-white rounded-xl text-sm font-semibold"
                 >
                   Lançar notas
                 </button>

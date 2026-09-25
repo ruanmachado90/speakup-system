@@ -35,7 +35,7 @@ export const LeadForm = ({ modal, saving, onSubmit, onCancel }) => {
           name="level"
           defaultValue={modal.data?.level || ''}
           required
-          className="border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#0e48fe]"
+          className="border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-accent"
         >
           <option value="">Selecione...</option>
           <option value="Iniciante">Iniciante</option>
@@ -51,7 +51,7 @@ export const LeadForm = ({ modal, saving, onSubmit, onCancel }) => {
           name="status"
           defaultValue={modal.data?.status || 'novo'}
           required
-          className="border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#0e48fe]"
+          className="border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-accent"
         >
           <option value="novo">Novo</option>
           <option value="contato">Em Contato</option>
@@ -68,7 +68,7 @@ export const LeadForm = ({ modal, saving, onSubmit, onCancel }) => {
           rows="4"
           placeholder="Anotações sobre o lead..."
           required
-          className="border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#0e48fe] resize-none"
+          className="border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-accent resize-none"
         />
       </div>
 
@@ -86,7 +86,7 @@ export const LeadForm = ({ modal, saving, onSubmit, onCancel }) => {
           className={`w-full py-3 rounded-xl font-bold ${
             saving 
               ? "bg-slate-300 text-slate-600" 
-              : "bg-[#0e48fe] text-white hover:bg-[#0b3ad4]"
+              : "bg-accent text-white hover:bg-accent-hover"
           }`}
         >
           {saving ? "Salvando..." : modal.data?.id ? "Salvar" : "Cadastrar"}

@@ -121,13 +121,13 @@ const PaymentLink = () => {
 
         <div className="p-4 sm:p-6 md:p-8">
           {/* Título Pagamento via PIX (agora em azul, acima do nome do aluno) */}
-          <h1 className="text-lg sm:text-2xl font-extrabold text-[#0e48fe] tracking-wide text-center drop-shadow-md mb-4">Pagamento via PIX</h1>
+          <h1 className="text-lg sm:text-2xl font-extrabold text-accent tracking-wide text-center drop-shadow-md mb-4">Pagamento via PIX</h1>
           {/* Nome do aluno, valor e vencimento */}
           <div className="flex flex-col items-center justify-center mb-6 gap-2">
             <span className="text-xs text-gray-500">Aluno</span>
             <span className="text-base sm:text-lg font-semibold text-gray-800 break-words text-center">{payment?.studentName || 'Nome não disponível'}</span>
-            <span className="text-xs font-semibold text-[#0e48fe] uppercase tracking-wider mt-2">Valor a pagar</span>
-            <span className="text-3xl font-black text-[#0e48fe]">R$ {Number(payment?.valuePlanned || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+            <span className="text-xs font-semibold text-accent uppercase tracking-wider mt-2">Valor a pagar</span>
+            <span className="text-3xl font-black text-accent">R$ {Number(payment?.valuePlanned || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
             {payment?.dueDate && (
               <span className={`text-xs font-medium ${new Date(payment.dueDate) < new Date(new Date().setHours(0,0,0,0)) ? 'text-red-600' : 'text-gray-700'}`}>Vencimento: {formatDate(payment.dueDate)}{new Date(payment.dueDate) < new Date(new Date().setHours(0,0,0,0)) && ' (Vencido)'}</span>
             )}
@@ -146,20 +146,20 @@ const PaymentLink = () => {
           {/* Código PIX Copia e Cola */}
           {pixCode && (
             <div className="mb-6">
-              <label className="block text-xs font-semibold text-[#0e48fe] mb-2">Copia e Cola PIX</label>
+              <label className="block text-xs font-semibold text-accent mb-2">Copia e Cola PIX</label>
               <div className="flex items-center gap-2">
                 <input
                   type="text"
                   value={pixCode}
                   readOnly
-                  className="w-full p-3 border border-[#eaf0ff] rounded-lg bg-[#f6f8ff] text-xs font-mono text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#0e48fe] transition-all select-all"
+                  className="w-full p-3 border border-[#eaf0ff] rounded-lg bg-[#f6f8ff] text-xs font-mono text-gray-700 focus:outline-none focus:ring-2 focus:ring-accent transition-all select-all"
                   style={{ WebkitOverflowScrolling: 'touch' }}
                   aria-label="Código PIX Copia e Cola"
                   onFocus={e => e.target.select()}
                 />
                 <button
                   onClick={handleCopyPixCode}
-                  className={`p-3 rounded-lg transition-all flex-shrink-0 active:scale-95 ${copied ? 'bg-green-500 text-white shadow-lg' : 'bg-[#f30961] text-white hover:bg-[#c1074e] shadow-md'}`}
+                  className={`p-3 rounded-lg transition-all flex-shrink-0 active:scale-95 ${copied ? 'bg-green-500 text-white shadow-lg' : 'bg-brand-pink text-white hover:bg-[#c1074e] shadow-md'}`}
                   aria-label="Copiar código PIX"
                   tabIndex={0}
                 >
@@ -174,8 +174,8 @@ const PaymentLink = () => {
 
           {/* Instruções visuais */}
           <div className="bg-[#eaf0ff] border border-[#b3c6ff] rounded-lg p-4 mb-4">
-            <h4 className="font-semibold text-[#0e48fe] mb-2 text-xs sm:text-base flex items-center gap-2"><span>Como pagar via PIX</span></h4>
-            <ol className="text-xs sm:text-sm text-[#0e48fe] space-y-1 list-decimal list-inside leading-relaxed">
+            <h4 className="font-semibold text-accent mb-2 text-xs sm:text-base flex items-center gap-2"><span>Como pagar via PIX</span></h4>
+            <ol className="text-xs sm:text-sm text-accent space-y-1 list-decimal list-inside leading-relaxed">
               <li>Abra o aplicativo do seu banco</li>
               <li>Escolha pagar com PIX</li>
               <li>Escaneie o QR Code ou copie e cole o código acima</li>
@@ -189,7 +189,7 @@ const PaymentLink = () => {
             <span className="text-xs text-gray-500">Pagamento para:</span>
             <span className="text-xs font-semibold text-gray-800 text-center">SpeakUp English School</span>
             <span className="text-xs text-gray-500 mt-1">Chave PIX:</span>
-            <span className="text-xs font-mono text-[#0e48fe] break-all text-center">ruan@speakupcataguases.com</span>
+            <span className="text-xs font-mono text-accent break-all text-center">ruan@speakupcataguases.com</span>
           </div>
 
           {/* Rodapé */}

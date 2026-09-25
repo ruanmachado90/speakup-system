@@ -54,7 +54,7 @@ export default function RelatoriosGerenciais() {
       <button
         onClick={() => baixar('mensal')}
         disabled={!!gerando}
-        className="flex items-center gap-2 px-4 py-2 bg-[#0e48fe] text-white rounded-lg hover:bg-[#0b3ad4] transition-colors font-semibold disabled:opacity-60 disabled:cursor-not-allowed"
+        className="flex items-center gap-2 px-4 py-2 bg-accent text-white rounded-lg hover:bg-accent-hover transition-colors font-semibold disabled:opacity-60 disabled:cursor-not-allowed"
         title="Baixar o relatório mensal completo em PDF (formato slides)"
       >
         <FileText size={16} />

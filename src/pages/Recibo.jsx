@@ -35,7 +35,7 @@ export default function Recibo() {
     <div className="w-full min-h-screen flex flex-col items-center justify-center bg-white p-8 print:p-0">
       <div className="max-w-lg w-full bg-white rounded-xl shadow-lg border border-slate-200 p-0 overflow-hidden">
         {/* Cabeçalho azul e logo */}
-        <div className="bg-[#0e48fe] py-6 px-8 text-center">
+        <div className="bg-accent py-6 px-8 text-center">
           <img src="https://www.speakupcataguases.com/wp-content/uploads/2025/11/logo-speakup-brancal-1.png" alt="Logo SpeakUp" className="h-12 mx-auto mb-2" />
           <h2 className="text-2xl font-black text-white tracking-wide mb-1">RECIBO DE VENDA</h2>
           <div className="text-xs text-blue-100">Recibo Nº {cobranca.id}</div>
@@ -47,16 +47,16 @@ export default function Recibo() {
           Praça Governador Valadares, 119 - Centro - Cataguases/MG
         </div>
         {/* Valor box */}
-        <div className="bg-gradient-to-r from-[#0e48fe] to-[#0b3ad4] text-white rounded-xl shadow p-6 my-6 text-center">
+        <div className="bg-gradient-to-r from-accent to-accent-hover text-white rounded-xl shadow p-6 my-6 text-center">
           <div className="text-xs opacity-90 mb-1">VALOR DA VENDA</div>
           <div className="text-3xl font-black mb-1">R$ {valor.toLocaleString('pt-BR', {minimumFractionDigits:2})}</div>
           <div className="text-sm italic opacity-95">({valorExtenso})</div>
         </div>
         {/* Referência do material */}
         {referenciaMaterial && (
-          <div className="bg-white border-2 border-dashed border-[#0e48fe] rounded-lg py-3 px-4 text-center mb-4">
+          <div className="bg-white border-2 border-dashed border-accent rounded-lg py-3 px-4 text-center mb-4">
             <div className="text-xs text-slate-500 uppercase tracking-wider mb-1">Material/Referência</div>
-            <div className="text-lg font-bold text-[#0e48fe]">{referenciaMaterial}</div>
+            <div className="text-lg font-bold text-accent">{referenciaMaterial}</div>
           </div>
         )}
         {/* Dados da venda */}
@@ -98,7 +98,7 @@ export default function Recibo() {
         </div>
         <div className="mt-6 flex justify-center gap-3 print:hidden">
           <button
-            className="px-6 py-2 rounded bg-[#0e48fe] text-white font-bold"
+            className="px-6 py-2 rounded bg-accent text-white font-bold"
             onClick={async () => {
               try {
                 await gerarReciboVendaPDF(cobranca);

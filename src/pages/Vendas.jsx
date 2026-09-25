@@ -645,7 +645,7 @@ function Vendas() {
           <button
             onClick={() => setAbaAtiva('vendas')}
             className={`flex items-center gap-2 px-5 py-2.5 rounded-lg font-semibold text-sm transition-colors ${
-              abaAtiva === 'vendas' ? 'bg-[#0e48fe] text-white' : 'text-gray-500 hover:bg-gray-50'
+              abaAtiva === 'vendas' ? 'bg-accent text-white' : 'text-gray-500 hover:bg-gray-50'
             }`}
           >
             <ShoppingBag size={16} /> Vendas
@@ -653,7 +653,7 @@ function Vendas() {
           <button
             onClick={() => setAbaAtiva('estoque')}
             className={`relative flex items-center gap-2 px-5 py-2.5 rounded-lg font-semibold text-sm transition-colors ${
-              abaAtiva === 'estoque' ? 'bg-[#0e48fe] text-white' : 'text-gray-500 hover:bg-gray-50'
+              abaAtiva === 'estoque' ? 'bg-accent text-white' : 'text-gray-500 hover:bg-gray-50'
             }`}
           >
             <Package size={16} /> Estoque
@@ -692,7 +692,7 @@ function Vendas() {
                 <select
                   value={filterMes}
                   onChange={(e) => setFilterMes(e.target.value)}
-                  className="border rounded-lg px-3 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-[#0e48fe]"
+                  className="border rounded-lg px-3 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-accent"
                 >
                   <option value="">Todos os meses</option>
                   {gerarOpcoesMeses().map(({ valor, label }) => (
@@ -704,7 +704,7 @@ function Vendas() {
                 <select
                   value={filterAno}
                   onChange={(e) => setFilterAno(e.target.value)}
-                  className="border rounded-lg px-3 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-[#0e48fe]"
+                  className="border rounded-lg px-3 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-accent"
                 >
                   <option value="">Todos os anos</option>
                   {gerarOpcoesAnos().map(({ valor, label }) => (
@@ -874,14 +874,14 @@ function Vendas() {
               Controle de estoque
               <button
                 onClick={() => setMostrarAjudaEstoque(v => !v)}
-                className={`p-1 rounded-full transition-colors ${mostrarAjudaEstoque ? 'bg-blue-100 text-[#0e48fe]' : 'text-blue-300 hover:text-[#0e48fe] hover:bg-blue-50'}`}
+                className={`p-1 rounded-full transition-colors ${mostrarAjudaEstoque ? 'bg-blue-100 text-accent' : 'text-blue-300 hover:text-accent hover:bg-blue-50'}`}
                 title="Como usar essa página"
               >
                 <HelpCircle size={20} />
               </button>
             </h2>
             <button
-              className="bg-[#0e48fe] text-white px-4 py-2 rounded-lg hover:bg-[#0b3ad4] transition-colors font-medium"
+              className="bg-accent text-white px-4 py-2 rounded-lg hover:bg-accent-hover transition-colors font-medium"
               onClick={() => setShowEstoqueModal(true)}
             >
               + Adicionar ao estoque
@@ -890,7 +890,7 @@ function Vendas() {
 
           {mostrarAjudaEstoque && (
             <div className="mb-5 p-4 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-900 space-y-3">
-              <p className="font-semibold text-[#0e48fe]">Como usar o controle de estoque</p>
+              <p className="font-semibold text-accent">Como usar o controle de estoque</p>
 
               <div className="flex gap-2">
                 <PlusCircle size={16} className="text-emerald-600 flex-shrink-0 mt-0.5" />
@@ -1116,7 +1116,7 @@ function Vendas() {
             </div>
             {expandedSections.vendas && (
               <button 
-                className="bg-[#0e48fe] text-white px-4 py-2 rounded-lg hover:bg-[#0b3ad4] transition-colors font-medium"
+                className="bg-accent text-white px-4 py-2 rounded-lg hover:bg-accent-hover transition-colors font-medium"
                 onClick={() => setShowModal(true)}
               >
                 + Nova Venda
@@ -1133,12 +1133,12 @@ function Vendas() {
                   placeholder="Filtrar por aluno..."
                   value={filterAluno}
                   onChange={(e) => setFilterAluno(e.target.value)}
-                  className="border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-[#0e48fe]"
+                  className="border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-accent"
                 />
                 <select
                   value={filterStatus}
                   onChange={(e) => setFilterStatus(e.target.value)}
-                  className="border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-[#0e48fe]"
+                  className="border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-accent"
                 >
                   <option value="">Todos os status</option>
                   <option value="pendente">Pendente</option>
@@ -1148,7 +1148,7 @@ function Vendas() {
                 <select
                   value={filterMes}
                   onChange={(e) => setFilterMes(e.target.value)}
-                  className="border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-[#0e48fe]"
+                  className="border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-accent"
                 >
                   <option value="">Todos os meses</option>
                   {gerarOpcoesMeses().map(({ valor, label }) => (
@@ -1160,7 +1160,7 @@ function Vendas() {
                 <select
                   value={filterAno}
                   onChange={(e) => setFilterAno(e.target.value)}
-                  className="border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-[#0e48fe]"
+                  className="border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-accent"
                 >
                   <option value="">Todos os anos</option>
                   {gerarOpcoesAnos().map(({ valor, label }) => (

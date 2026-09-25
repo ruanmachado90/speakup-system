@@ -98,7 +98,7 @@ export default function ParametrosPage() {
                   value={form[item.chave] ?? ''}
                   onChange={(e) => setCampo(item.chave, e.target.value === '' ? '' : Number(e.target.value))}
                   disabled={parametrosLoading || salvando}
-                  className="w-full max-w-xs border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#0e48fe] disabled:bg-slate-50"
+                  className="w-full max-w-xs border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-accent disabled:bg-slate-50"
                 />
                 <p className="flex items-start gap-1.5 text-xs text-slate-400 mt-1">
                   <Info size={12} className="mt-0.5 flex-shrink-0" />
@@ -117,7 +117,7 @@ export default function ParametrosPage() {
           className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold transition-all ${
             !alterado || salvando || parametrosLoading
               ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
-              : 'bg-[#0e48fe] text-white hover:bg-[#0b3ad4]'
+              : 'bg-accent text-white hover:bg-accent-hover'
           }`}
         >
           <Save size={16} />

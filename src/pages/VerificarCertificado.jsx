@@ -50,7 +50,7 @@ export default function VerificarCertificado() {
     <div className="min-h-screen bg-gradient-to-br from-[#edf2f8] to-[#dbe8f8] flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-7 text-center">
         <img src={logoUrl} alt="SpeakUp English School" className="h-9 mx-auto mb-5" />
-        <h1 className="text-xl font-black text-[#101214] mb-1">Verificação de certificado</h1>
+        <h1 className="text-xl font-black text-ink mb-1">Verificação de certificado</h1>
         <p className="text-sm text-slate-500 mb-5">Confirme se um certificado foi realmente emitido pela SpeakUp.</p>
 
         <form onSubmit={consultar} className="flex gap-2 mb-5">
@@ -60,9 +60,9 @@ export default function VerificarCertificado() {
             placeholder="SU-2026-XXXXXX"
             aria-label="Código do certificado"
             autoCapitalize="characters"
-            className="flex-1 border border-slate-300 rounded-lg px-3 py-2 text-sm font-mono uppercase focus:outline-none focus:ring-2 focus:ring-[#0e48fe]"
+            className="flex-1 border border-slate-300 rounded-lg px-3 py-2 text-sm font-mono uppercase focus:outline-none focus:ring-2 focus:ring-accent"
           />
-          <button type="submit" className="px-4 py-2 bg-[#0e48fe] text-white rounded-lg text-sm font-semibold hover:bg-[#0b3ad4]">
+          <button type="submit" className="px-4 py-2 bg-accent text-white rounded-lg text-sm font-semibold hover:bg-accent-hover">
             Verificar
           </button>
         </form>

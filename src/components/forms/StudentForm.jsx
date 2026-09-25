@@ -47,7 +47,7 @@ const MaskedInput = ({ label, name, defaultValue, mask, required, onValueChange 
         value={value}
         onChange={handleChange}
         required={required}
-        className="border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#0e48fe]"
+        className="border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-accent"
       />
     </div>
   );
@@ -127,7 +127,7 @@ export const StudentForm = ({ onSubmit }) => {
         <button
           type="submit"
           disabled={saving || bloqueado}
-          className={`w-full py-3 rounded-xl font-bold ${saving || bloqueado ? "bg-slate-300 text-slate-600" : "bg-[#0e48fe] text-white"}`}
+          className={`w-full py-3 rounded-xl font-bold ${saving || bloqueado ? "bg-slate-300 text-slate-600" : "bg-accent text-white"}`}
         >
           {saving ? "Salvando..." : "Salvar"}
         </button>

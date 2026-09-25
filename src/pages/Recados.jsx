@@ -144,7 +144,7 @@ export function Recados() {
       <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
         <div className="flex items-center gap-2">
           <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
-            <MessageSquare size={22} className="text-[#0e48fe]" />
+            <MessageSquare size={22} className="text-accent" />
             Recados
           </h2>
           {naoLidos > 0 && (
@@ -165,7 +165,7 @@ export function Recados() {
               onClick={() => setFiltro(f.id)}
               className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
                 filtro === f.id
-                  ? 'bg-[#0e48fe] text-white'
+                  ? 'bg-accent text-white'
                   : 'bg-white border border-slate-300 text-slate-600 hover:bg-slate-50'
               }`}
             >
@@ -275,7 +275,7 @@ export function Recados() {
                   isEnviado
                     ? 'border-emerald-200 border-l-4 border-l-emerald-500'
                     : !r.lido
-                    ? 'border-l-4 border-l-[#0e48fe] shadow-sm'
+                    ? 'border-l-4 border-l-accent shadow-sm'
                     : 'border-slate-200 opacity-80'
                 }`}
               >
@@ -321,12 +321,12 @@ export function Recados() {
                       value={resposta[r.id] || ''}
                       onChange={e => setResposta(prev => ({ ...prev, [r.id]: e.target.value }))}
                       onKeyDown={e => e.key === 'Enter' && enviarResposta(r)}
-                      className="flex-1 text-sm border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#0e48fe] focus:border-[#0e48fe]"
+                      className="flex-1 text-sm border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent"
                     />
                     <button
                       onClick={() => enviarResposta(r)}
                       disabled={sending[r.id] || !resposta[r.id]?.trim()}
-                      className="flex items-center gap-1 px-3 py-2 bg-[#0e48fe] text-white rounded-lg hover:bg-[#0b3ad4] disabled:opacity-40 transition-colors text-sm"
+                      className="flex items-center gap-1 px-3 py-2 bg-accent text-white rounded-lg hover:bg-accent-hover disabled:opacity-40 transition-colors text-sm"
                     >
                       <Send size={14} />
                     </button>

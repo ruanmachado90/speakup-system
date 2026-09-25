@@ -9,7 +9,7 @@ import { dataParcelaPadrao, datasDasParcelas, paraISODia, MAX_PARCELAS } from '.
 // usa lê com FormData, e os três fluxos gravam exatamente os mesmos campos.
 
 const labelCls = 'text-sm font-bold text-slate-600 mb-1';
-const inputCls = 'border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#0e48fe] bg-white';
+const inputCls = 'border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-accent bg-white';
 
 /**
  * Curso + Book do catálogo (mesmo do formulário de turma), em vez de texto
@@ -103,7 +103,7 @@ export function ContratoFinanceiroFields({ defaultFee = '', defaultDueDate, defa
   const [installments, setInstallments] = useState(String(defaultInstallments));
   const [overrides, setOverrides] = useState({});
 
-  const ring = accent === 'green' ? 'focus:ring-emerald-400' : 'focus:ring-[#0e48fe]';
+  const ring = accent === 'green' ? 'focus:ring-emerald-400' : 'focus:ring-accent';
   const n = Number(installments) || 0;
   const nValido = Number.isInteger(n) && n >= 1 && n <= MAX_PARCELAS;
   const datas = dueDate && nValido ? datasDasParcelas(dueDate, n, overrides) : [];

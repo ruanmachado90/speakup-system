@@ -104,7 +104,7 @@ function AulaCard({ aula, defaultOpen = false, onDelete, onUpdate }) {
         className="w-full flex items-center justify-between p-4 hover:bg-slate-50 transition-all text-left cursor-pointer"
       >
         <div className="flex items-center gap-4">
-          <div className="bg-[#0e48fe] text-white rounded-lg p-2.5">
+          <div className="bg-accent text-white rounded-lg p-2.5">
             <BookOpen size={18} />
           </div>
           <div>
@@ -142,7 +142,7 @@ function AulaCard({ aula, defaultOpen = false, onDelete, onUpdate }) {
           <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
             <button
               onClick={() => { setEditing(e => !e); setOpen(true); }}
-              className="p-1.5 rounded text-slate-400 hover:text-[#0e48fe] hover:bg-blue-50 transition-colors"
+              className="p-1.5 rounded text-slate-400 hover:text-accent hover:bg-blue-50 transition-colors"
               title="Editar aula"
             >
               <Edit size={14} />
@@ -172,7 +172,7 @@ function AulaCard({ aula, defaultOpen = false, onDelete, onUpdate }) {
                   type="text"
                   value={editConteudo}
                   onChange={e => setEditConteudo(e.target.value)}
-                  className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0e48fe]"
+                  className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent"
                 />
               </div>
               <div>
@@ -190,14 +190,14 @@ function AulaCard({ aula, defaultOpen = false, onDelete, onUpdate }) {
                   value={editObs}
                   onChange={e => setEditObs(e.target.value)}
                   rows={2}
-                  className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0e48fe] resize-none"
+                  className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent resize-none"
                 />
               </div>
               <div className="flex gap-2">
                 <button
                   onClick={handleSaveEdit}
                   disabled={savingEdit}
-                  className="flex items-center gap-1.5 px-4 py-1.5 bg-[#0e48fe] text-white rounded-lg text-xs font-medium hover:bg-[#0b3ad4] disabled:opacity-60"
+                  className="flex items-center gap-1.5 px-4 py-1.5 bg-accent text-white rounded-lg text-xs font-medium hover:bg-accent-hover disabled:opacity-60"
                 >
                   <Save size={13} /> {savingEdit ? 'Salvando...' : 'Salvar'}
                 </button>
@@ -387,7 +387,7 @@ export default function HistoricoAulas({ aulas, turmas, onClose, onDeleteAula, o
       {/* Header */}
       <div className="p-5 border-b border-slate-200 bg-white flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="bg-[#0e48fe] text-white p-2 rounded-lg">
+          <div className="bg-accent text-white p-2 rounded-lg">
             <FileText size={20} />
           </div>
           <div>
@@ -398,7 +398,7 @@ export default function HistoricoAulas({ aulas, turmas, onClose, onDeleteAula, o
         <div className="flex items-center gap-2">
           <button
             onClick={() => baixarRelatorioSemanal(aulas, professorNome || 'Professor')}
-            className="flex items-center gap-2 px-4 py-2 bg-[#0e48fe] text-white rounded-lg hover:bg-[#0b3ad4] transition-all text-sm"
+            className="flex items-center gap-2 px-4 py-2 bg-accent text-white rounded-lg hover:bg-accent-hover transition-all text-sm"
             title="Baixa o relatório da semana anterior como arquivo HTML"
           >
             <Download size={16} /> Relatório Semanal
@@ -421,7 +421,7 @@ export default function HistoricoAulas({ aulas, turmas, onClose, onDeleteAula, o
         <select
           value={turmaFiltro}
           onChange={(e) => setTurmaFiltro(e.target.value)}
-          className="border border-slate-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#0e48fe]"
+          className="border border-slate-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-accent"
         >
           <option value="all">Todas as turmas</option>
           {turmas.map((t) => (
@@ -431,7 +431,7 @@ export default function HistoricoAulas({ aulas, turmas, onClose, onDeleteAula, o
         <select
           value={mesFiltro}
           onChange={(e) => setMesFiltro(e.target.value)}
-          className="border border-slate-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#0e48fe]"
+          className="border border-slate-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-accent"
         >
           <option value="all">Todos os meses</option>
           {mesesDisponiveis.map(m => {

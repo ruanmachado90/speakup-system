@@ -348,7 +348,7 @@ export default function Turmas({ students }) {
         <div className="flex flex-col lg:flex-row gap-6 lg:gap-8 items-start lg:items-center justify-between mb-8">
           <div className="space-y-2">
             <h1 className="text-3xl font-bold text-gray-800 flex items-center gap-3">
-              <Users className="text-[#0e48fe]" size={32} />
+              <Users className="text-accent" size={32} />
               Gestão de Turmas
             </h1>
             <p className="text-gray-600 font-medium">Gerencie suas turmas, horários e alunos matriculados</p>
@@ -397,20 +397,20 @@ export default function Turmas({ students }) {
               <h2 className="text-base font-bold text-gray-900">Lista de turmas</h2>
               <p className="text-sm text-gray-500">Total: {turmasFiltradas.length} turma{turmasFiltradas.length !== 1 ? 's' : ''}</p>
             </div>
-            <button onClick={abrirNovoModal} disabled={loading} className="bg-[#0e48fe] text-white px-4 py-2 rounded-lg font-semibold flex gap-1.5 items-center hover:bg-[#0048b3] transition-colors text-sm disabled:opacity-50">
+            <button onClick={abrirNovoModal} disabled={loading} className="bg-accent text-white px-4 py-2 rounded-lg font-semibold flex gap-1.5 items-center hover:bg-[#0048b3] transition-colors text-sm disabled:opacity-50">
               <Plus size={16} /> Nova Turma
             </button>
           </div>
           <div className="flex flex-wrap items-center gap-3">
-            <select value={filtros.professor} onChange={function(e) { setFiltros(function(f) { return Object.assign({}, f, { professor: e.target.value }); }); }} className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#0e48fe] bg-white">
+            <select value={filtros.professor} onChange={function(e) { setFiltros(function(f) { return Object.assign({}, f, { professor: e.target.value }); }); }} className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-accent bg-white">
               <option value="all">Todos os professores</option>
               {professoresAtivos.map(function(p) { return <option key={p.id} value={p.nome}>{p.nome}</option>; })}
             </select>
-            <select value={filtros.dia} onChange={function(e) { setFiltros(function(f) { return Object.assign({}, f, { dia: e.target.value }); }); }} className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#0e48fe] bg-white">
+            <select value={filtros.dia} onChange={function(e) { setFiltros(function(f) { return Object.assign({}, f, { dia: e.target.value }); }); }} className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-accent bg-white">
               <option value="all">Todos os dias</option>
               {DIAS_DISPONIVEIS.map(function(d) { return <option key={d} value={d}>{d}</option>; })}
             </select>
-            <select value={filtros.nivel} onChange={function(e) { setFiltros(function(f) { return Object.assign({}, f, { nivel: e.target.value }); }); }} className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#0e48fe] bg-white">
+            <select value={filtros.nivel} onChange={function(e) { setFiltros(function(f) { return Object.assign({}, f, { nivel: e.target.value }); }); }} className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-accent bg-white">
               <option value="all">Todos os níveis</option>
               {NIVEIS.map(function(n) { return <option key={n} value={n}>{n}</option>; })}
             </select>
@@ -445,9 +445,9 @@ export default function Turmas({ students }) {
                 : 'Ainda não há turmas cadastradas. Comece criando sua primeira turma!'}
             </p>
             {(filtros.professor !== 'all' || filtros.dia !== 'all' || filtros.nivel !== 'all') ? (
-              <button onClick={function() { setFiltros({ professor: 'all', dia: 'all', nivel: 'all' }); }} className="text-sm text-[#0e48fe] hover:text-[#0048b3] font-semibold bg-blue-50 px-4 py-2 rounded-lg transition-colors">Limpar filtros</button>
+              <button onClick={function() { setFiltros({ professor: 'all', dia: 'all', nivel: 'all' }); }} className="text-sm text-accent hover:text-[#0048b3] font-semibold bg-blue-50 px-4 py-2 rounded-lg transition-colors">Limpar filtros</button>
             ) : (
-              <button onClick={abrirNovoModal} className="bg-[#0e48fe] text-white px-6 py-3 rounded-xl font-semibold flex gap-2 items-center hover:bg-[#0048b3] transition-all mx-auto">
+              <button onClick={abrirNovoModal} className="bg-accent text-white px-6 py-3 rounded-xl font-semibold flex gap-2 items-center hover:bg-[#0048b3] transition-all mx-auto">
                 <Plus size={20} /> Criar primeira turma
               </button>
             )}
@@ -456,7 +456,7 @@ export default function Turmas({ students }) {
           <div className="overflow-hidden">
             <table className="w-full text-sm">
               <thead>
-                <tr className="bg-[#0e48fe] text-xs font-semibold text-white uppercase tracking-wider">
+                <tr className="bg-accent text-xs font-semibold text-white uppercase tracking-wider">
                   <th className="px-4 py-3 text-left w-6" />
                   <th className="px-4 py-3 text-left">Turma</th>
                   <th className="px-4 py-3 text-left">Professor</th>
@@ -478,16 +478,16 @@ export default function Turmas({ students }) {
                   const aulasDadas = aulasRegistradas.filter(function(a) { return a.turmaId === turma.id; }).length;
                   const aulasPrevistas = turma.totalAulas || DEFAULT_TOTAL_AULAS;
                   const aulasProgress = Math.min(Math.round((aulasDadas / aulasPrevistas) * 100), 100);
-                  const aulasBarColor = aulasProgress >= 100 ? 'bg-emerald-500' : aulasProgress >= 60 ? 'bg-[#0e48fe]' : 'bg-amber-400';
+                  const aulasBarColor = aulasProgress >= 100 ? 'bg-emerald-500' : aulasProgress >= 60 ? 'bg-accent' : 'bg-amber-400';
                   const nivelColor = turma.nivel === 'A1' || turma.nivel === 'A2' ? 'bg-emerald-100 text-emerald-700' : turma.nivel === 'A2+' || turma.nivel === 'B1' ? 'bg-amber-100 text-amber-700' : turma.nivel === 'B2' || turma.nivel === 'B2+' ? 'bg-orange-100 text-orange-700' : 'bg-red-100 text-red-700';
                   const statusLabel = alunosDaTurma.length === max ? 'Lotada' : alunosDaTurma.length > max * 0.8 ? 'Quase cheia' : 'Disponível';
                   const statusColor = alunosDaTurma.length === max ? 'bg-red-100 text-red-700' : alunosDaTurma.length > max * 0.8 ? 'bg-amber-100 text-amber-700' : 'bg-green-100 text-green-700';
-                  const barColor = alunosDaTurma.length === max ? 'bg-red-500' : alunosDaTurma.length > max * 0.8 ? 'bg-amber-400' : 'bg-[#0e48fe]';
+                  const barColor = alunosDaTurma.length === max ? 'bg-red-500' : alunosDaTurma.length > max * 0.8 ? 'bg-amber-400' : 'bg-accent';
                   return (
                     <React.Fragment key={turma.id}>
                       <tr className={'hover:bg-blue-50/40 transition-colors ' + (isExpanded ? 'bg-blue-50/20' : '')}>
                         <td className="px-4 py-3 text-center">
-                          <button onClick={function() { toggleTurmaExpansion(turma.id); }} className="text-gray-400 hover:text-[#0e48fe] transition-colors" aria-label={isExpanded ? 'Recolher detalhes da turma' : 'Expandir detalhes da turma'}>
+                          <button onClick={function() { toggleTurmaExpansion(turma.id); }} className="text-gray-400 hover:text-accent transition-colors" aria-label={isExpanded ? 'Recolher detalhes da turma' : 'Expandir detalhes da turma'}>
                             <ChevronDown size={16} className={'transition-transform duration-200 ' + (isExpanded ? 'rotate-180' : '')} />
                           </button>
                         </td>
@@ -503,7 +503,7 @@ export default function Turmas({ students }) {
                             <div className="flex flex-wrap gap-1.5">
                               {turma.horarios.map(function(h) {
                                 return (
-                                  <span key={h.dia} className="inline-flex items-center gap-1 bg-blue-50 text-[#0e48fe] text-xs font-semibold px-2 py-0.5 rounded-full border border-blue-100">
+                                  <span key={h.dia} className="inline-flex items-center gap-1 bg-blue-50 text-accent text-xs font-semibold px-2 py-0.5 rounded-full border border-blue-100">
                                     {h.dia} {h.horario}{h.horarioFim ? ` – ${h.horarioFim}` : ''}
                                   </span>
                                 );
@@ -538,10 +538,10 @@ export default function Turmas({ students }) {
                         </td>
                         <td className="px-4 py-3">
                           <div className="flex items-center justify-end gap-1">
-                            <button onClick={function() { gerarChamada(turma); }} className="p-1.5 text-gray-400 hover:text-[#0e48fe] hover:bg-blue-50 rounded-lg transition-colors" aria-label="Gerar lista de chamada">
+                            <button onClick={function() { gerarChamada(turma); }} className="p-1.5 text-gray-400 hover:text-accent hover:bg-blue-50 rounded-lg transition-colors" aria-label="Gerar lista de chamada">
                               <FileText size={16} />
                             </button>
-                            <button onClick={function() { handleEditTurma(turma); }} disabled={saving} className="p-1.5 text-gray-400 hover:text-[#0e48fe] hover:bg-blue-50 rounded-lg transition-colors disabled:opacity-50" aria-label="Editar turma">
+                            <button onClick={function() { handleEditTurma(turma); }} disabled={saving} className="p-1.5 text-gray-400 hover:text-accent hover:bg-blue-50 rounded-lg transition-colors disabled:opacity-50" aria-label="Editar turma">
                               <Edit size={16} />
                             </button>
                             <button onClick={function() { handleDeleteTurma(turma); }} disabled={deleting === turma.id} className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50" aria-label="Excluir turma">
@@ -557,10 +557,10 @@ export default function Turmas({ students }) {
                               <div className="space-y-3">
                                 <div className="flex items-center justify-between">
                                   <p className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-                                    <Users size={14} className="text-[#0e48fe]" />
+                                    <Users size={14} className="text-accent" />
                                     {alunosDaTurma.length} aluno{alunosDaTurma.length !== 1 ? 's' : ''} matriculado{alunosDaTurma.length !== 1 ? 's' : ''} · {max - alunosDaTurma.length} vaga{max - alunosDaTurma.length !== 1 ? 's' : ''} livre{max - alunosDaTurma.length !== 1 ? 's' : ''}
                                   </p>
-                                  <button onClick={function() { gerarChamada(turma); }} className="flex items-center gap-1.5 px-3 py-1.5 bg-[#0e48fe] text-white rounded-lg hover:bg-[#0048b3] text-xs font-medium transition-colors">
+                                  <button onClick={function() { gerarChamada(turma); }} className="flex items-center gap-1.5 px-3 py-1.5 bg-accent text-white rounded-lg hover:bg-[#0048b3] text-xs font-medium transition-colors">
                                     <Printer size={13} /> Gerar Lista
                                   </button>
                                 </div>
@@ -590,13 +590,13 @@ export default function Turmas({ students }) {
                             <div className="mt-4 border-t border-gray-200 pt-3">
                               <div className="flex items-center justify-between mb-2">
                                 <p className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-                                  <BookOpen size={14} className="text-[#0e48fe]" /> Aulas Registradas
+                                  <BookOpen size={14} className="text-accent" /> Aulas Registradas
                                 </p>
                                 <div className="flex items-center gap-2">
-                                  <span className="text-sm font-bold text-[#0e48fe]">{aulasRegistradas.filter(function(a) { return a.turmaId === turma.id; }).length}</span>
+                                  <span className="text-sm font-bold text-accent">{aulasRegistradas.filter(function(a) { return a.turmaId === turma.id; }).length}</span>
                                   <span className="text-xs text-gray-400">de {turma.totalAulas || DEFAULT_TOTAL_AULAS} previstas</span>
                                   <div className="w-20 bg-gray-200 rounded-full h-1.5">
-                                    <div className={'h-1.5 rounded-full ' + (aulasProgress >= 100 ? 'bg-emerald-500' : 'bg-[#0e48fe]')} style={{ width: aulasProgress + '%' }} />
+                                    <div className={'h-1.5 rounded-full ' + (aulasProgress >= 100 ? 'bg-emerald-500' : 'bg-accent')} style={{ width: aulasProgress + '%' }} />
                                   </div>
                                   <span className="text-xs text-gray-500">{aulasProgress}%</span>
                                 </div>

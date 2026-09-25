@@ -32,7 +32,7 @@ export const PaymentForm = ({ modal, paymentSaving, onSubmit, onCancel, isEdit =
             min="0.01"
             required 
             defaultValue={isEdit ? modal.data?.valuePaid : (modal.data?.valuePlanned || 0)}
-            className="w-full px-4 py-3 rounded-xl border focus:outline-none focus:ring-2 focus:ring-[#0e48fe]" 
+            className="w-full px-4 py-3 rounded-xl border focus:outline-none focus:ring-2 focus:ring-accent" 
             placeholder="0.00"
           />
           {!isEdit && modal.data?.valuePlanned && (
@@ -50,7 +50,7 @@ export const PaymentForm = ({ modal, paymentSaving, onSubmit, onCancel, isEdit =
             type="date" 
             name="paymentDate" 
             defaultValue={isEdit ? modal.data?.paymentDate : paraISODia(new Date())}
-            className="w-full px-4 py-3 rounded-xl border focus:outline-none focus:ring-2 focus:ring-[#0e48fe]" 
+            className="w-full px-4 py-3 rounded-xl border focus:outline-none focus:ring-2 focus:ring-accent" 
           />
         </div>
         <div>
@@ -58,7 +58,7 @@ export const PaymentForm = ({ modal, paymentSaving, onSubmit, onCancel, isEdit =
           <select 
             name="paymentMethod" 
             defaultValue={isEdit ? modal.data?.paymentMethod : 'PIX'}
-            className="w-full px-4 py-3 rounded-xl border focus:outline-none focus:ring-2 focus:ring-[#0e48fe] bg-white"
+            className="w-full px-4 py-3 rounded-xl border focus:outline-none focus:ring-2 focus:ring-accent bg-white"
           >
             <option value="PIX">PIX</option>
             <option value="Cartão">Cartão</option>
@@ -73,7 +73,7 @@ export const PaymentForm = ({ modal, paymentSaving, onSubmit, onCancel, isEdit =
         <select 
           name="bank" 
           defaultValue={isEdit ? modal.data?.bank : 'Asaas'}
-          className="w-full px-4 py-3 rounded-xl border focus:outline-none focus:ring-2 focus:ring-[#0e48fe] bg-white"
+          className="w-full px-4 py-3 rounded-xl border focus:outline-none focus:ring-2 focus:ring-accent bg-white"
         >
           <option value="Asaas">Asaas</option>
           <option value="Inter">Inter</option>

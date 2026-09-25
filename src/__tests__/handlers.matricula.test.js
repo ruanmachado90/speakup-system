@@ -29,12 +29,6 @@ beforeEach(() => { fake.limpar(); toast.mockClear(); });
 
 const parcelasDe = (studentId) => fake.todos(PARC).filter((p) => p.studentId === studentId);
 
-/** Formulário do "Nova Matrícula" como o navegador entrega (FormData). */
-const formulario = (campos) => {
-  const fd = new FormData();
-  Object.entries(campos).forEach(([k, v]) => fd.set(k, v));
-  return { preventDefault: jest.fn(), target: { __fd: fd } };
-};
 // handlers usam new FormData(e.target): no node basta devolver o próprio FormData.
 const realFormData = global.FormData;
 beforeAll(() => {

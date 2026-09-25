@@ -26,9 +26,9 @@ function maskCEP(v) {
 
 /* ── Paleta de seções ─────────────────────────────────────────── */
 const THEME = {
-  blue:   { strip: 'from-[#0e48fe] to-[#0b3ad4]', ring: 'focus:ring-[#0e48fe]/25 focus:border-[#0e48fe]', chip: 'bg-[#0e48fe] border-[#0e48fe]', hover: 'hover:border-[#0e48fe]/40 hover:text-[#0e48fe]' },
-  orange: { strip: 'from-[#fc6e1f] to-[#d95810]', ring: 'focus:ring-[#fc6e1f]/25 focus:border-[#fc6e1f]', chip: 'bg-[#fc6e1f] border-[#fc6e1f]', hover: 'hover:border-[#fc6e1f]/40 hover:text-[#fc6e1f]' },
-  pink:   { strip: 'from-[#c98800] to-[#ffae1e]', ring: 'focus:ring-[#ffae1e]/30 focus:border-[#c98800]', chip: 'bg-[#c98800] border-[#c98800]', hover: 'hover:border-[#ffae1e]/60 hover:text-[#c98800]' },
+  blue:   { strip: 'from-accent to-accent-hover', ring: 'focus:ring-[#0e48fe]/25 focus:border-accent', chip: 'bg-accent border-accent', hover: 'hover:border-[#0e48fe]/40 hover:text-accent' },
+  orange: { strip: 'from-brand-orange to-[#d95810]', ring: 'focus:ring-[#fc6e1f]/25 focus:border-brand-orange', chip: 'bg-brand-orange border-brand-orange', hover: 'hover:border-[#fc6e1f]/40 hover:text-brand-orange' },
+  pink:   { strip: 'from-[#c98800] to-brand-yellow', ring: 'focus:ring-[#ffae1e]/30 focus:border-[#c98800]', chip: 'bg-[#c98800] border-[#c98800]', hover: 'hover:border-[#ffae1e]/60 hover:text-[#c98800]' },
 };
 
 function SectionCard({ theme = THEME.blue, icon: Icon, title, subtitle, children }) {
@@ -174,7 +174,7 @@ export default function Registro() {
     return (
       <div className="min-h-screen bg-gradient-to-br from-[#edf2f8] to-[#dbe8f8] flex items-center justify-center p-6">
         <div className="bg-white rounded-3xl shadow-xl overflow-hidden w-full max-w-md text-center">
-          <div className="bg-gradient-to-r from-[#0e48fe] to-[#0b3ad4] px-8 py-8">
+          <div className="bg-gradient-to-r from-accent to-accent-hover px-8 py-8">
             <div className="w-16 h-16 rounded-full bg-white/20 flex items-center justify-center mx-auto mb-3">
               <CheckCircle size={32} className="text-white" />
             </div>
@@ -196,7 +196,7 @@ export default function Registro() {
     <div className="min-h-screen bg-gradient-to-br from-[#edf2f8] to-[#dbe8f8]">
 
       {/* Hero header */}
-      <div id="reg-top" className="bg-gradient-to-r from-[#0e48fe] to-[#0e48fe] relative overflow-hidden">
+      <div id="reg-top" className="bg-gradient-to-r from-accent to-accent relative overflow-hidden">
         {/* Decoração de pontos */}
         <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'radial-gradient(circle, white 1.5px, transparent 1.5px)', backgroundSize: '18px 18px' }} />
         <div className="relative max-w-xl mx-auto px-6 py-8 text-center">
@@ -227,22 +227,22 @@ export default function Registro() {
                 icon: GraduationCap,
                 title: 'Sou o aluno',
                 sub: 'Maior de idade, preenchendo meus próprios dados',
-                color: 'border-[#0e48fe] bg-[#0e48fe]/5',
-                iconActive: 'bg-[#0e48fe] text-white',
+                color: 'border-accent bg-[#0e48fe]/5',
+                iconActive: 'bg-accent text-white',
                 iconIdle: 'bg-slate-100 text-slate-500',
-                titleActive: 'text-[#0e48fe]',
-                check: 'bg-[#0e48fe]',
+                titleActive: 'text-accent',
+                check: 'bg-accent',
               },
               {
                 key: 'responsavel',
                 icon: Users,
                 title: 'Sou o responsável',
                 sub: 'Pai, mãe ou responsável por um menor de idade',
-                color: 'border-[#fc6e1f] bg-[#fc6e1f]/5',
-                iconActive: 'bg-[#fc6e1f] text-white',
+                color: 'border-brand-orange bg-[#fc6e1f]/5',
+                iconActive: 'bg-brand-orange text-white',
                 iconIdle: 'bg-slate-100 text-slate-500',
-                titleActive: 'text-[#fc6e1f]',
-                check: 'bg-[#fc6e1f]',
+                titleActive: 'text-brand-orange',
+                check: 'bg-brand-orange',
               },
             ].map(opt => {
               const Icon = opt.icon;
@@ -380,7 +380,7 @@ export default function Registro() {
             <div className={`bg-white rounded-2xl border p-5 shadow-sm ${erros.consentimento ? 'border-red-300' : 'border-slate-100'}`}>
               <label className="flex items-start gap-3 cursor-pointer" onClick={() => { setConsentimento(v => !v); clearErr('consentimento'); }}>
                 <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center flex-shrink-0 mt-0.5 transition-all ${
-                  consentimento ? 'bg-[#0e48fe] border-[#0e48fe]' : 'border-slate-300 bg-white'
+                  consentimento ? 'bg-accent border-accent' : 'border-slate-300 bg-white'
                 }`}>
                   {consentimento && (
                     <svg width="11" height="8" viewBox="0 0 11 8" fill="none">
@@ -391,7 +391,7 @@ export default function Registro() {
                 <span className="text-xs text-slate-600 leading-relaxed select-none">
                   Li e concordo com a coleta e tratamento dos meus dados pessoais (incluindo CPF) pela{' '}
                   <strong className="text-slate-700">SpeakUp English Academy</strong> exclusivamente para fins de matrícula e comunicação,
-                  conforme a <strong className="text-[#0e48fe]">Lei Geral de Proteção de Dados — LGPD (Lei 13.709/2018)</strong>.
+                  conforme a <strong className="text-accent">Lei Geral de Proteção de Dados — LGPD (Lei 13.709/2018)</strong>.
                   Estou ciente de que posso solicitar a exclusão dos meus dados a qualquer momento.
                 </span>
               </label>
@@ -415,7 +415,7 @@ export default function Registro() {
               type="submit"
               onClick={handleSubmit}
               disabled={enviando}
-              className="w-full py-4 bg-gradient-to-r from-[#0e48fe] to-[#0e48fe] hover:from-[#0b3ad4] hover:to-[#0e48fe] text-white font-bold rounded-2xl text-base transition-all disabled:opacity-60 flex items-center justify-center gap-2 shadow-lg shadow-[#0e48fe]/25"
+              className="w-full py-4 bg-gradient-to-r from-accent to-accent hover:from-accent-hover hover:to-accent text-white font-bold rounded-2xl text-base transition-all disabled:opacity-60 flex items-center justify-center gap-2 shadow-lg shadow-[#0e48fe]/25"
             >
               {enviando ? <><Loader2 size={18} className="animate-spin" /> Enviando...</> : 'Enviar pré-cadastro'}
             </button>

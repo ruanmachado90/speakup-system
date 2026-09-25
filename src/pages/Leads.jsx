@@ -73,7 +73,7 @@ export const Leads = ({ setModal, leads = [] }) => {
         <h2 className="text-3xl font-black text-[#0a2540]">Leads</h2>
         <button
           onClick={() => setModal({ open: true, type: 'lead', data: null })}
-          className="px-6 py-3 rounded-full bg-[#0e48fe] text-white font-bold hover:bg-[#0b3ad4]"
+          className="px-6 py-3 rounded-full bg-accent text-white font-bold hover:bg-accent-hover"
         >
           + Novo Lead
         </button>

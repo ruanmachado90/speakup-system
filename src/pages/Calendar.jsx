@@ -164,7 +164,7 @@ export default function Calendar() {
       {/* Header Info */}
       <Card>
         <div className="flex items-center gap-3 mb-4">
-          <CalendarIcon className="text-[#0e48fe]" size={32} />
+          <CalendarIcon className="text-accent" size={32} />
           <div className="flex-1">
             <h2 className="text-2xl font-bold">Calendário</h2>
             <p className="text-slate-600">Visualize feriados e datas importantes</p>
@@ -177,7 +177,7 @@ export default function Calendar() {
             onClick={() => setCalendarView('month')}
             className={`px-3 md:px-4 py-2 rounded-lg font-semibold transition-colors text-sm md:text-base ${
               calendarView === 'month' 
-                ? 'bg-[#0e48fe] text-white' 
+                ? 'bg-accent text-white' 
                 : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
             }`}
           >
@@ -187,7 +187,7 @@ export default function Calendar() {
             onClick={() => setCalendarView('year')}
             className={`px-3 md:px-4 py-2 rounded-lg font-semibold transition-colors text-sm md:text-base ${
               calendarView === 'year' 
-                ? 'bg-[#0e48fe] text-white' 
+                ? 'bg-accent text-white' 
                 : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
             }`}
           >
@@ -271,11 +271,11 @@ export default function Calendar() {
                   className={`
                     flex flex-col items-center justify-center rounded-lg relative p-2 min-h-24
                     ${day ? 'cursor-pointer' : ''}
-                    ${isToday ? 'bg-[#0e48fe] text-white font-bold hover:bg-[#0048b3]' : ''}
+                    ${isToday ? 'bg-accent text-white font-bold hover:bg-[#0048b3]' : ''}
                     ${holiday && !isToday ? 'border-2' : ''}
-                    ${schoolEvent && !isToday ? 'border-2 border-[#0e48fe]' : ''}
+                    ${schoolEvent && !isToday ? 'border-2 border-accent' : ''}
                     ${schoolBreakDay && !isToday && !examWeek && !recoveryPeriod ? 'bg-slate-200' : ''}
-                    ${examWeek && !isToday ? 'bg-[#ffae1e]' : ''}
+                    ${examWeek && !isToday ? 'bg-brand-yellow' : ''}
                     ${recoveryPeriod && !isToday ? 'bg-[#e6f2ff]' : ''}
                     ${!isToday && !holiday && !schoolBreakDay && !schoolEvent && !examWeek && !recoveryPeriod && day ? 'bg-slate-50 hover:bg-slate-100' : ''}
                     transition-colors
@@ -364,11 +364,11 @@ export default function Calendar() {
               
               return (
                 <div key={monthIndex} className={`p-3 rounded-lg border-2 ${
-                  isCurrentMonth ? 'border-[#0e48fe] bg-blue-50' : 'border-slate-200 bg-white'
+                  isCurrentMonth ? 'border-accent bg-blue-50' : 'border-slate-200 bg-white'
                 } shadow-sm hover:shadow-md transition-shadow`}>
                   {/* Nome do mês */}
                   <div className={`font-bold text-center mb-2 text-sm ${
-                    isCurrentMonth ? 'text-[#0e48fe]' : 'text-slate-900'
+                    isCurrentMonth ? 'text-accent' : 'text-slate-900'
                   }`}>
                     {month}
                   </div>
@@ -411,11 +411,11 @@ export default function Calendar() {
                           className={`
                             aspect-square flex items-center justify-center rounded text-[10px]
                             ${day ? 'cursor-pointer' : ''}
-                            ${isToday ? 'bg-[#0e48fe] text-white font-bold' : ''}
+                            ${isToday ? 'bg-accent text-white font-bold' : ''}
                             ${holiday && !isToday ? 'font-bold' : ''}
-                            ${schoolEvent && !isToday ? 'border-2 border-[#0e48fe] font-bold' : ''}
+                            ${schoolEvent && !isToday ? 'border-2 border-accent font-bold' : ''}
                             ${recoveryPeriod && !isToday && !holiday ? 'bg-[#e6f2ff] font-bold' : ''}
-                            ${examWeek && !isToday && !holiday && !recoveryPeriod ? 'bg-[#ffae1e] font-bold' : ''}
+                            ${examWeek && !isToday && !holiday && !recoveryPeriod ? 'bg-brand-yellow font-bold' : ''}
                             ${schoolBreakDay && !isToday && !holiday && !examWeek && !recoveryPeriod ? 'bg-slate-200' : ''}
                             ${!isToday && !holiday && !schoolBreakDay && !schoolEvent && !examWeek && !recoveryPeriod && day ? 'hover:bg-slate-100' : ''}
                           `}
@@ -502,7 +502,7 @@ export default function Calendar() {
                     <div className={`${monthHolidaysList.length > 0 || monthSchoolBreakList.length > 0 || monthExamWeeksList.length > 0 || monthRecoveryPeriodsList.length > 0 ? '' : 'border-t'} pt-2 space-y-1`}>
                       {monthSchoolEventsList.map((se, idx) => (
                         <div key={idx} className="flex items-start gap-1.5">
-                          <div className="flex-shrink-0 w-4 h-4 rounded text-[9px] font-bold flex items-center justify-center border-2 border-[#0e48fe] text-[#0e48fe]">
+                          <div className="flex-shrink-0 w-4 h-4 rounded text-[9px] font-bold flex items-center justify-center border-2 border-accent text-accent">
                             {se.day}
                           </div>
                           <div className="text-[10px] text-slate-700 leading-tight font-semibold">
@@ -517,10 +517,10 @@ export default function Calendar() {
                   {isCurrentMonth && (
                     <div className="border-t pt-2 mt-2">
                       <div className="flex items-start gap-1.5">
-                        <div className="flex-shrink-0 w-4 h-4 bg-[#0e48fe] rounded text-[9px] font-bold text-white flex items-center justify-center">
+                        <div className="flex-shrink-0 w-4 h-4 bg-accent rounded text-[9px] font-bold text-white flex items-center justify-center">
                           {currentDate.getDate()}
                         </div>
-                        <div className="text-[10px] text-[#0e48fe] font-semibold leading-tight">
+                        <div className="text-[10px] text-accent font-semibold leading-tight">
                           Hoje
                         </div>
                       </div>

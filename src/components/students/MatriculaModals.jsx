@@ -42,7 +42,7 @@ export function ConfirmarMatriculaModal({ preCad, duplicados = [], onConfirm, on
   };
 
   return (
-    <ModalShell icon={<CheckCircle size={18} />} iconBg="bg-[#0e48fe]" title="Confirmar Matrícula" subtitle={preCad.nome} onClose={onClose}>
+    <ModalShell icon={<CheckCircle size={18} />} iconBg="bg-accent" title="Confirmar Matrícula" subtitle={preCad.nome} onClose={onClose}>
       <form onSubmit={handleSubmit}>
         <div className="p-5 space-y-4">
           <AvisoCpfExistente duplicados={duplicados} onReativar={onReativarExistente} onDescartar={onDescartar} />
@@ -65,7 +65,7 @@ export function ConfirmarMatriculaModal({ preCad, duplicados = [], onConfirm, on
         <div className="flex gap-3 px-5 pb-5">
           <button type="button" onClick={onClose} className="flex-1 py-2 border border-slate-300 rounded-lg text-slate-600 text-sm hover:bg-slate-50 transition-colors">Cancelar</button>
           <button type="submit" disabled={saving || bloqueado}
-            className="flex-1 py-2 bg-[#0e48fe] text-white rounded-lg text-sm font-semibold hover:bg-[#0b3ad4] transition-colors disabled:opacity-60 flex items-center justify-center gap-2">
+            className="flex-1 py-2 bg-accent text-white rounded-lg text-sm font-semibold hover:bg-accent-hover transition-colors disabled:opacity-60 flex items-center justify-center gap-2">
             {saving ? <><Loader2 size={15} className="animate-spin" /> Salvando...</> : <><CheckCircle size={15} /> Confirmar matrícula</>}
           </button>
         </div>

@@ -48,7 +48,7 @@ export default function SaldoCaixaWidget({ filterMonth, filterYear }) {
     <div className="rounded-xl border border-slate-200 bg-white px-5 py-4 mb-6">
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div className="flex items-center gap-2">
-          <Wallet size={18} className="text-[#0e48fe]" />
+          <Wallet size={18} className="text-accent" />
           <div>
             <h3 className="font-bold text-sm text-slate-800">Saldo em caixa — {MONTHS_PT[filterMonth]} {filterYear}</h3>
             <p className="text-xs text-slate-400">A pergunta é: sobrevivo? Lucro e variação de caixa não são a mesma coisa.</p>
@@ -57,7 +57,7 @@ export default function SaldoCaixaWidget({ filterMonth, filterYear }) {
         {!editando && (
           <button
             onClick={() => setEditando(true)}
-            className="flex items-center gap-1 text-xs font-semibold text-[#0e48fe] hover:underline"
+            className="flex items-center gap-1 text-xs font-semibold text-accent hover:underline"
           >
             <Pencil size={13} /> {temAmbos ? 'Editar' : 'Registrar saldo do mês'}
           </button>
@@ -71,7 +71,7 @@ export default function SaldoCaixaWidget({ filterMonth, filterYear }) {
             <input
               type="number" step="0.01" value={saldoInicial}
               onChange={(e) => setSaldoInicial(e.target.value)}
-              className="border px-3 py-2 rounded-lg w-36 focus:outline-none focus:ring-2 focus:ring-[#0e48fe]"
+              className="border px-3 py-2 rounded-lg w-36 focus:outline-none focus:ring-2 focus:ring-accent"
               placeholder="0,00"
             />
           </div>
@@ -80,11 +80,11 @@ export default function SaldoCaixaWidget({ filterMonth, filterYear }) {
             <input
               type="number" step="0.01" value={saldoFinal}
               onChange={(e) => setSaldoFinal(e.target.value)}
-              className="border px-3 py-2 rounded-lg w-36 focus:outline-none focus:ring-2 focus:ring-[#0e48fe]"
+              className="border px-3 py-2 rounded-lg w-36 focus:outline-none focus:ring-2 focus:ring-accent"
               placeholder="0,00"
             />
           </div>
-          <button type="submit" disabled={salvando} className="flex items-center gap-1 px-3 py-2 bg-[#0e48fe] text-white rounded-lg text-sm font-semibold disabled:opacity-60">
+          <button type="submit" disabled={salvando} className="flex items-center gap-1 px-3 py-2 bg-accent text-white rounded-lg text-sm font-semibold disabled:opacity-60">
             <Check size={15} /> {salvando ? 'Salvando...' : 'Salvar'}
           </button>
           <button type="button" onClick={() => setEditando(false)} className="flex items-center gap-1 px-3 py-2 border border-slate-300 text-slate-600 rounded-lg text-sm">

@@ -664,7 +664,7 @@ const Finance = ({
                 id="filter-month"
                 value={filterMonth} 
                 onChange={e => setFilterMonth(Number(e.target.value))} 
-                className="border px-3 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0e48fe] transition-all w-full sm:w-auto"
+                className="border px-3 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-accent transition-all w-full sm:w-auto"
               >
                 {MONTHS.map(month => (
                   <option key={month.value} value={month.value}>
@@ -683,7 +683,7 @@ const Finance = ({
                 type="number" 
                 value={filterYear} 
                 onChange={e => setFilterYear(Number(e.target.value))} 
-                className="border px-3 py-2 rounded-lg w-full sm:w-28 focus:outline-none focus:ring-2 focus:ring-[#0e48fe] transition-all" 
+                className="border px-3 py-2 rounded-lg w-full sm:w-28 focus:outline-none focus:ring-2 focus:ring-accent transition-all" 
                 min="2020"
                 max="2100"
               />
@@ -697,7 +697,7 @@ const Finance = ({
                 id="filter-status"
                 value={filterStatus} 
                 onChange={e => setFilterStatus(e.target.value)} 
-                className="border px-3 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0e48fe] transition-all w-full sm:w-auto"
+                className="border px-3 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-accent transition-all w-full sm:w-auto"
               >
                 {STATUS_OPTIONS.map(option => (
                   <option key={option.value} value={option.value}>
@@ -713,7 +713,7 @@ const Finance = ({
         <div className="flex flex-wrap gap-2 mb-6">
           <button
             onClick={() => setModal({ open: true, type: 'new-charge', data: null })}
-            className="flex items-center gap-2 px-4 py-2 bg-[#0e48fe] text-white rounded-lg hover:bg-[#0b3ad4] transition-colors font-semibold"
+            className="flex items-center gap-2 px-4 py-2 bg-accent text-white rounded-lg hover:bg-accent-hover transition-colors font-semibold"
             title="Criar cobrança avulsa pra um aluno já ativo"
           >
             <Plus size={16} />
@@ -824,7 +824,7 @@ const Finance = ({
           <input
             type="text"
             placeholder="Buscar por aluno ou responsável..."
-            className="w-full pl-10 pr-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0e48fe] transition-all"
+            className="w-full pl-10 pr-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-accent transition-all"
             value={searchTerm}
             onChange={e => setSearchTerm(e.target.value)}
           />

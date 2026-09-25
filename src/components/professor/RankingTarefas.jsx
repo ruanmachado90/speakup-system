@@ -115,7 +115,7 @@ export function RankingTarefas({ turma, aulas, alunos, onClose }) {
         <div className="flex items-center gap-2">
           <button
             onClick={handlePrint}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-sm border border-slate-300 rounded-lg hover:border-[#0e48fe] hover:text-[#0e48fe] transition-all"
+            className="flex items-center gap-1.5 px-3 py-1.5 text-sm border border-slate-300 rounded-lg hover:border-accent hover:text-accent transition-all"
           >
             <Printer size={16} /> Imprimir / Enviar
           </button>

@@ -31,7 +31,7 @@ const CARDS = [
     id: 'frequencia',
     label: 'Conteúdo e Frequência',
     Icon: Users,
-    cardBg: 'bg-[#0e48fe]',
+    cardBg: 'bg-accent',
     textColor: 'text-white',
     subtextColor: 'text-blue-100',
     subtitle: 'Registrar aula de hoje',
@@ -46,7 +46,7 @@ const CARDS = [
     Icon: GraduationCap,
     cardBg: 'bg-white',
     textColor: 'text-slate-900',
-    chipBg: 'bg-[#0e48fe]',
+    chipBg: 'bg-accent',
     chipIcon: 'text-white',
     chipShape: 'circle',
   },
@@ -56,7 +56,7 @@ const CARDS = [
     Icon: BookOpen,
     cardBg: 'bg-white',
     textColor: 'text-slate-900',
-    chipBg: 'bg-[#fc6e1f]',
+    chipBg: 'bg-brand-orange',
     chipIcon: 'text-white',
     chipShape: 'circle',
   },
@@ -103,7 +103,7 @@ const CHIP_SHAPE_CLASS = {
 function HomeSkeleton() {
   return (
     <div className="min-h-screen bg-[#F7F3EB] flex flex-col">
-      <div className="bg-[#0e48fe] px-5 pt-6 pb-5 flex flex-col items-center gap-3 border-b-[3px] border-slate-900">
+      <div className="bg-accent px-5 pt-6 pb-5 flex flex-col items-center gap-3 border-b-[3px] border-slate-900">
         <Skeleton className="h-10 w-36 bg-white/20" />
         <Skeleton className="h-4 w-28 bg-white/15 rounded-lg" />
         <Skeleton className="h-3 w-20 bg-white/10 rounded-lg" />
@@ -208,9 +208,9 @@ export default function ProfessorHome() {
     <div className="min-h-screen bg-[#F7F3EB] flex flex-col">
 
       {/* Header — bloco de cor sólido com círculos decorativos, ecoando os chips dos cards */}
-      <div className="relative overflow-hidden bg-[#0e48fe] px-5 pt-6 pb-7 flex flex-col items-center gap-2 border-b-[3px] border-slate-900">
+      <div className="relative overflow-hidden bg-accent px-5 pt-6 pb-7 flex flex-col items-center gap-2 border-b-[3px] border-slate-900">
         <div className="absolute -top-8 -right-8 w-28 h-28 rounded-full bg-[#FFC738]" />
-        <div className="absolute -bottom-8 -left-8 w-20 h-20 rounded-full bg-[#fc6e1f]" />
+        <div className="absolute -bottom-8 -left-8 w-20 h-20 rounded-full bg-brand-orange" />
         <img src={LOGO_URL} alt="SpeakUp" className="relative h-10 object-contain" />
         <p className="relative text-white/90 text-sm font-semibold tracking-wide mt-1 uppercase">
           Olá, <span className="font-black text-white">{primeiroNome}</span> 👋

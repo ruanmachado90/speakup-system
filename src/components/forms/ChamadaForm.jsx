@@ -197,7 +197,7 @@ export default function ChamadaForm({ turma, alunosIniciais, professorNome, onSa
       {/* Cabeçalho */}
       <div className="p-5 border-b border-slate-200 flex items-center justify-between bg-white">
         <div className="flex items-center gap-3">
-          <div className="bg-[#0e48fe] text-white p-2 rounded-lg">
+          <div className="bg-accent text-white p-2 rounded-lg">
             <BookOpen size={20} />
           </div>
           <div>
@@ -216,7 +216,7 @@ export default function ChamadaForm({ turma, alunosIniciais, professorNome, onSa
         {/* Data e Conteúdo */}
         <div className="bg-white rounded-xl border border-slate-200 p-4 space-y-4">
           <h3 className="font-semibold text-slate-700 flex items-center gap-2">
-            <FileText size={18} className="text-[#0e48fe]" />
+            <FileText size={18} className="text-accent" />
             Dados da Aula
           </h3>
 
@@ -225,7 +225,7 @@ export default function ChamadaForm({ turma, alunosIniciais, professorNome, onSa
             <label className="block text-sm font-medium text-slate-600 mb-2">Tipo de Registro</label>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
               {[
-                { key: 'realizada', label: 'Aula Realizada', Icon: CheckCircle, active: 'bg-[#0e48fe] text-white border-[#0e48fe]', inactive: 'border-slate-300 text-slate-600 hover:border-[#0e48fe] hover:text-[#0e48fe]' },
+                { key: 'realizada', label: 'Aula Realizada', Icon: CheckCircle, active: 'bg-accent text-white border-accent', inactive: 'border-slate-300 text-slate-600 hover:border-accent hover:text-accent' },
                 { key: 'cancelada', label: 'Cancelada',      Icon: Ban,         active: 'bg-red-500 text-white border-red-500',     inactive: 'border-slate-300 text-slate-600 hover:border-red-400 hover:text-red-500' },
                 { key: 'feriado',   label: 'Feriado',        Icon: Umbrella,    active: 'bg-amber-500 text-white border-amber-500', inactive: 'border-slate-300 text-slate-600 hover:border-amber-400 hover:text-amber-500' },
                 { key: 'recesso',   label: 'Recesso',        Icon: Palmtree,    active: 'bg-emerald-500 text-white border-emerald-500', inactive: 'border-slate-300 text-slate-600 hover:border-emerald-400 hover:text-emerald-500' },
@@ -265,7 +265,7 @@ export default function ChamadaForm({ turma, alunosIniciais, professorNome, onSa
                 type="date"
                 value={data}
                 onChange={(e) => setData(e.target.value)}
-                className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0e48fe]"
+                className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent"
               />
               {data > hoje && (
                 <p className="mt-1.5 flex items-center gap-1.5 text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1.5">
@@ -300,7 +300,7 @@ export default function ChamadaForm({ turma, alunosIniciais, professorNome, onSa
               onChange={(e) => setConteudo(e.target.value)}
               disabled={tipoAula !== 'realizada'}
               placeholder={tipoAula === 'realizada' ? 'Ex: Unit 5 - Past Perfect, páginas 42-45...' : 'Não aplicável para ' + tipoAula}
-              className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0e48fe] ${tipoAula !== 'realizada' ? 'bg-slate-100 border-slate-200 text-slate-400' : 'border-slate-300'}`}
+              className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent ${tipoAula !== 'realizada' ? 'bg-slate-100 border-slate-200 text-slate-400' : 'border-slate-300'}`}
             />
           </div>
 
@@ -326,7 +326,7 @@ export default function ChamadaForm({ turma, alunosIniciais, professorNome, onSa
               onChange={(e) => setObservacoes(e.target.value)}
               rows={2}
               placeholder="Observações gerais da aula..."
-              className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0e48fe] resize-none"
+              className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent resize-none"
             />
           </div>
 
@@ -383,7 +383,7 @@ export default function ChamadaForm({ turma, alunosIniciais, professorNome, onSa
         <div className="bg-white rounded-xl border border-slate-200 p-4">
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-semibold text-slate-700 flex items-center gap-2">
-              <Users size={18} className="text-[#0e48fe]" />
+              <Users size={18} className="text-accent" />
               Chamada ({alunos.length} alunos)
             </h3>
 
@@ -536,7 +536,7 @@ export default function ChamadaForm({ turma, alunosIniciais, professorNome, onSa
               tipoAula === 'cancelada' ? 'bg-red-500 hover:bg-red-600' :
               tipoAula === 'feriado'   ? 'bg-amber-500 hover:bg-amber-600' :
               tipoAula === 'recesso'   ? 'bg-emerald-500 hover:bg-emerald-600' :
-              'bg-[#0e48fe] hover:bg-[#0b3ad4]'
+              'bg-accent hover:bg-accent-hover'
             }`}
           >
             {saving || checkingDuplicate ? (

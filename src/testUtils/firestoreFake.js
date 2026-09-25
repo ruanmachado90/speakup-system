@@ -104,6 +104,7 @@ const todos = (prefixo) => [...dados.entries()]
 const limpar = () => { dados.clear(); seq = 0; falhaNoCommit = false; };
 const falharProximoCommit = () => { falhaNoCommit = true; };
 
+// eslint-disable-next-line no-undef -- helper de teste em CommonJS (jest.mock o carrega via require)
 module.exports = {
   modulo: { collection, doc, where, query, getDoc, getDocs, updateDoc, setDoc, addDoc, deleteDoc, writeBatch, arrayUnion },
   semear, ler, existe, todos, limpar, falharProximoCommit,

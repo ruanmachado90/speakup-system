@@ -43,6 +43,15 @@ export const diaDaParcela = (p) => String(p?.dueDate ?? '').slice(0, 10);
  */
 export const parcelaEmAberto = (p) => p?.status !== 'Pago' && p?.status !== 'cancelada';
 
+/**
+ * Parcela da RENOVAÇÃO de um ano letivo que ainda não começou (ex.: 2027 vista
+ * em nov/2026). Ela já tem o valor novo, com reajuste e desconto: mudar a
+ * mensalidade de 2026 não pode reescrevê-la. Quando o ano dela chega, vira o
+ * contrato vigente e volta a ser alterável normalmente.
+ */
+export const ehRenovacaoFutura = (p, hoje = new Date()) =>
+  p?.origem === 'renovacao' && Number(p?.anoLetivo) > hoje.getFullYear();
+
 /** Saldo devedor da parcela. */
 export const saldoDevedor = (p) => Math.max(0, num(p?.valuePlanned) - num(p?.valuePaid));
 
@@ -66,7 +75,7 @@ export function classificarParcelas(parcelas = [], hoje = new Date()) {
  */
 export function sugerirVigencia(parcelas = [], hoje = new Date()) {
   const { aVencer } = classificarParcelas(parcelas, hoje);
-  const dias = aVencer.map(diaDaParcela).filter(Boolean).sort();
+  const dias = aVencer.filter((p) => !ehRenovacaoFutura(p, hoje)).map(diaDaParcela).filter(Boolean).sort();
   return dias[0] || paraISODia(hoje);
 }
 
@@ -86,6 +95,8 @@ export function planoDeAlteracao(parcelas = [], { fee, modo = MODO_PLANO, aParti
 
   const abertas = [...vencidas, ...aVencer];
   const elegivel = (p) => {
+    // Renovação de ano futuro nunca muda por aqui, em nenhum dos modos.
+    if (ehRenovacaoFutura(p, hoje)) return false;
     if (modo === MODO_CORRECAO) return true;
     const dia = diaDaParcela(p);
     // Parcela sem vencimento legível não é tocada por data — só na correção.
@@ -112,6 +123,7 @@ export function planoDeAlteracao(parcelas = [], { fee, modo = MODO_PLANO, aParti
       dia: diaDaParcela(p),
       valor: num(p.valuePlanned),
       vencida: vencidas.includes(p),
+      renovacaoFutura: ehRenovacaoFutura(p, hoje),
     }))
     .sort((a, b) => String(a.dia).localeCompare(String(b.dia)));
 

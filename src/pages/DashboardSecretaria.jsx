@@ -161,7 +161,7 @@ export default function DashboardSecretaria({
             <button
               type="submit"
               disabled={addingTodo || !novoTodo.trim()}
-              className="px-3 py-1.5 bg-ink text-white text-su-xs rounded-su-sm hover:bg-gr-800 disabled:opacity-50 transition-colors flex items-center gap-1"
+              className="px-3 py-1.5 bg-accent text-white text-su-xs rounded-su-sm hover:bg-accent-hover disabled:opacity-50 transition-colors flex items-center gap-1"
             >
               <Plus size={13} />
             </button>

@@ -99,7 +99,7 @@ export default function OverduePaymentsModal({ isOpen, onClose, payments, studen
           </p>
           <button
             onClick={onClose}
-            className="px-4 py-2 bg-ink text-white text-su-sm font-semibold rounded-su-sm hover:bg-gr-800 transition-colors focus:outline-none focus-visible:shadow-ring-accent"
+            className="px-4 py-2 bg-accent text-white text-su-sm font-semibold rounded-su-sm hover:bg-accent-hover transition-colors focus:outline-none focus-visible:shadow-ring-accent"
           >
             Fechar
           </button>

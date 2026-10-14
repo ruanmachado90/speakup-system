@@ -267,13 +267,13 @@ const DashboardGestao = ({
         <div className="flex gap-2 items-center">
           <button
             onClick={() => setDashboardRange('month')}
-            className={`px-3 py-1 rounded ${dashboardRange === 'month' ? 'bg-ink text-white' : 'bg-surface-sunken text-content-body hover:bg-gr-200'}`}
+            className={`px-3 py-1 rounded ${dashboardRange === 'month' ? 'bg-accent text-white' : 'bg-surface-sunken text-content-body hover:bg-gr-200'}`}
           >
             Mês atual
           </button>
           <button
             onClick={() => setDashboardRange('year')}
-            className={`px-3 py-1 rounded ${dashboardRange === 'year' ? 'bg-ink text-white' : 'bg-surface-sunken text-content-body hover:bg-gr-200'}`}
+            className={`px-3 py-1 rounded ${dashboardRange === 'year' ? 'bg-accent text-white' : 'bg-surface-sunken text-content-body hover:bg-gr-200'}`}
           >
             Ano
           </button>

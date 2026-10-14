@@ -78,7 +78,7 @@ export default function ProfessorDashboard() {
   const [sidebarMode, setSidebarMode] = useState(() => window.innerWidth < 1024 ? 'closed' : 'open'); // 'open' | 'mini' | 'closed'
   // 'dashboard' | 'turmas' | 'notas' | 'historico' | 'avisos' | 'resources'
   // Resources guarda os filtros no endereço (#resources?...): recarregar volta para a aba.
-  const [activeView, setActiveView] = useState(() => window.location.hash.startsWith(RESOURCES_HASH) ? 'resources' : 'dashboard');
+  const [activeView, setActiveView] = useState(() => import.meta.env.DEV && window.location.hash.startsWith(RESOURCES_HASH) ? 'resources' : 'dashboard');
   const navClick = (fn) => () => { fn(); if (window.innerWidth < 1024) setSidebarMode('closed'); };
 
   // Estados
@@ -649,13 +649,11 @@ export default function ProfessorDashboard() {
             active={activeView === 'historico'}
             onClick={navClick(() => { setHistoricoTurmaFiltro(null); setActiveView('historico'); })}
           />
-          <SidebarNav
-            collapsed={sidebarMode === 'mini'}
-            icon={<Library size={18} />}
-            label="Resources"
-            active={activeView === 'resources'}
-            onClick={navClick(() => setActiveView('resources'))}
-          />
+          {/* Resources só em dev até provas e áudios irem para o LMS — em produção os botões não abririam nada */}
+          {import.meta.env.DEV && (
+            <SidebarNav collapsed={sidebarMode === 'mini'} icon={<Library size={18} />} label="Resources"
+              active={activeView === 'resources'} onClick={navClick(() => setActiveView('resources'))} />
+          )}
           <SidebarNav
             collapsed={sidebarMode === 'mini'}
             icon={<Bell size={18} />}

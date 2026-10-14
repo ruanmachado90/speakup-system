@@ -1,518 +1,560 @@
-import { useMemo, useState, useEffect } from 'react';
-import { PlusCircle, AlertCircle, Trash2, TrendingDown, Edit2, Download, FileSpreadsheet, Printer, Filter, Eye, EyeOff, Clock } from 'lucide-react';
-import { Card, Table, DonutChart, ExpenseEvolutionChart, PaymentMethodChart } from '../components';
-import { ConfirmDialog, Toast } from '../components/ui/Toast';
-import { formatCurrency, formatDate, exportToExcel, exportToCSV, printExpenses } from '../utils';
+import { useMemo, useState, useEffect, useRef, useDeferredValue } from 'react';
+import {
+  PlusCircle, AlertCircle, TrendingDown, Eye, EyeOff, Search, ChevronLeft, ChevronRight, Repeat, CheckCircle2,
+} from 'lucide-react';
+import { Card, DonutChart, ExpenseEvolutionChart, PaymentMethodChart } from '../components';
+import ConfirmDialog from '../components/ui/ConfirmDialog';
+import EstruturaCustos from '../components/despesas/EstruturaCustos';
+import TabelaDespesas from '../components/despesas/TabelaDespesas';
+import MenuExportar from '../components/despesas/MenuExportar';
+import Segmentado from '../components/despesas/Segmentado';
+import KpisDespesas from '../components/despesas/KpisDespesas';
+import FiltrosDespesas, { OUTRAS } from '../components/despesas/FiltrosDespesas';
+import { formatCurrency, exportToExcel, exportToCSV, printExpenses, EXPENSE_CATEGORIES_TODAS } from '../utils';
+import { receitaRecebidaNoMes } from '../utils/reportKPIs';
+import { hojeLocalYMD } from '../utils/despesaParcelas';
+import { recorrentesDoMes } from '../utils/despesasRecorrentes';
+import {
+  tipoDe, ehOperacional, grupoDe, estaPaga, estaVencida, inicioDeHoje, vencimentoDe,
+  num, soma, normalizar, dataDe, noPeriodo,
+  resumirPeriodo, estruturaDeCustos, marcarAtipicos, indexarBusca, ordenarDespesas,
+} from '../utils/despesasAnalise';
+import { useData } from '../context/DataContext';
+import { useAuthContext } from '../context/AuthContext';
 
-const MONTHS = [
+const MESES = [
   'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
   'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
 ];
+const MESES_CURTO = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
 
-const EXPENSE_CATEGORIES = [
-  'Todas',
-  'Aluguel',
-  'Materiais',
-  'Salários',
-  'Serviços',
-  'Marketing',
-  'Transporte',
-  'Tecnologia',
-  'Outro'
-];
+const HIDE_VALUES_KEY = 'speakup:despesas:hideValues';
+const POR_PAGINA = 50;
 
-// Threshold for high expense alert (configurable)
-const HIGH_EXPENSE_THRESHOLD = 1000;
+const selectCls = 'border border-strong bg-surface-card rounded-su-sm px-3 py-2 text-su-sm font-semibold text-content-body focus:outline-none focus-visible:shadow-ring-accent';
+const iconBtnCls = 'p-2 rounded-su-sm text-content-muted hover:text-content-body hover:bg-surface-sunken transition-colors focus:outline-none focus-visible:shadow-ring-accent';
+const primaryBtnCls = 'px-4 py-2 bg-accent text-white text-su-sm font-semibold rounded-su-sm flex items-center gap-2 hover:bg-accent-hover transition-colors focus:outline-none focus-visible:shadow-ring-accent';
+const ghostBtnCls = 'px-4 py-2 rounded-su-sm border border-strong bg-surface-card text-su-sm font-semibold text-content-body flex gap-2 items-center hover:bg-gr-50 disabled:opacity-50 focus:outline-none focus-visible:shadow-ring-accent';
 
-const Expenses = ({ 
-  expenseView, 
-  setExpenseView, 
-  expenseMonth, 
-  setExpenseMonth, 
-  expenseYear, 
-  setExpenseYear, 
+const SemDados = ({ children }) => (
+  <div className="py-12 text-center text-content-muted text-su-sm">
+    <AlertCircle size={28} className="mx-auto mb-2 opacity-50" />
+    {children}
+  </div>
+);
+
+const Expenses = ({
+  expenseView,
+  setExpenseView,
+  expenseMonth,
+  setExpenseMonth,
+  expenseYear,
+  setExpenseYear,
   expenses = [],
-  filteredExpensesData, 
-  expenseEvolutionData, 
-  setModal, 
-  handleDeleteExpense 
+  setModal,
+  handleDeleteExpense,
+  marcarDespesaPaga,
+  reabrirDespesa,
+  gerarRecorrentes,
 }) => {
-  const [confirmDialog, setConfirmDialog] = useState({ isVisible: false, expenseId: null, expenseName: '' });
-  const [categoryFilter, setCategoryFilter] = useState('Todas');
-  const [statusFilter, setStatusFilter] = useState('todos'); // 'todos' | 'vencidos'
-  const [showExportMenu, setShowExportMenu] = useState(false);
-  const [highExpenseAlert, setHighExpenseAlert] = useState(null);
-  const [hideValues, setHideValues] = useState(false);
+  const { payments = [], parametros, dataLoading } = useData();
+  const { role } = useAuthContext();
+  // Receita e margem são leitura de gestão — a secretaria vê só as saídas,
+  // como no dashboard dela.
+  const verReceita = role === 'admin';
 
-  // Base data: when statusFilter is 'vencidos', use all expenses with date < today
-  const baseData = useMemo(() => {
-    if (statusFilter === 'vencidos') {
-      const hoje = new Date(); hoje.setHours(0, 0, 0, 0);
-      return expenses.filter(exp => exp.date && new Date(exp.date) < hoje);
+  const [busca, setBusca] = useState('');
+  const buscaAdiada = useDeferredValue(busca);
+  const [escopoBusca, setEscopoBusca] = useState('periodo'); // 'periodo' | 'todos'
+  // null = automático. As despesas chegam depois do primeiro render, então o
+  // padrão não pode ser decidido no useState — é resolvido em `statusEfetivo`,
+  // já com os dados em mão e sem efeito que cause re-render em cascata.
+  const [statusFiltro, setStatusFiltro] = useState(null); // null | pagas | aPagar | vencidas | todas
+  const [categoriaFiltro, setCategoriaFiltro] = useState('');
+  const [tipoFiltro, setTipoFiltro] = useState('');
+  const [grupoFiltro, setGrupoFiltro] = useState('');
+  const [ordem, setOrdem] = useState({ campo: 'data', dir: 'desc' });
+  const [paginacao, setPaginacao] = useState({ assinatura: '', limite: POR_PAGINA });
+  const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, expense: null });
+  const [hideValues, setHideValues] = useState(() => {
+    try {
+      return localStorage.getItem(HIDE_VALUES_KEY) === '1';
+    } catch {
+      return false;
     }
-    return filteredExpensesData;
-  }, [statusFilter, expenses, filteredExpensesData]);
+  });
 
-  // Filter by category
-  const filteredByCategory = useMemo(() => {
-    if (categoryFilter === 'Todas') return baseData;
-    return baseData.filter(exp => exp.category === categoryFilter);
-  }, [baseData, categoryFilter]);
+  const buscaRef = useRef(null);
+  const hoje = useMemo(() => inicioDeHoje(), []);
 
-  // Memoize sorted data to avoid re-sorting on every render
-  const sortedExpenses = useMemo(() => {
-    if (!filteredByCategory) return [];
-    return [...filteredByCategory].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
-  }, [filteredByCategory]);
-
-  // Calculate total with memoization
-  const totalExpenses = useMemo(() => {
-    return filteredByCategory.reduce((sum, x) => sum + Number(x.value || 0), 0);
-  }, [filteredByCategory]);
-
-  const maskValue = (val) => hideValues ? '••••' : val;
-
-  // Check for high expenses and show alert
   useEffect(() => {
-    const highExpenses = filteredExpensesData.filter(exp => Number(exp.value) >= HIGH_EXPENSE_THRESHOLD);
-    if (highExpenses.length > 0 && !sessionStorage.getItem('highExpenseAlertShown')) {
-      setHighExpenseAlert({
-        count: highExpenses.length,
-        total: highExpenses.reduce((sum, exp) => sum + Number(exp.value || 0), 0)
-      });
-      sessionStorage.setItem('highExpenseAlertShown', 'true');
+    try {
+      localStorage.setItem(HIDE_VALUES_KEY, hideValues ? '1' : '0');
+    } catch {
+      // Storage bloqueado: a preferência vale só nesta sessão.
     }
-  }, [filteredExpensesData]);
+  }, [hideValues]);
 
-  // Handle delete with confirmation
-  const handleDeleteClick = (expense) => {
-    setConfirmDialog({
-      isVisible: true,
-      expenseId: expense.id,
-      expenseName: expense.description
-    });
-  };
+  // "/" foca a busca (padrão de apps de listagem); Esc dentro dela limpa.
+  useEffect(() => {
+    const onKey = (ev) => {
+      if (ev.key !== '/' || ev.ctrlKey || ev.metaKey || ev.altKey) return;
+      const tag = ev.target?.tagName;
+      if (['INPUT', 'TEXTAREA', 'SELECT'].includes(tag) || ev.target?.isContentEditable) return;
+      if (document.querySelector('[role="dialog"]')) return;
+      ev.preventDefault();
+      buscaRef.current?.focus();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
 
-  const confirmDelete = () => {
-    if (confirmDialog.expenseId) {
-      handleDeleteExpense(confirmDialog.expenseId);
+  // ── Período ──────────────────────────────────────────────────────────
+  const rotuloPeriodo = expenseView === 'month' ? `${MESES[expenseMonth]} de ${expenseYear}` : `Ano ${expenseYear}`;
+  // Memoizado: entra como dependência dos useMemo de período e de recorrentes.
+  const periodoAnterior = useMemo(() => (expenseView === 'month'
+    ? (expenseMonth === 0 ? { mes: 11, ano: expenseYear - 1 } : { mes: expenseMonth - 1, ano: expenseYear })
+    : { mes: expenseMonth, ano: expenseYear - 1 }
+  ), [expenseView, expenseMonth, expenseYear]);
+  const rotuloAnterior = expenseView === 'month' ? MESES[periodoAnterior.mes].toLowerCase() : String(periodoAnterior.ano);
+
+  const anos = useMemo(() => {
+    const atual = new Date().getFullYear();
+    let min = atual;
+    let max = Math.max(atual + 1, expenseYear);
+    for (const e of expenses) {
+      // Parcela futura (ex.: 24x) e conta a pagar também precisam do ano delas.
+      for (const d of [dataDe(e), vencimentoDe(e)]) {
+        if (!d) continue;
+        if (d.getFullYear() < min) min = d.getFullYear();
+        if (d.getFullYear() > max) max = d.getFullYear();
+      }
     }
-    setConfirmDialog({ isVisible: false, expenseId: null, expenseName: '' });
+    return Array.from({ length: max - Math.min(min, expenseYear) + 1 }, (_, i) => max - i);
+  }, [expenses, expenseYear]);
+
+  const navegar = (passo) => {
+    if (expenseView === 'year') {
+      setExpenseYear(expenseYear + passo);
+      return;
+    }
+    const alvo = expenseMonth + passo;
+    if (alvo < 0) { setExpenseMonth(11); setExpenseYear(expenseYear - 1); }
+    else if (alvo > 11) { setExpenseMonth(0); setExpenseYear(expenseYear + 1); }
+    else setExpenseMonth(alvo);
   };
 
-  // Handle edit
-  const handleEditClick = (expense) => {
-    setModal({ open: true, type: 'expense', data: expense });
-  };
-
-  // Export handlers
-  const handleExportExcel = () => {
-    const period = expenseView === 'month' 
-      ? `${MONTHS[expenseMonth]}_${expenseYear}`
-      : `${expenseYear}`;
-    exportToExcel(sortedExpenses, `despesas_${period}`);
-    setShowExportMenu(false);
-  };
-
-  const handleExportCSV = () => {
-    const period = expenseView === 'month' 
-      ? `${MONTHS[expenseMonth]}_${expenseYear}`
-      : `${expenseYear}`;
-    exportToCSV(sortedExpenses, `despesas_${period}`);
-    setShowExportMenu(false);
-  };
-
-  const handlePrint = () => {
-    const period = expenseView === 'month' 
-      ? `${MONTHS[expenseMonth]} de ${expenseYear}`
-      : `Ano ${expenseYear}`;
-    printExpenses(sortedExpenses, period);
-    setShowExportMenu(false);
-  };
-
-  // Empty State
-  const emptyState = (
-    <div className="flex flex-col items-center justify-center py-16 px-4 text-center">
-      <div className="bg-slate-100 rounded-full p-6 mb-4">
-        <TrendingDown size={48} className="text-slate-400" />
-      </div>
-      <h3 className="text-lg font-semibold text-slate-700 mb-2">
-        Nenhuma despesa registrada
-      </h3>
-      <p className="text-sm text-slate-500 mb-6 max-w-sm">
-        {expenseView === 'month'
-          ? `Não há despesas para ${MONTHS[expenseMonth]} de ${expenseYear}.`
-          : `Não há despesas para o ano ${expenseYear}.`}
-      </p>
-      <button
-        onClick={() => setModal({open: true, type: 'expense'})}
-        className="bg-accent text-white px-6 py-3 rounded-full font-bold flex items-center gap-2 hover:bg-accent-hover transition-colors active:scale-95"
-        aria-label="Adicionar nova despesa"
-      >
-        <PlusCircle size={20}/> Adicionar despesa
-      </button>
-    </div>
+  // ── Realizado x a pagar ──────────────────────────────────────────────
+  // Pagas entram pela competência (data de caixa); contas em aberto, pelo
+  // vencimento. É a mesma separação do relatório: previsão não é custo.
+  const pagasDoPeriodo = useMemo(
+    () => expenses.filter((e) => estaPaga(e) && noPeriodo(e, expenseView, expenseMonth, expenseYear)),
+    [expenses, expenseView, expenseMonth, expenseYear]
   );
+  const pagasDoAnterior = useMemo(
+    () => expenses.filter((e) => estaPaga(e) && noPeriodo(e, expenseView, periodoAnterior.mes, periodoAnterior.ano)),
+    [expenses, expenseView, periodoAnterior.mes, periodoAnterior.ano]
+  );
+  const emAberto = useMemo(() => expenses.filter((e) => !estaPaga(e)), [expenses]);
+  const aPagarDoPeriodo = useMemo(() => {
+    return emAberto.filter((e) => {
+      const v = vencimentoDe(e);
+      if (!v || v.getFullYear() !== expenseYear) return false;
+      return expenseView === 'year' || v.getMonth() === expenseMonth;
+    });
+  }, [emAberto, expenseView, expenseMonth, expenseYear]);
+  // Vencidas não respeitam o período: conta atrasada de outro mês continua devendo.
+  const vencidasTodas = useMemo(() => emAberto.filter((e) => estaVencida(e, hoje)), [emAberto, hoje]);
 
+  // Quem abre a tela todo dia vai pagar conta, não revisar o que já pagou:
+  // havendo conta vencida, a lista já abre nelas.
+  const statusEfetivo = statusFiltro ?? (vencidasTodas.length > 0 ? 'vencidas' : 'pagas');
+  const emDia = statusEfetivo === 'vencidas' && vencidasTodas.length === 0;
+
+  const receita = useMemo(() => {
+    if (!verReceita) return 0;
+    const meses = expenseView === 'month' ? [expenseMonth] : Array.from({ length: 12 }, (_, i) => i);
+    return meses.reduce((s, m) => s + receitaRecebidaNoMes(payments, m, expenseYear), 0);
+  }, [verReceita, payments, expenseView, expenseMonth, expenseYear]);
+
+  // ── KPIs e análise ───────────────────────────────────────────────────
+  const resumo = useMemo(() => resumirPeriodo(pagasDoPeriodo, pagasDoAnterior), [pagasDoPeriodo, pagasDoAnterior]);
+  // Na visão anual o orçamento (mensal) é multiplicado pelos 12 meses.
+  const orcamento = useMemo(() => {
+    const base = parametros?.orcamentoDespesas || {};
+    if (expenseView === 'month') return base;
+    return Object.fromEntries(Object.entries(base).map(([g, v]) => [g, Number(v) * 12]));
+  }, [parametros, expenseView]);
+  const estrutura = useMemo(
+    () => estruturaDeCustos(pagasDoPeriodo, verReceita ? receita : 0, orcamento),
+    [pagasDoPeriodo, verReceita, receita, orcamento]
+  );
+  const atipicos = useMemo(() => marcarAtipicos(expenses), [expenses]);
+  const indiceBusca = useMemo(() => indexarBusca(expenses), [expenses]);
+
+  const aPagarResumo = { total: soma(aPagarDoPeriodo), quantidade: aPagarDoPeriodo.length };
+  const vencidasResumo = {
+    total: soma(vencidasTodas),
+    quantidade: vencidasTodas.length,
+    rotuloTotal: formatCurrency(soma(vencidasTodas)),
+  };
+
+  // Direção real da variação; o KPI recebe `invertDelta` para pintar subida de
+  // despesa em tom de alerta em vez de verde.
+  const deltaTotal = (() => {
+    if (!resumo.totalAnterior) return null;
+    const v = Math.round(((resumo.total - resumo.totalAnterior) / resumo.totalAnterior) * 100);
+    if (v === 0) return { direction: 'flat', text: `igual a ${rotuloAnterior}` };
+    return {
+      direction: v > 0 ? 'up' : 'down',
+      text: `${v > 0 ? '+' : '−'}${Math.abs(v)}% vs. ${rotuloAnterior}`,
+    };
+  })();
+
+  const margem = verReceita && receita > 0 ? ((receita - resumo.custoOperacional) / receita) * 100 : null;
+
+  // ── Contas fixas do mês ──────────────────────────────────────────────
+  const recorrentesPendentes = useMemo(() => {
+    if (expenseView !== 'month') return 0;
+    return recorrentesDoMes(expenses, {
+      origem: periodoAnterior,
+      destino: { mes: expenseMonth, ano: expenseYear },
+    }).lancamentos.length;
+  }, [expenses, expenseView, expenseMonth, expenseYear, periodoAnterior]);
+
+  // ── Busca e filtros ──────────────────────────────────────────────────
+  const termos = useMemo(() => normalizar(buscaAdiada).split(/\s+/).filter(Boolean), [buscaAdiada]);
+  const buscandoEmTudo = termos.length > 0 && escopoBusca === 'todos';
+
+  const baseLista = useMemo(() => {
+    if (buscandoEmTudo) return expenses;
+    if (statusEfetivo === 'aPagar') return aPagarDoPeriodo;
+    if (statusEfetivo === 'vencidas') return vencidasTodas;
+    if (statusEfetivo === 'todas') return [...pagasDoPeriodo, ...aPagarDoPeriodo];
+    return pagasDoPeriodo;
+  }, [buscandoEmTudo, expenses, statusEfetivo, pagasDoPeriodo, aPagarDoPeriodo, vencidasTodas]);
+
+  const opcoesCategoria = useMemo(() => {
+    const personalizadas = new Set();
+    for (const e of baseLista) if (e.category && !EXPENSE_CATEGORIES_TODAS.includes(e.category)) personalizadas.add(e.category);
+    return [...personalizadas].sort((a, b) => a.localeCompare(b, 'pt-BR'));
+  }, [baseLista]);
+
+  const filtradas = useMemo(() => {
+    return baseLista.filter((e) => {
+      if (categoriaFiltro === OUTRAS) {
+        if (EXPENSE_CATEGORIES_TODAS.includes(e.category)) return false;
+      } else if (categoriaFiltro && e.category !== categoriaFiltro) return false;
+      if (tipoFiltro && tipoDe(e) !== tipoFiltro) return false;
+      if (grupoFiltro && (!ehOperacional(e) || grupoDe(e) !== grupoFiltro)) return false;
+      if (termos.length) {
+        const texto = indiceBusca.get(e.id) || '';
+        if (!termos.every((t) => texto.includes(t))) return false;
+      }
+      return true;
+    });
+  }, [baseLista, categoriaFiltro, tipoFiltro, grupoFiltro, termos, indiceBusca]);
+
+  const ordenadas = useMemo(() => ordenarDespesas(filtradas, ordem), [filtradas, ordem]);
+  const totalFiltrado = useMemo(() => soma(filtradas), [filtradas]);
+
+  // Paginação volta ao início quando qualquer filtro muda, sem efeito extra.
+  const assinatura = [expenseView, expenseMonth, expenseYear, buscaAdiada, escopoBusca, statusEfetivo, categoriaFiltro, tipoFiltro, grupoFiltro, ordem.campo, ordem.dir].join('|');
+  const limite = paginacao.assinatura === assinatura ? paginacao.limite : POR_PAGINA;
+  const visiveis = ordenadas.slice(0, limite);
+
+  const filtrosAtivos = Boolean(busca || categoriaFiltro || tipoFiltro || grupoFiltro || statusEfetivo !== 'pagas');
+  const limparFiltros = () => {
+    setBusca('');
+    setCategoriaFiltro('');
+    setTipoFiltro('');
+    setGrupoFiltro('');
+    setStatusFiltro('pagas');
+  };
+
+  const alternarOrdem = (campo) => {
+    setOrdem((o) => (o.campo === campo
+      ? { campo, dir: o.dir === 'asc' ? 'desc' : 'asc' }
+      : { campo, dir: campo === 'descricao' ? 'asc' : 'desc' }));
+  };
+
+  const mask = (texto) => (hideValues ? '••••' : texto);
+
+  // ── Ações ────────────────────────────────────────────────────────────
+  const novaDespesa = () => setModal({ open: true, type: 'expense' });
+
+  // Parcela de compra: remove a compra inteira (todas as parcelas). Apagar só
+  // uma deixaria a compra pela metade nos relatórios dos outros meses.
+  const despesaRemover = confirmDialog.expense;
+  const parcelaRemover = despesaRemover?.parcelas > 1 && despesaRemover?.grupoParcelamento;
+  const fecharConfirmacao = () => setConfirmDialog({ isOpen: false, expense: null });
+  const confirmDelete = () => {
+    if (despesaRemover) handleDeleteExpense(despesaRemover.id, parcelaRemover ? despesaRemover.grupoParcelamento : null);
+    fecharConfirmacao();
+  };
+
+  const rotuloExportacao = buscandoEmTudo ? 'todos os períodos' : rotuloPeriodo;
+  const nomeArquivo = buscandoEmTudo
+    ? 'despesas_busca'
+    : `despesas_${expenseView === 'month' ? `${MESES[expenseMonth]}_${expenseYear}` : expenseYear}`;
+
+  const exportar = (tipo) => {
+    if (tipo === 'excel') exportToExcel(ordenadas, nomeArquivo);
+    else if (tipo === 'csv') exportToCSV(ordenadas, nomeArquivo);
+    else printExpenses(ordenadas, rotuloExportacao);
+  };
+
+  // ── Evolução (só realizado, com data em horário local) ───────────────
+  const evolucao = useMemo(() => {
+    const values = Array(12).fill(0);
+    for (const e of expenses) {
+      if (!estaPaga(e)) continue;
+      const d = dataDe(e);
+      if (d && d.getFullYear() === expenseYear) values[d.getMonth()] += num(e.value);
+    }
+    return { labels: MESES_CURTO, values };
+  }, [expenses, expenseYear]);
+
+  // ── Render ───────────────────────────────────────────────────────────
   return (
     <>
-      {/* High Expense Alert */}
-      {highExpenseAlert && (
-        <Toast
-          message={`Atenção! ${highExpenseAlert.count} despesa(s) acima de ${formatCurrency(HIGH_EXPENSE_THRESHOLD)} totalizando ${formatCurrency(highExpenseAlert.total)}`}
-          type="warning"
-          isVisible={true}
-          onClose={() => setHighExpenseAlert(null)}
-          duration={8000}
-        />
+      {/* ── Controles de período ─────────────────────────────────────── */}
+      <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <Segmentado
+            rotulo="Visualização"
+            valor={expenseView}
+            onChange={setExpenseView}
+            opcoes={[{ valor: 'month', rotulo: 'Mensal' }, { valor: 'year', rotulo: 'Anual' }]}
+          />
+
+          <div className="flex items-center gap-1">
+            <button type="button" onClick={() => navegar(-1)} className={iconBtnCls} aria-label={expenseView === 'month' ? 'Mês anterior' : 'Ano anterior'}>
+              <ChevronLeft size={18} />
+            </button>
+            {expenseView === 'month' && (
+              <select value={expenseMonth} onChange={(e) => setExpenseMonth(Number(e.target.value))} className={selectCls} aria-label="Mês">
+                {MESES.map((m, i) => <option key={m} value={i}>{m}</option>)}
+              </select>
+            )}
+            <select value={expenseYear} onChange={(e) => setExpenseYear(Number(e.target.value))} className={selectCls} aria-label="Ano">
+              {anos.map((a) => <option key={a} value={a}>{a}</option>)}
+            </select>
+            <button type="button" onClick={() => navegar(1)} className={iconBtnCls} aria-label={expenseView === 'month' ? 'Próximo mês' : 'Próximo ano'}>
+              <ChevronRight size={18} />
+            </button>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setHideValues((v) => !v)}
+            className={iconBtnCls}
+            aria-pressed={hideValues}
+            title={hideValues ? 'Mostrar valores' : 'Ocultar valores'}
+            aria-label={hideValues ? 'Mostrar valores' : 'Ocultar valores'}
+          >
+            {hideValues ? <EyeOff size={16} /> : <Eye size={16} />}
+          </button>
+        </div>
+
+        <button type="button" onClick={novaDespesa} className={primaryBtnCls}>
+          <PlusCircle size={16} /> Nova despesa
+        </button>
+      </div>
+
+      <KpisDespesas
+        resumo={resumo}
+        aPagar={aPagarResumo}
+        vencidas={vencidasResumo}
+        receita={receita}
+        verReceita={verReceita}
+        margem={margem}
+        rotuloAnterior={rotuloAnterior}
+        deltaTotal={deltaTotal}
+        qtdLancamentos={pagasDoPeriodo.length}
+        hideValues={hideValues}
+        loading={dataLoading}
+      />
+
+      {/* Contas fixas do mês anterior que ainda não foram lançadas neste. */}
+      {!dataLoading && recorrentesPendentes > 0 && (
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-su-md border border-subtle bg-info-bg px-4 py-3">
+          <p className="text-su-sm text-info-fg">
+            <span className="font-semibold">{recorrentesPendentes} conta(s) fixa(s)</span> de {rotuloAnterior} ainda
+            não existem em {rotuloPeriodo.toLowerCase()} — aluguel, folha e assinaturas marcados como recorrentes.
+          </p>
+          <button
+            type="button"
+            onClick={() => gerarRecorrentes(expenses, periodoAnterior, { mes: expenseMonth, ano: expenseYear })}
+            className={`${ghostBtnCls} shrink-0`}
+          >
+            <Repeat size={16} /> Gerar em aberto
+          </button>
+        </div>
       )}
 
-      {/* Filters Section */}
-      <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between mb-6 gap-4">
-        {/* View Toggle */}
-        <div className="flex gap-2 items-center">
-          <button 
-            onClick={() => setExpenseView('year')} 
-            className={`px-4 py-2 rounded-lg font-semibold transition-all ${
-              expenseView === 'year' 
-                ? 'bg-accent text-white shadow-md' 
-                : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-            }`}
-            aria-pressed={expenseView === 'year'}
-            aria-label="Visualização anual"
-          >
-            Anual
-          </button>
-          <button 
-            onClick={() => setExpenseView('month')} 
-            className={`px-4 py-2 rounded-lg font-semibold transition-all ${
-              expenseView === 'month' 
-                ? 'bg-accent text-white shadow-md' 
-                : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-            }`}
-            aria-pressed={expenseView === 'month'}
-            aria-label="Visualização mensal"
-          >
-            Mensal
-          </button>
-        </div>
+      {/* ── Estrutura de custos + categorias ─────────────────────────── */}
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
+        <EstruturaCustos
+          className="lg:col-span-3"
+          estrutura={estrutura}
+          rotuloPeriodo={rotuloPeriodo}
+          verReceita={verReceita}
+          foraOperacional={resumo.foraOperacional}
+          grupoFiltro={grupoFiltro}
+          onFiltrarGrupo={setGrupoFiltro}
+          hideValues={hideValues}
+          loading={dataLoading}
+        />
 
-        {/* Date Filters */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
-          {expenseView === 'month' && (
-            <div className="flex items-center gap-2">
-              <label htmlFor="expense-month" className="text-sm font-semibold text-slate-600">
-                Mês
-              </label>
-              <select 
-                id="expense-month"
-                value={expenseMonth} 
-                onChange={e => setExpenseMonth(Number(e.target.value))} 
-                className="border px-3 py-2 rounded-lg font-semibold focus:outline-none focus:ring-2 focus:ring-accent transition-all"
-                aria-label="Selecionar mês"
-              >
-                {MONTHS.map((month, i) => (
-                  <option key={i} value={i}>
-                    {month}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
-
-          <div className="flex items-center gap-2">
-            <label htmlFor="expense-year" className="text-sm font-semibold text-slate-600">
-              Ano
-            </label>
-            <input 
-              id="expense-year"
-              type="number" 
-              value={expenseYear} 
-              onChange={e => setExpenseYear(Number(e.target.value))} 
-              className="border px-3 py-2 rounded-lg w-28 font-semibold focus:outline-none focus:ring-2 focus:ring-accent transition-all" 
-              aria-label="Selecionar ano"
-              min="2020"
-              max="2100"
-            />
-          </div>
-        </div>
-      </div>
-
-      {/* Charts Row */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Chart Card */}
-        <Card>
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h3 className="font-bold text-lg">Despesas por categoria</h3>
-              <p className="text-xs text-slate-400">
-                {expenseView === 'month' 
-                  ? `${MONTHS[expenseMonth]} ${expenseYear}`
-                  : `Ano ${expenseYear}`}
-              </p>
-            </div>
-          </div>
-          {filteredExpensesData.length > 0 ? (
-            <DonutChart data={filteredExpensesData} />
-          ) : (
-            <div className="py-12 text-center text-slate-400 text-sm">
-              <AlertCircle size={32} className="mx-auto mb-2 opacity-50" />
-              Sem dados para exibir
-            </div>
-          )}
-        </Card>
-
-        {/* Payment Methods Chart Card */}
-        <Card>
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h3 className="font-bold text-lg">Despesas por método de pagamento</h3>
-              <p className="text-xs text-slate-400">
-                {expenseView === 'month' 
-                  ? `${MONTHS[expenseMonth]} ${expenseYear}`
-                  : `Ano ${expenseYear}`}
-              </p>
-            </div>
-          </div>
-          {filteredExpensesData.length > 0 ? (
-            <PaymentMethodChart data={filteredExpensesData} />
-          ) : (
-            <div className="py-12 text-center text-slate-400 text-sm">
-              <AlertCircle size={32} className="mx-auto mb-2 opacity-50" />
-              Sem dados para exibir
-            </div>
-          )}
+        <Card className="lg:col-span-2">
+          <h3 className="font-display font-bold text-base text-content-strong mb-1">Por categoria</h3>
+          <p className="text-su-sm text-content-muted mb-4">{rotuloPeriodo} · só o que já foi pago</p>
+          {pagasDoPeriodo.length > 0 ? <DonutChart data={pagasDoPeriodo} /> : <SemDados>Sem dados para exibir</SemDados>}
         </Card>
       </div>
 
-      {/* Expenses List Card */}
-      <Card>
-        <div className="flex flex-col gap-4 mb-4">
-          {/* Header */}
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+      {/* ── Lista ────────────────────────────────────────────────────── */}
+      <Card padding="none">
+        <div className="p-6 pb-4 flex flex-col gap-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
-              <h3 className="font-bold text-lg flex items-center gap-2">
-                Lista de despesas
-                <button
-                  onClick={() => setHideValues(v => !v)}
-                  className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
-                  title={hideValues ? 'Mostrar valores' : 'Ocultar valores'}
-                >
-                  {hideValues ? <EyeOff size={15} /> : <Eye size={15} />}
-                </button>
-              </h3>
-              <p className="text-xs text-slate-400">
-                {categoryFilter !== 'Todas' && `${categoryFilter} - `}
-                Total: {maskValue(formatCurrency(totalExpenses))}
-                {categoryFilter !== 'Todas' && ` (${filteredByCategory.length} despesa${filteredByCategory.length !== 1 ? 's' : ''})`}
+              <h3 className="font-display font-bold text-base text-content-strong">Lançamentos</h3>
+              <p className="text-su-sm text-content-muted" aria-live="polite">
+                {filtradas.length} lançamento{filtradas.length !== 1 ? 's' : ''}
+                {' · '}Total {mask(formatCurrency(totalFiltrado))}
+                {buscandoEmTudo && ' · todos os períodos'}
+                {statusEfetivo === 'vencidas' && ' · todos os períodos'}
               </p>
-            </div>
-            <div className="flex gap-2">
-              {/* Export Menu */}
-              <div className="relative">
-                <button 
-                  onClick={() => setShowExportMenu(!showExportMenu)}
-                  className="border border-slate-300 text-slate-600 px-4 py-2 rounded-lg font-medium flex items-center gap-2 hover:bg-slate-100 transition-all"
-                  aria-label="Exportar despesas"
-                  disabled={sortedExpenses.length === 0}
-                >
-                  <Download size={18}/> 
-                  <span className="hidden sm:inline">Exportar</span>
-                </button>
-                {showExportMenu && sortedExpenses.length > 0 && (
-                  <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-xl border z-10">
-                    <button
-                      onClick={handleExportExcel}
-                      className="w-full px-4 py-3 text-left hover:bg-slate-50 flex items-center gap-2 text-sm font-medium text-slate-700 rounded-t-lg"
-                    >
-                      <FileSpreadsheet size={16} className="text-green-600" />
-                      Exportar Excel
-                    </button>
-                    <button
-                      onClick={handleExportCSV}
-                      className="w-full px-4 py-3 text-left hover:bg-slate-50 flex items-center gap-2 text-sm font-medium text-slate-700"
-                    >
-                      <FileSpreadsheet size={16} className="text-blue-600" />
-                      Exportar CSV
-                    </button>
-                    <button
-                      onClick={handlePrint}
-                      className="w-full px-4 py-3 text-left hover:bg-slate-50 flex items-center gap-2 text-sm font-medium text-slate-700 rounded-b-lg"
-                    >
-                      <Printer size={16} className="text-slate-600" />
-                      Imprimir
-                    </button>
-                  </div>
-                )}
-              </div>
-
-              {/* Add Button */}
-              <button 
-                onClick={() => setModal({open: true, type: 'expense'})} 
-                className="bg-accent text-white px-4 py-2 rounded-full font-bold flex items-center gap-2 hover:bg-accent-hover transition-all active:scale-95 shadow-md"
-                aria-label="Adicionar nova despesa"
-              >
-                <PlusCircle size={18}/> 
-                <span className="hidden sm:inline">Nova despesa</span>
-                <span className="sm:hidden">Adicionar</span>
-              </button>
-            </div>
-          </div>
-
-          {/* Status Filter */}
-          <div className="flex items-center gap-2 flex-wrap">
-            <Clock size={16} className="text-slate-600" />
-            <span className="text-sm font-semibold text-slate-600">Status:</span>
-            <button
-              onClick={() => setStatusFilter('todos')}
-              className={`px-3 py-1 rounded-full text-sm font-semibold transition-all ${
-                statusFilter === 'todos'
-                  ? 'bg-accent text-white shadow-sm'
-                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-              }`}
-            >
-              Todos os períodos
-            </button>
-            <button
-              onClick={() => setStatusFilter('vencidos')}
-              className={`px-3 py-1 rounded-full text-sm font-semibold transition-all ${
-                statusFilter === 'vencidos'
-                  ? 'bg-red-500 text-white shadow-sm'
-                  : 'bg-red-50 text-red-600 hover:bg-red-100'
-              }`}
-            >
-              Vencidos
-              {statusFilter === 'vencidos' && (
-                <span className="ml-1 text-xs">({baseData.length})</span>
+              {!verReceita && (
+                <p className="text-su-xs text-content-muted mt-0.5">
+                  Retiradas de sócio não aparecem neste perfil.
+                </p>
               )}
-            </button>
-          </div>
-
-          {/* Category Filter */}
-          <div className="flex items-center gap-2 flex-wrap">
-            <Filter size={16} className="text-slate-600" />
-            <span className="text-sm font-semibold text-slate-600">Categoria:</span>
-            <div className="flex gap-2 flex-wrap">
-              {EXPENSE_CATEGORIES.map(cat => (
-                <button
-                  key={cat}
-                  onClick={() => setCategoryFilter(cat)}
-                  className={`px-3 py-1 rounded-full text-sm font-semibold transition-all ${
-                    categoryFilter === cat
-                      ? 'bg-accent text-white shadow-sm'
-                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                  }`}
-                >
-                  {cat}
-                  {cat !== 'Todas' && categoryFilter === cat && (
-                    <span className="ml-1 text-xs">
-                      ({filteredByCategory.length})
-                    </span>
-                  )}
-                </button>
-              ))}
             </div>
+            <MenuExportar quantidade={ordenadas.length} onExportar={exportar} />
           </div>
-        </div>
 
-        {sortedExpenses.length > 0 ? (
-          <div className="overflow-x-auto">
-            <Table
-              header={["Descrição", "Categoria", "Data", "Valor", "Pagamento", "Ações"]}
-              data={sortedExpenses}
-              render={x => (
-                <>
-                  <td key="description" className="px-6 py-3">
-                    <span className="text-sm text-slate-800">{x.description}</span>
-                  </td>
-                  <td key="category" className="px-6 py-3">
-                    <span className="inline-block px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">
-                      {x.category || '-'}
-                    </span>
-                    {x.tipoSaida && x.tipoSaida !== 'operacional' && (
-                      <span className="ml-1 inline-block px-2 py-1 text-xs font-semibold rounded-full bg-amber-100 text-amber-800">
-                        {{ retiradaSocio: 'Retirada de sócio', investimento: 'Investimento', imposto: 'Imposto' }[x.tipoSaida]}
-                      </span>
-                    )}
-                  </td>
-                  <td key="date" className="px-6 py-3 text-slate-600">{formatDate(x.date)}</td>
-                  <td key="value" className="px-6 py-3">
-                    <span className={`font-semibold ${Number(x.value) >= HIGH_EXPENSE_THRESHOLD ? 'text-yellow-600' : 'text-slate-800'}`}>
-                      {maskValue(formatCurrency(x.value))}
-                    </span>
-                  </td>
-                  <td key="paymentMethod" className="px-6 py-3 text-sm text-slate-600">
-                    {x.paymentMethod || 'Não especificado'}
-                  </td>
-                  <td key="actions" className="px-6 py-3">
-                    <div className="flex gap-2">
-                      <button 
-                        onClick={() => handleEditClick(x)} 
-                        className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition-colors"
-                        aria-label={`Editar despesa ${x.description}`}
-                        title="Editar"
-                      >
-                        <Edit2 size={15} />
-                      </button>
-                      <button 
-                        onClick={() => handleDeleteClick(x)} 
-                        className="p-1.5 rounded-lg hover:bg-red-50 text-red-400 hover:text-red-600 transition-colors"
-                        aria-label={`Remover despesa ${x.description}`}
-                        title="Remover"
-                      >
-                        <Trash2 size={15} />
-                      </button>
-                    </div>
-                  </td>
-                </>
-              )}
-            />
-          </div>
-        ) : (
-          categoryFilter !== 'Todas' ? (
-            <div className="py-12 text-center">
-              <Filter size={48} className="mx-auto mb-4 text-slate-300" />
-              <p className="text-slate-500 font-medium">Nenhuma despesa encontrada na categoria "{categoryFilter}"</p>
-              <button
-                onClick={() => setCategoryFilter('Todas')}
-                className="mt-4 text-accent hover:underline font-semibold"
-              >
-                Limpar filtro
-              </button>
-            </div>
-          ) : (
-            emptyState
-          )
-        )}
-      </Card>
-
-      {/* Evolution Chart Card */}
-      <Card>
-        <h3 className="font-bold text-lg mb-4">Evolução das despesas ({expenseYear})</h3>
-        {expenseEvolutionData?.labels?.length > 0 ? (
-          <ExpenseEvolutionChart 
-            labels={expenseEvolutionData.labels} 
-            values={expenseEvolutionData.values}
-            year={expenseYear}
+          <FiltrosDespesas
+            busca={busca}
+            setBusca={setBusca}
+            buscaRef={buscaRef}
+            statusFiltro={statusEfetivo}
+            setStatusFiltro={setStatusFiltro}
+            contagens={{
+              pagas: pagasDoPeriodo.length,
+              aPagar: aPagarDoPeriodo.length,
+              vencidas: vencidasTodas.length,
+              todas: pagasDoPeriodo.length + aPagarDoPeriodo.length,
+            }}
+            categoriaFiltro={categoriaFiltro}
+            setCategoriaFiltro={setCategoriaFiltro}
+            categoriasPadrao={EXPENSE_CATEGORIES_TODAS}
+            opcoesCategoria={opcoesCategoria}
+            tipoFiltro={tipoFiltro}
+            setTipoFiltro={setTipoFiltro}
+            grupoFiltro={grupoFiltro}
+            setGrupoFiltro={setGrupoFiltro}
+            termos={termos}
+            escopoBusca={escopoBusca}
+            setEscopoBusca={setEscopoBusca}
+            rotuloPeriodo={rotuloPeriodo}
+            filtrosAtivos={filtrosAtivos}
+            limparFiltros={limparFiltros}
           />
+        </div>
+
+        {dataLoading ? (
+          <div className="px-6 pb-6 space-y-2">
+            {[0, 1, 2, 3, 4].map((i) => <div key={i} className="h-10 rounded-su-xs bg-surface-sunken animate-pulse" />)}
+          </div>
+        ) : ordenadas.length > 0 ? (
+          <TabelaDespesas
+            linhas={visiveis}
+            ordem={ordem}
+            onOrdenar={alternarOrdem}
+            atipicos={atipicos}
+            total={totalFiltrado}
+            rotuloTotal={filtrosAtivos ? 'Total filtrado' : 'Total do período'}
+            hoje={hoje}
+            hideValues={hideValues}
+            onEditar={(x) => setModal({ open: true, type: 'expense', data: x })}
+            onRemover={(x) => setConfirmDialog({ isOpen: true, expense: x })}
+            onBaixar={(x) => marcarDespesaPaga(x.id, hojeLocalYMD())}
+            onReabrir={(x) => reabrirDespesa(x.id, x.vencimento ?? x.date)}
+            restantes={ordenadas.length - visiveis.length}
+            onMostrarMais={() => setPaginacao({ assinatura, limite: limite + POR_PAGINA })}
+          />
+        ) : filtrosAtivos ? (
+          <div className="py-12 px-6 text-center">
+            {/* "Nenhuma conta vencida" é uma boa notícia, não uma busca sem
+                resultado — lupa comunicava o contrário. */}
+            {emDia ? (
+              <>
+                <CheckCircle2 size={40} className="mx-auto mb-3 text-success" />
+                <p className="text-content-body font-medium">Nenhuma conta vencida. Está tudo em dia.</p>
+              </>
+            ) : (
+              <>
+                <Search size={40} className="mx-auto mb-3 text-content-muted" />
+                <p className="text-content-body font-medium">Nenhuma despesa encontrada com esses filtros</p>
+              </>
+            )}
+            {termos.length > 0 && escopoBusca === 'periodo' && (
+              <button type="button" onClick={() => setEscopoBusca('todos')} className="mt-3 text-su-sm font-semibold text-accent hover:underline">
+                Buscar em todos os períodos
+              </button>
+            )}
+            <div>
+              <button type="button" onClick={limparFiltros} className="mt-2 text-su-sm font-semibold text-content-muted hover:text-content-body hover:underline">
+                Limpar filtros
+              </button>
+            </div>
+          </div>
         ) : (
-          <div className="py-12 text-center text-slate-400 text-sm">
-            <AlertCircle size={32} className="mx-auto mb-2 opacity-50" />
-            Sem dados de evolução para exibir
+          <div className="flex flex-col items-center justify-center py-14 px-6 text-center">
+            <div className="bg-surface-sunken rounded-pill p-5 mb-4">
+              <TrendingDown size={36} className="text-content-faint" />
+            </div>
+            <h3 className="font-display font-bold text-content-strong mb-1">Nenhuma despesa em {rotuloPeriodo.toLowerCase()}</h3>
+            <p className="text-su-sm text-content-muted mb-5 max-w-sm">
+              Registre aluguel, folha e demais saídas para acompanhar a estrutura de custos da escola.
+            </p>
+            <button type="button" onClick={novaDespesa} className={primaryBtnCls}>
+              <PlusCircle size={16} /> Adicionar despesa
+            </button>
           </div>
         )}
       </Card>
 
-      {/* Confirm Delete Dialog */}
+      {/* ── Evolução + formas de pagamento ───────────────────────────── */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <Card className="lg:col-span-2">
+          <h3 className="font-display font-bold text-base text-content-strong mb-1">Evolução das saídas</h3>
+          <p className="text-su-sm text-content-muted mb-4">Mês a mês em {expenseYear} · só o que já foi pago</p>
+          {evolucao.values.some((v) => v > 0)
+            ? <ExpenseEvolutionChart labels={evolucao.labels} values={evolucao.values} year={expenseYear} />
+            : <SemDados>Sem dados de evolução para exibir</SemDados>}
+        </Card>
+
+        <Card>
+          <h3 className="font-display font-bold text-base text-content-strong mb-1">Formas de pagamento</h3>
+          <p className="text-su-sm text-content-muted mb-4">{rotuloPeriodo}</p>
+          {pagasDoPeriodo.length > 0 ? <PaymentMethodChart data={pagasDoPeriodo} /> : <SemDados>Sem dados para exibir</SemDados>}
+        </Card>
+      </div>
+
       <ConfirmDialog
-        isVisible={confirmDialog.isVisible}
-        onClose={() => setConfirmDialog({ isVisible: false, expenseId: null, expenseName: '' })}
+        isOpen={confirmDialog.isOpen}
+        onCancel={fecharConfirmacao}
         onConfirm={confirmDelete}
-        title="Remover Despesa"
-        message={`Tem certeza que deseja remover a despesa "${confirmDialog.expenseName}"? Esta ação não pode ser desfeita.`}
-        confirmText="Sim, Remover"
-        cancelText="Cancelar"
-        type="danger"
+        title={parcelaRemover ? 'Remover compra parcelada' : 'Remover despesa'}
+        message={parcelaRemover
+          ? `"${despesaRemover.description}" foi parcelada em ${despesaRemover.parcelas}x. Todas as ${despesaRemover.parcelas} parcelas serão removidas. Esta ação não pode ser desfeita.`
+          : `Remover "${despesaRemover?.description ?? ''}"? Esta ação não pode ser desfeita.`}
+        confirmLabel={parcelaRemover ? `Remover ${despesaRemover.parcelas} parcelas` : 'Remover'}
+        cancelLabel="Cancelar"
+        variant="danger"
       />
     </>
   );

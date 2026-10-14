@@ -89,13 +89,36 @@ describe('saveStudent — matrícula nova', () => {
 });
 
 describe('saveStudent — edição', () => {
+  // Datas ancoradas em "hoje": com datas fixas o teste passava hoje e quebrava
+  // quando o calendário real passasse delas (vencida vs. a vencer muda a regra).
+  const diaRelativo = (dias) => {
+    const d = new Date();
+    d.setDate(d.getDate() + dias);
+    const p = (n) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+  };
+  const VENCIDA = diaRelativo(-20);   // em aberto e já venceu
+  const FUTURA = diaRelativo(+15);    // em aberto, ainda vai vencer
+  const FUTURA2 = diaRelativo(+45);
+  const PAGA = diaRelativo(-50);
+
   const semearAluno = () => {
     fake.semear(`${ALUNO}/a1`, { name: 'Ana', fee: 300, status: 'ativo' });
-    fake.semear(`${PARC}/p1`, { studentId: 'a1', status: 'Pendente', valuePlanned: 300, studentName: 'Ana', dueDate: '2026-10-10T00:00:00' });
-    fake.semear(`${PARC}/p2`, { studentId: 'a1', status: 'Pago', valuePlanned: 300, valuePaid: 300, studentName: 'Ana', dueDate: '2026-09-10T00:00:00' });
+    fake.semear(`${PARC}/p1`, { studentId: 'a1', status: 'Pendente', valuePlanned: 300, valuePaid: 0, studentName: 'Ana', dueDate: `${FUTURA}T00:00:00` });
+    fake.semear(`${PARC}/p2`, { studentId: 'a1', status: 'Pago', valuePlanned: 300, valuePaid: 300, studentName: 'Ana', dueDate: `${PAGA}T00:00:00` });
   };
 
-  it('mensalidade nova vale só pras parcelas pendentes; paga fica intacta', async () => {
+  // Carteira do caso real: aluno pagou alguns meses, deixou uma vencer, e tem
+  // parcelas futuras.
+  const semearComVencida = () => {
+    fake.semear(`${ALUNO}/a1`, { name: 'Ana', fee: 200, status: 'ativo' });
+    fake.semear(`${PARC}/v1`, { studentId: 'a1', status: 'Pendente', valuePlanned: 200, valuePaid: 0, studentName: 'Ana', dueDate: `${VENCIDA}T00:00:00` });
+    fake.semear(`${PARC}/f1`, { studentId: 'a1', status: 'Pendente', valuePlanned: 200, valuePaid: 0, studentName: 'Ana', dueDate: `${FUTURA}T00:00:00` });
+    fake.semear(`${PARC}/f2`, { studentId: 'a1', status: 'Pendente', valuePlanned: 200, valuePaid: 0, studentName: 'Ana', dueDate: `${FUTURA2}T00:00:00` });
+    fake.semear(`${PARC}/pg`, { studentId: 'a1', status: 'Pago', valuePlanned: 200, valuePaid: 200, studentName: 'Ana', dueDate: `${PAGA}T00:00:00` });
+  };
+
+  it('mensalidade nova vale pras parcelas em aberto a vencer; paga fica intacta', async () => {
     semearAluno();
     await submeter(campos({ fee: '400' }), { data: { id: 'a1', fee: 300 } });
     expect(fake.ler(`${PARC}/p1`).valuePlanned).toBe(400);
@@ -103,10 +126,73 @@ describe('saveStudent — edição', () => {
     expect(fake.ler(`${ALUNO}/a1`).fee).toBe(400);
   });
 
+  it('mudança de plano NÃO reescreve parcela vencida — isso apagaria dívida', async () => {
+    semearComVencida();
+    await submeter(
+      campos({ fee: '100', feeModo: 'plano', feeVigenteDesde: FUTURA }),
+      { data: { id: 'a1', fee: 200 } },
+    );
+    expect(fake.ler(`${PARC}/v1`).valuePlanned).toBe(200); // deve 200 do mês que consumiu
+    expect(fake.ler(`${PARC}/f1`).valuePlanned).toBe(100);
+    expect(fake.ler(`${PARC}/f2`).valuePlanned).toBe(100);
+    expect(fake.ler(`${PARC}/pg`).valuePlanned).toBe(200);
+    expect(fake.ler(`${ALUNO}/a1`).fee).toBe(100);
+  });
+
+  it('vigência mais à frente deixa a parcela do meio no valor antigo', async () => {
+    semearComVencida();
+    await submeter(
+      campos({ fee: '100', feeModo: 'plano', feeVigenteDesde: FUTURA2 }),
+      { data: { id: 'a1', fee: 200 } },
+    );
+    expect(fake.ler(`${PARC}/f1`).valuePlanned).toBe(200);
+    expect(fake.ler(`${PARC}/f2`).valuePlanned).toBe(100);
+  });
+
+  it('correção de cadastro reescreve TODAS as em aberto, vencida inclusive', async () => {
+    semearComVencida();
+    await submeter(
+      campos({ fee: '100', feeModo: 'correcao' }),
+      { data: { id: 'a1', fee: 200 } },
+    );
+    expect(fake.ler(`${PARC}/v1`).valuePlanned).toBe(100);
+    expect(fake.ler(`${PARC}/f1`).valuePlanned).toBe(100);
+    expect(fake.ler(`${PARC}/f2`).valuePlanned).toBe(100);
+    expect(fake.ler(`${PARC}/pg`).valuePlanned).toBe(200); // paga segue intacta
+  });
+
+  it('grava o histórico da mudança, com motivo e vigência', async () => {
+    semearComVencida();
+    await submeter(
+      campos({ fee: '100', feeModo: 'plano', feeVigenteDesde: FUTURA }),
+      { data: { id: 'a1', fee: 200 } },
+    );
+    const [h] = fake.ler(`${ALUNO}/a1`).historicoMensalidade;
+    expect(h).toMatchObject({ fee: 100, feeAnterior: 200, modo: 'plano', vigenteDesde: FUTURA });
+    expect(h.registradoEm).toBeGreaterThan(0);
+  });
+
+  it('salvar sem mudar a mensalidade não gera histórico nem toca em valor', async () => {
+    semearComVencida();
+    await submeter(campos({ fee: '200' }), { data: { id: 'a1', fee: 200 } });
+    expect(fake.ler(`${ALUNO}/a1`).historicoMensalidade).toBeUndefined();
+    expect(fake.ler(`${PARC}/v1`).valuePlanned).toBe(200);
+  });
+
+  it('nome e curso atualizam em toda parcela em aberto, independente do valor', async () => {
+    semearComVencida();
+    await submeter(
+      campos({ name: 'Ana Paula', course: 'KIDS', fee: '100', feeModo: 'plano', feeVigenteDesde: FUTURA }),
+      { data: { id: 'a1', fee: 200 } },
+    );
+    expect(fake.ler(`${PARC}/v1`)).toMatchObject({ studentName: 'Ana Paula', course: 'KIDS', valuePlanned: 200 });
+    expect(fake.ler(`${PARC}/f1`)).toMatchObject({ studentName: 'Ana Paula', course: 'KIDS', valuePlanned: 100 });
+  });
+
   it('editar não recalcula vencimentos nem mexe no nº de parcelas', async () => {
     semearAluno();
     await submeter(campos({ dueDate: '2027-01-01', installments: '9' }), { data: { id: 'a1', fee: 300 } });
-    expect(fake.ler(`${PARC}/p1`).dueDate).toBe('2026-10-10T00:00:00');
+    expect(fake.ler(`${PARC}/p1`).dueDate).toBe(`${FUTURA}T00:00:00`);
     expect(fake.todos(PARC)).toHaveLength(2);
     expect(fake.ler(`${ALUNO}/a1`).installments).toBeUndefined();
   });

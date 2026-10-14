@@ -10,6 +10,9 @@ import {
   handleDeletePayment as deletePaymentHandler,
   saveExpense as saveExpenseHandler,
   handleDeleteExpense as deleteExpenseHandler,
+  marcarDespesaPaga as marcarDespesaPagaHandler,
+  reabrirDespesa as reabrirDespesaHandler,
+  gerarDespesasRecorrentes as gerarRecorrentesHandler,
   handleExcelUpload as excelUploadHandler,
   saveLead as saveLeadHandler
 } from '../utils';
@@ -51,9 +54,13 @@ export const usePaymentActions = (modal, toastMsg, setModal, setPaymentSaving) =
 
 export const useExpenseActions = (user, modal, toastMsg, setModal, setExpenseSaving) => {
   const saveExpense = (e) => saveExpenseHandler(e, user, modal, toastMsg, setModal, setExpenseSaving);
-  const handleDeleteExpense = (id) => deleteExpenseHandler(id, toastMsg);
+  const handleDeleteExpense = (id, grupoParcelamento) => deleteExpenseHandler(id, toastMsg, grupoParcelamento);
+  const marcarDespesaPaga = (id, dataYMD) => marcarDespesaPagaHandler(id, dataYMD, toastMsg);
+  const reabrirDespesa = (id, vencimentoISO) => reabrirDespesaHandler(id, vencimentoISO, toastMsg);
+  const gerarRecorrentes = (expenses, origem, destino) =>
+    gerarRecorrentesHandler(expenses, origem, destino, toastMsg);
 
-  return { saveExpense, handleDeleteExpense };
+  return { saveExpense, handleDeleteExpense, marcarDespesaPaga, reabrirDespesa, gerarRecorrentes };
 };
 
 export const useLeadActions = (user, modal, toastMsg, setModal, setSaving) => {

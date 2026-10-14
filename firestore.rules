@@ -200,11 +200,63 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
+    // ── Despesas ──────────────────────────────────────────────────────────
+    // Validação de escrita: antes, o catch-all abaixo aceitava qualquer
+    // documento nesta coleção — `value` como texto, `tipoSaida` inventado ou
+    // `date` ausente entravam e quebravam silenciosamente a soma do relatório.
+    //
+    // Leitura: pró-labore (tipoSaida == 'retiradaSocio') é dado de sócio e não
+    // aparece para a secretaria. Em consulta de coleção o Firestore não filtra
+    // documento por documento: a regra só passa se a própria query excluir o
+    // tipo, que é o que `queryDespesas` em src/hooks/useFirestore.js monta
+    // quando o papel é secretaria.
+    //
+    // PRÉ-REQUISITO: rode `npm run migrate-despesas -- --apply` ANTES de
+    // publicar estas regras. A query da secretaria filtra por `tipoSaida`, e
+    // lançamento antigo sem esse campo não casa com nenhum filtro — ficaria
+    // fora da lista sem avisar. A migração grava 'operacional' em todos.
+    function despesaValida(d) {
+      return d.description is string && d.description.size() > 0 && d.description.size() <= 200
+        && d.value is number && d.value > 0
+        && d.date is string && d.date.size() >= 10
+        && d.month is int && d.month >= 1 && d.month <= 12
+        && d.year is int && d.year >= 2000 && d.year <= 2100
+        && d.tipoSaida in ['operacional', 'retiradaSocio', 'investimento', 'imposto']
+        && (!('category' in d) || (d.category is string && d.category.size() <= 80))
+        && (!('recorrente' in d) || d.recorrente is bool)
+        && (!('parcelas' in d) || (d.parcelas is int && d.parcelas >= 1 && d.parcelas <= 60))
+        && (!('parcela' in d) || (d.parcela is int && d.parcela >= 1 && d.parcela <= 60));
+    }
+
+    match /artifacts/{appId}/public/data/expenses/{docId} {
+      allow get: if isAdminOrSecretaria();
+      allow list: if isAdmin();
+      // O predicado é o MESMO da query em `filtroDespesasPorPapel` (um `in`
+      // sobre `tipoSaida`): o Firestore só libera a consulta quando consegue
+      // provar que ela nunca devolve documento fora da regra, e isso exige o
+      // mesmo operador nos dois lados.
+      allow list: if isAdminOrSecretaria()
+        && resource.data.tipoSaida in ['operacional', 'investimento', 'imposto'];
+      // Retirada de sócio é lançada e removida só por admin.
+      allow create: if isAdmin() && despesaValida(request.resource.data);
+      allow create: if isAdminOrSecretaria()
+        && despesaValida(request.resource.data)
+        && request.resource.data.tipoSaida != 'retiradaSocio';
+      allow update: if isAdmin() && despesaValida(request.resource.data);
+      allow update: if isAdminOrSecretaria()
+        && despesaValida(request.resource.data)
+        && request.resource.data.tipoSaida != 'retiradaSocio'
+        && resource.data.tipoSaida != 'retiradaSocio';
+      allow delete: if isAdmin();
+      allow delete: if isAdminOrSecretaria() && resource.data.tipoSaida != 'retiradaSocio';
+    }
+
     // FIX #4 (companion): regra geral restrita a admin/secretaria para evitar bypass da regra de students acima.
     // `students` fica de fora: senão esta regra geral liberaria o delete que a
     // regra específica acima restringe a admin (regras do Firestore somam).
+    // `expenses` idem: o catch-all anularia a validação e a trava de pró-labore.
     match /artifacts/{appId}/public/data/{collection}/{docId} {
-      allow read, write: if isAdminOrSecretaria() && !(collection in ['students', 'certificados']);
+      allow read, write: if isAdminOrSecretaria() && !(collection in ['students', 'certificados', 'expenses']);
     }
 
     // ── Link de pagamento público (acesso por clientes sem login) ─────────

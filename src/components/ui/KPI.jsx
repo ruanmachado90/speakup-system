@@ -31,6 +31,7 @@ export const KPI = ({
   loading,
   sub,
   delta,
+  invertDelta = false,
   icon,
   onClick,
   actionLabel,
@@ -46,10 +47,16 @@ export const KPI = ({
   const skeletonWidth = size === 'large' ? 'w-48' : 'w-28';
   const skeletonHeight = size === 'large' ? 'h-9' : 'h-7';
 
+  // `invertDelta` para métrica onde subir é ruim (despesa, inadimplência,
+  // churn): a seta continua apontando para cima, mas o tom vira de alerta.
+  // Sem isso, despesa subindo 40% ficava verde ou sem cor nenhuma.
+  const tomSubida = invertDelta ? 'text-danger-fg' : 'text-success-fg';
+  const tomQueda = invertDelta ? 'text-success-fg' : 'text-danger-fg';
+
   const deltaTone =
     !delta ? '' :
-    delta.direction === 'up' ? 'text-success-fg' :
-    delta.direction === 'down' ? 'text-danger-fg' :
+    delta.direction === 'up' ? tomSubida :
+    delta.direction === 'down' ? tomQueda :
     'text-content-muted';
 
   const deltaArrow =

@@ -1,7 +1,8 @@
 import React, { createContext, useContext, useEffect, useMemo } from 'react';
 import { db, auth } from '../firebase';
 import { useAuth } from '../hooks/useAuth';
-import { useFirestore, useFirestoreCollection } from '../hooks/useFirestore';
+import { useFirestore, useFirestoreCollection, filtroDespesasPorPapel } from '../hooks/useFirestore';
+import { useAuthContext } from './AuthContext';
 import { useProfessores } from '../hooks/useProfessores';
 import { useParametros } from '../hooks/useParametros';
 import { 
@@ -14,7 +15,7 @@ import {
   useFilteredExpensesData, 
   useExpenseEvolutionData 
 } from '../hooks/useStats';
-import { showToast, APP_ID, EXPENSE_CATEGORIES } from '../utils';
+import { showToast, APP_ID, EXPENSE_CATEGORIES_TODAS } from '../utils';
 import { normalizarProfessoresDosAlunos } from '../utils/professores';
 import { useFilters } from './FilterContext';
 import { useUI } from './UIContext';
@@ -47,7 +48,13 @@ export const DataProvider = ({ children }) => {
   const user = useAuth(auth, (msg) => showToast(setToast, msg, 4000));
   const { data: studentsBrutos, isLoading: studentsLoading } = useFirestoreCollection(db, APP_ID, "students", user);
   const { data: payments, isLoading: paymentsLoading } = useFirestoreCollection(db, APP_ID, "payments", user);
-  const { data: expenses, isLoading: expensesLoading } = useFirestoreCollection(db, APP_ID, "expenses", user);
+  // Secretaria não recebe pró-labore: a regra do Firestore só libera a
+  // consulta se a própria query excluir `retiradaSocio` (ver firestore.rules).
+  const { role } = useAuthContext();
+  const filtrosDespesas = useMemo(() => filtroDespesasPorPapel(role), [role]);
+  const { data: expenses, isLoading: expensesLoading } = useFirestoreCollection(
+    db, APP_ID, "expenses", user, { filtros: filtrosDespesas }
+  );
   const leads = useFirestore(db, APP_ID, "leads", user);
   const { professores } = useProfessores();
 
@@ -78,7 +85,7 @@ export const DataProvider = ({ children }) => {
   useEffect(() => {
     if (!modal.open || modal.type !== 'expense') return;
     const cat = modal.data?.category || '';
-    if (EXPENSE_CATEGORIES.includes(cat)) {
+    if (EXPENSE_CATEGORIES_TODAS.includes(cat)) {
       setExpenseCategorySelect(cat);
       setExpenseCategoryOther('');
     } else if (cat) {

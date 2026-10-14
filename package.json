@@ -11,6 +11,7 @@
     "check-deploy": "node scripts/check-deploy.js",
     "migrate-professores": "node scripts/migrate-professores.mjs",
     "add-professor": "node scripts/add-professor.mjs",
+    "migrate-despesas": "node scripts/migrate-despesas.mjs",
     "test": "jest",
     "qualidade:baseline": "node scripts/qualidade-baseline.cjs"
   },

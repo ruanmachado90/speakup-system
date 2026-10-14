@@ -460,9 +460,8 @@ export function taxaConversaoPct(leads = [], mes, ano) {
 
 /** Gasto em marketing no mês (despesas da categoria Marketing). */
 export function gastoMarketingNoMes(expenses = [], mes, ano) {
-  return expenses
+  return despesasPagasNoMes(expenses, mes, ano)
     .filter((e) => /marketing|tr[aá]fego|an[uú]ncio|ads/i.test(e.category || ''))
-    .filter((e) => (e.month != null && e.year != null ? e.month === mes + 1 && e.year === ano : noMes(e.date, mes, ano)))
     .reduce((s, e) => s + num(e.value), 0);
 }
 
@@ -482,20 +481,30 @@ export function ltvCac(valorLtv, valorCac) {
 
 // ───────────────────────── saúde geral ─────────────────────────
 
+/**
+ * Despesas que SAÍRAM do caixa no mês (competência: `month`/`year` quando
+ * existem, senão a data). Conta a pagar em aberto não entra: regime de caixa
+ * só conhece o que saiu — a previsão é `despesasAPagarNoMes`.
+ */
+export function despesasPagasNoMes(expenses = [], mes, ano) {
+  return expenses.filter((e) => (e.status || 'pago') !== 'pendente'
+    && (e.month != null && e.year != null ? e.month === mes + 1 && e.year === ano : noMes(e.date, mes, ano)));
+}
+
+/** Contas a pagar que vencem no mês e ainda não foram baixadas. */
+export function despesasAPagarNoMes(expenses = [], mes, ano) {
+  return expenses.filter((e) => e.status === 'pendente' && noMes(e.vencimento ?? e.date, mes, ano));
+}
+
 /** Despesa total do mês. */
 export function despesaTotalNoMes(expenses = [], mes, ano) {
-  return expenses
-    .filter((e) => (e.month != null && e.year != null ? e.month === mes + 1 && e.year === ano : noMes(e.date, mes, ano)))
-    .reduce((s, e) => s + num(e.value), 0);
+  return despesasPagasNoMes(expenses, mes, ano).reduce((s, e) => s + num(e.value), 0);
 }
 
 /** Despesas do mês agrupadas por categoria, maiores primeiro. */
 export function despesaPorCategoriaNoMes(expenses = [], mes, ano) {
-  const doMes = expenses.filter(
-    (e) => (e.month != null && e.year != null ? e.month === mes + 1 && e.year === ano : noMes(e.date, mes, ano)),
-  );
   const mapa = new Map();
-  for (const e of doMes) {
+  for (const e of despesasPagasNoMes(expenses, mes, ano)) {
     const chave = (e.category || 'Outro').trim() || 'Outro';
     mapa.set(chave, (mapa.get(chave) || 0) + num(e.value));
   }
@@ -505,15 +514,11 @@ export function despesaPorCategoriaNoMes(expenses = [], mes, ano) {
 }
 
 /**
- * Despesas do mês agrupadas por `tipoSaida`. Despesa legada sem o campo conta
- * como 'operacional' (não some do cálculo, mas também não vira retirada).
+ * Despesas do mês por `tipoSaida`. Legado sem o campo conta como 'operacional'.
  */
 export function despesasPorTipoNoMes(expenses = [], mes, ano) {
-  const doMes = expenses.filter(
-    (e) => (e.month != null && e.year != null ? e.month === mes + 1 && e.year === ano : noMes(e.date, mes, ano)),
-  );
-  const somaPor = (tipo) => doMes
-    .filter((e) => (e.tipoSaida || 'operacional') === tipo)
+  const doMes = despesasPagasNoMes(expenses, mes, ano);
+  const somaPor = (tipo) => doMes.filter((e) => (e.tipoSaida || 'operacional') === tipo)
     .reduce((s, e) => s + num(e.value), 0);
   return {
     operacional: somaPor('operacional'),
@@ -525,9 +530,8 @@ export function despesasPorTipoNoMes(expenses = [], mes, ano) {
 
 /**
  * Lucro operacional = receita recebida − despesas operacionais − impostos.
- * Retirada de sócio e investimento NÃO entram — não são custo do negócio,
- * são distribuição de lucro / capex. Misturar os dois foi o que produziu uma
- * leitura de "lucro" desligada da variação real de caixa.
+ * Retirada de sócio e investimento NÃO entram: são distribuição de lucro /
+ * capex. Misturar os dois desligava o "lucro" da variação real de caixa.
  */
 export function lucroOperacionalDoMes(receitaRecebida, porTipo) {
   return receitaRecebida - porTipo.operacional - porTipo.imposto;
@@ -610,19 +614,15 @@ export function saldoCaixaDoTrimestre(saldosBancarios = [], tri, ano) {
 }
 
 /**
- * Custo fixo do mês. Depende da flag `recorrente` nas despesas:
- *  - se alguma despesa do mês tem `recorrente` definido → soma só as recorrentes;
- *  - senão → indisponível, mas devolve um `proxy` (Aluguel + Salários + Serviços).
+ * Custo fixo do mês. Com a flag `recorrente` presente em alguma despesa do mês,
+ * soma só as recorrentes; senão fica indisponível com um `proxy`.
  */
 export function custoFixoNoMes(expenses = [], mes, ano) {
-  const doMes = expenses.filter(
-    (e) => (e.month != null && e.year != null ? e.month === mes + 1 && e.year === ano : noMes(e.date, mes, ano)),
-  );
+  const doMes = despesasPagasNoMes(expenses, mes, ano);
   const temFlag = doMes.some((e) => typeof e.recorrente === 'boolean');
-  const proxy = doMes
-    .filter((e) => /aluguel|sal[aá]rio|servi[cç]o/i.test(e.category || ''))
+  // Proxy inclui 'Professores'/'Equipe administrativa' e o antigo 'Salários'.
+  const proxy = doMes.filter((e) => /aluguel|sal[aá]rio|servi[cç]o|professor|equipe/i.test(e.category || ''))
     .reduce((s, e) => s + num(e.value), 0);
-
   if (!temFlag) {
     return { ...indisponivel('Despesas ainda não classificadas como recorrentes'), proxy };
   }

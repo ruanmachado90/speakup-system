@@ -37,8 +37,12 @@ import {
   cac,
   pontoEquilibrio,
   custoFixoNoMes,
+  despesaTotalNoMes,
   despesaPorCategoriaNoMes,
   despesasPorTipoNoMes,
+  despesasPagasNoMes,
+  despesasAPagarNoMes,
+  gastoMarketingNoMes,
   lucroOperacionalDoMes,
   margemOperacionalPct,
   cobrancasNaoEmitidas,
@@ -485,6 +489,46 @@ describe('custoFixoNoMes — depende da flag recorrente', () => {
     ];
     const r = custoFixoNoMes(expenses, 2, 2026);
     expect(r).toMatchObject({ disponivel: true, valor: 2300 });
+  });
+});
+
+describe('conta a pagar em aberto não é despesa do mês (regime de caixa)', () => {
+  const expenses = [
+    { category: 'Aluguel', value: 3000, month: 8, year: 2026, status: 'pago', tipoSaida: 'operacional', recorrente: true },
+    { category: 'Marketing', value: 500, month: 8, year: 2026, tipoSaida: 'operacional' }, // legado, sem status
+    { category: 'Materiais', value: 800, month: 8, year: 2026, status: 'pendente', tipoSaida: 'operacional', recorrente: true, vencimento: '2026-09-20T12:00:00.000Z' },
+  ];
+
+  it('despesaTotalNoMes soma só o que saiu do caixa', () => {
+    expect(despesaTotalNoMes(expenses, 7, 2026)).toBe(3500);
+  });
+
+  it('lançamento legado sem status conta como pago', () => {
+    expect(despesasPagasNoMes(expenses, 7, 2026)).toHaveLength(2);
+  });
+
+  it('por categoria e por tipo também ignoram o pendente', () => {
+    expect(despesaPorCategoriaNoMes(expenses, 7, 2026)).toEqual([
+      { categoria: 'Aluguel', valor: 3000 },
+      { categoria: 'Marketing', valor: 500 },
+    ]);
+    expect(despesasPorTipoNoMes(expenses, 7, 2026).operacional).toBe(3500);
+  });
+
+  it('custo fixo não inclui recorrente ainda não paga', () => {
+    expect(custoFixoNoMes(expenses, 7, 2026)).toMatchObject({ disponivel: true, valor: 3000 });
+  });
+
+  it('gasto de marketing ignora pendente', () => {
+    const comPendente = [...expenses, { category: 'Marketing', value: 9999, month: 8, year: 2026, status: 'pendente' }];
+    expect(gastoMarketingNoMes(comPendente, 7, 2026)).toBe(500);
+  });
+
+  it('despesasAPagarNoMes usa o vencimento, não a competência', () => {
+    const aPagar = despesasAPagarNoMes(expenses, 8, 2026);
+    expect(aPagar).toHaveLength(1);
+    expect(aPagar[0].value).toBe(800);
+    expect(despesasAPagarNoMes(expenses, 7, 2026)).toHaveLength(0);
   });
 });
 

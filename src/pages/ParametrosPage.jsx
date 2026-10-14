@@ -2,6 +2,11 @@ import { useState, useEffect } from 'react';
 import { Save, RotateCcw, Info } from 'lucide-react';
 import { useParametrosData } from '../hooks';
 import { PARAMETROS_PADRAO } from '../config/parametros';
+import { GRUPOS } from '../utils/despesasAnalise';
+
+// Grupos de custo que aceitam orçamento próprio. 'Outros' e o legado de folha
+// ficam fora: são caixas de passagem, não linha de orçamento.
+const GRUPOS_ORCAMENTO = GRUPOS.filter((g) => g.faixa);
 
 const CAMPOS = [
   {
@@ -38,6 +43,11 @@ export default function ParametrosPage() {
 
   const setCampo = (chave, valor) => {
     setForm((f) => ({ ...f, [chave]: valor }));
+    setFeedback(null);
+  };
+
+  const setOrcamento = (grupo, valor) => {
+    setForm((f) => ({ ...f, orcamentoDespesas: { ...(f.orcamentoDespesas || {}), [grupo]: valor } }));
     setFeedback(null);
   };
 
@@ -109,6 +119,37 @@ export default function ParametrosPage() {
           </div>
         </div>
       ))}
+
+      <div className="bg-white border border-slate-200 rounded-2xl p-5">
+        <h3 className="text-sm font-bold text-slate-700 uppercase tracking-wide mb-1">Orçamento mensal por grupo de custo</h3>
+        <p className="text-xs text-slate-400 mb-4">
+          Opcional. Com um valor aqui, a tela de Despesas compara o realizado com o SEU orçamento
+          em vez da faixa de referência do setor. Deixe em branco ou zero para usar a faixa.
+        </p>
+        <div className="space-y-4">
+          {GRUPOS_ORCAMENTO.map((g) => (
+            <div key={g.id}>
+              <label htmlFor={`orc-${g.id}`} className="block text-sm font-semibold text-slate-600 mb-1">
+                {g.nome} (R$/mês)
+              </label>
+              <input
+                id={`orc-${g.id}`}
+                type="number"
+                min="0"
+                step="0.01"
+                value={form.orcamentoDespesas?.[g.id] ?? ''}
+                onChange={(e) => setOrcamento(g.id, e.target.value === '' ? '' : Number(e.target.value))}
+                disabled={parametrosLoading || salvando}
+                className="w-full max-w-xs border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-accent disabled:bg-slate-50"
+              />
+              <p className="flex items-start gap-1.5 text-xs text-slate-400 mt-1">
+                <Info size={12} className="mt-0.5 flex-shrink-0" />
+                Referência do setor: {g.faixa[0]}–{g.faixa[1]}% da receita recebida.
+              </p>
+            </div>
+          ))}
+        </div>
+      </div>
 
       <div className="flex items-center gap-3">
         <button

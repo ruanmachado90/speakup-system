@@ -1,4 +1,19 @@
 import { useMemo } from 'react';
+import { paraData } from '../utils/reportKPIs';
+import { ehOperacional } from '../utils/despesasAnalise';
+
+/**
+ * Data da despesa em horário LOCAL. `new Date(x.date)` lê o ISO como UTC e,
+ * em UTC-3, joga a despesa do dia 1º para o mês anterior. `paraData` é a mesma
+ * leitura que o relatório mensal usa, então as duas telas batem.
+ */
+const dataDespesa = (x) => paraData(x.date);
+
+const despesaNoPeriodo = (x, range, mes, ano) => {
+  const d = dataDespesa(x);
+  if (!d || d.getFullYear() !== ano) return false;
+  return range === 'year' || d.getMonth() === mes;
+};
 
 /**
  * Hook otimizado de estatísticas com loops consolidados
@@ -63,19 +78,19 @@ export const useStats = (students = [], payments = [], expenses = [], dashboardR
     // ============================================
     // PROCESSAMENTO DE DESPESAS (1 ÚNICO LOOP)
     // ============================================
+    // `totalExpenses` é toda saída de caixa do período (é o que a tela de
+    // Despesas chama de "Saídas"). `custoOperacional` exclui retirada de sócio
+    // e investimento, que não são custo do negócio — mesma regra de
+    // lucroOperacionalDoMes no relatório mensal. Misturar os dois fazia o lucro
+    // do dashboard divergir do lucro do relatório no mesmo mês.
     let totalExpenses = 0;
-    
+    let custoOperacional = 0;
+
     expenses.forEach(expense => {
-      if (!expense.date) return;
-      
-      const expDate = new Date(expense.date);
-      const isInPeriod = dashboardRange === 'month'
-        ? expDate.getFullYear() === currentYear && expDate.getMonth() === currentMonth
-        : expDate.getFullYear() === currentYear;
-      
-      if (isInPeriod) {
-        totalExpenses += Number(expense.value || 0);
-      }
+      if (!despesaNoPeriodo(expense, dashboardRange, currentMonth, currentYear)) return;
+      const valor = Number(expense.value || 0);
+      totalExpenses += valor;
+      if (ehOperacional(expense)) custoOperacional += valor;
     });
 
     // ============================================
@@ -126,7 +141,9 @@ export const useStats = (students = [], payments = [], expenses = [], dashboardR
       overdue: paymentStats.overdue,
       overdueCount: paymentStats.overdueCount,
       overduePayments: paymentStats.overduePayments,
-      profit: paymentStats.paid - totalExpenses,
+      expenses: totalExpenses,
+      custoOperacional,
+      profit: paymentStats.paid - custoOperacional,
       students: studentStats.active,
       registrations: studentStats.registrations,
       cancellations: studentStats.cancellations,
@@ -201,21 +218,7 @@ export const useFilteredExpenses = (expenses, dashboardRange) => {
     const currentMonth = now.getMonth(); // 0-11
     const currentYear = now.getFullYear();
 
-    let filtered = [];
-    if (dashboardRange === 'month') {
-      // Filtrar por date (campo correto das despesas)
-      filtered = expenses.filter(x => {
-        if (!x.date) return false;
-        const expenseDate = new Date(x.date);
-        return expenseDate.getFullYear() === currentYear && expenseDate.getMonth() === currentMonth;
-      });
-    } else {
-      // Filtrar apenas por ano
-      filtered = expenses.filter(x => {
-        if (!x.date) return false;
-        return new Date(x.date).getFullYear() === currentYear;
-      });
-    }
+    const filtered = expenses.filter(x => despesaNoPeriodo(x, dashboardRange, currentMonth, currentYear));
 
     return filtered.sort((a, b) => {
       const dateA = a.date ? new Date(a.date).getTime() : 0;
@@ -250,12 +253,9 @@ export const useMonthlyData = (payments, expenses) => {
       .reduce((a, x) => a + Number(x.valuePaid || x.valuePlanned || 0), 0)
     );
 
+    // Lucro mensal segue a mesma regra do relatório: só operacional e imposto.
     const expensesByMonth = months.map(m => expenses
-      .filter(x => {
-        if (!x.date) return false;
-        const d = new Date(x.date);
-        return d.getFullYear() === currentYear && d.getMonth() === m;
-      })
+      .filter(x => despesaNoPeriodo(x, 'month', m, currentYear) && ehOperacional(x))
       .reduce((a, x) => a + Number(x.value || 0), 0)
     );
 
@@ -339,17 +339,7 @@ export const useFilteredPayments = (payments, filterMonth, filterYear, filterSta
 
 export const useFilteredExpensesData = (expenses, expenseView, expenseMonth, expenseYear) => {
   return useMemo(() => {
-    if (expenseView === 'month') {
-      return expenses.filter(x => {
-        if (!x.date) return false;
-        const d = new Date(x.date);
-        return d.getFullYear() === expenseYear && d.getMonth() === expenseMonth;
-      });
-    }
-    return expenses.filter(x => {
-      if (!x.date) return false;
-      return new Date(x.date).getFullYear() === expenseYear;
-    });
+    return expenses.filter(x => despesaNoPeriodo(x, expenseView, expenseMonth, expenseYear));
   }, [expenses, expenseView, expenseMonth, expenseYear]);
 };
 
@@ -358,15 +348,10 @@ export const useExpenseEvolutionData = (expenses, expenseYear) => {
     const months = Array.from({length: 12}, (_, i) => i);
     const labels = months.map(i => new Date(0, i).toLocaleString('pt-BR', {month: 'short'}));
     
-    const values = months.map(m => {
-      return expenses
-        .filter(x => {
-          if (!x.date) return false;
-          const d = new Date(x.date);
-          return d.getFullYear() === expenseYear && d.getMonth() === m;
-        })
-        .reduce((sum, x) => sum + Number(x.value || 0), 0);
-    });
+    const values = months.map(m => expenses
+      .filter(x => despesaNoPeriodo(x, 'month', m, expenseYear))
+      .reduce((sum, x) => sum + Number(x.value || 0), 0)
+    );
 
     return { labels, values };
   }, [expenses, expenseYear]);

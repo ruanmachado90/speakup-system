@@ -15,8 +15,6 @@ import { db } from "../firebase";
 import { APP_ID } from "./constants";
 import { addMonthsClamped } from "./dateMath";
 import {
-  lerCamposMatricula,
-  validarContrato,
   montarParcelas,
   turmasDoAluno,
   alunosIdsSem,
@@ -24,6 +22,17 @@ import {
   separarParcelasNoCancelamento,
 } from "./matricula";
 import { montarBaixa } from "./pagamento";
+
+// Despesas e cadastro de aluno vivem em módulos próprios; reexportados aqui
+// para manter os imports atuais.
+export {
+  saveExpense,
+  handleDeleteExpense,
+  marcarDespesaPaga,
+  reabrirDespesa,
+  gerarDespesasRecorrentes,
+} from "./handlersDespesas";
+export { saveStudent } from "./handlersAlunos";
 
 const appId = APP_ID;
 const col = (name) => collection(db, "artifacts", appId, "public", "data", name);
@@ -36,126 +45,11 @@ const toLocalISOString = (date) => {
   return `${year}-${month}-${day}T00:00:00`;
 };
 
-// Campos cadastrais (texto) que o formulário de aluno pode gravar. Lista
-// explícita: o que não está aqui não vai pro Firestore por acidente.
-const CAMPOS_CADASTRAIS = [
-  'name', 'cpf', 'contact', 'email', 'dataNascimento',
-  'responsibleName', 'responsibleCpf', 'responsibleContact', 'responsibleEmail',
-];
-
-const lerCadastro = (formData) => Object.fromEntries(
-  CAMPOS_CADASTRAIS
-    .filter((k) => formData.has(k))
-    .map((k) => [k, String(formData.get(k)).trim()])
-);
-
 const parcelasPendentes = (studentId) => getDocs(query(
   col("payments"),
   where("studentId", "==", studentId),
   where("status", "==", "Pendente")
 ));
-
-/**
- * Cria ou edita um aluno pelo formulário "Novo aluno"/"Editar".
- *
- * Criação: aluno + parcelas num batch só (antes era aluno primeiro, parcelas
- * depois — falha no meio deixava aluno sem parcela).
- * Edição: só dados cadastrais, curso/professor e mensalidade. Vencimento e
- * número de parcelas não são mais editáveis aqui: recalcular tudo a partir da
- * 1ª parcela desfazia ajustes manuais (ex: semestralidade). Data de uma
- * parcela se ajusta no Financeiro.
- */
-export const saveStudent = async (e, user, modal, toastMsg, setModal, setSaving) => {
-  e.preventDefault();
-
-  if (!user) {
-    toastMsg('Você não está autenticado. Recarregue a página.');
-    return;
-  }
-
-  const formData = new FormData(e.target);
-  const cadastro = lerCadastro(formData);
-  const campos = lerCamposMatricula(formData);
-  const vinculo = {
-    course: campos.course,
-    book: campos.book,
-    teacher: campos.teacher,
-    professorId: campos.professorId,
-  };
-
-  setSaving(true);
-  try {
-    if (modal.data?.id) {
-      const id = modal.data.id;
-      const fee = Number(campos.fee);
-      if (!(fee > 0)) {
-        toastMsg('Informe um valor de mensalidade válido.');
-        return;
-      }
-
-      const batch = writeBatch(db);
-      batch.update(doc(col("students"), id), { ...cadastro, ...vinculo, fee });
-
-      // Parcelas pendentes acompanham nome, mensalidade e vínculo atuais;
-      // pagas/canceladas ficam como estavam (histórico).
-      const snap = await parcelasPendentes(id);
-      const feeMudou = fee !== Number(modal.data.fee);
-      snap.forEach((p) => {
-        const updates = {
-          studentName: cadastro.name || p.data().studentName,
-          course: vinculo.course,
-          professorId: vinculo.professorId,
-        };
-        if (feeMudou) updates.valuePlanned = fee;
-        batch.update(p.ref, updates);
-      });
-
-      await batch.commit();
-      toastMsg(feeMudou && !snap.empty
-        ? `Aluno atualizado; ${snap.size} parcela(s) pendente(s) com a nova mensalidade`
-        : 'Aluno atualizado com sucesso');
-      setModal({ open: false, type: null, data: null });
-      return;
-    }
-
-    const problema = validarContrato(campos);
-    if (problema) {
-      toastMsg(problema);
-      return;
-    }
-
-    const batch = writeBatch(db);
-    const studentRef = doc(col("students"));
-    batch.set(studentRef, {
-      ...cadastro,
-      ...vinculo,
-      fee: Number(campos.fee),
-      dueDate: campos.dueDate,
-      installments: Number(campos.installments),
-      status: "ativo",
-      source: 'balcao',
-      createdAt: Date.now(),
-    });
-    montarParcelas({
-      studentId: studentRef.id,
-      studentName: cadastro.name,
-      fee: campos.fee,
-      installmentDates: campos.installmentDates,
-      course: vinculo.course,
-      professorId: vinculo.professorId,
-    }).forEach((p) => batch.set(doc(col("payments")), p));
-
-    await batch.commit();
-    toastMsg(`${cadastro.name} matriculado com ${campos.installments} parcela(s)`);
-    setModal({ open: false, type: null, data: null });
-
-  } catch (err) {
-    console.error("Erro ao salvar aluno:", err);
-    toastMsg(`Erro ao salvar aluno: ${err?.message || 'ver console'}`);
-  } finally {
-    setSaving(false);
-  }
-};
 
 /**
  * Confirma um pré-cadastro online como matrícula. Tudo num batch: aluno,
@@ -544,89 +438,6 @@ export const handleDeletePayment = async (id, toastMsg) => {
       console.error('Erro ao remover cobrança:', err);
     }
     toastMsg('Erro ao remover cobrança');
-  }
-};
-
-/**
- * Save or update an expense
- */
-export const saveExpense = async (e, user, modal, toastMsg, setModal, setExpenseSaving) => {
-  e.preventDefault();
-  const form = new FormData(e.target);
-  const description = form.get('description')?.trim();
-  const categoryRaw = form.get('category')?.trim();
-  const category = categoryRaw === 'Outro' ? (form.get('categoryOther')?.trim() || 'Outro') : categoryRaw;
-  const value = Number(form.get('value') || 0);
-  const dateStr = form.get('date');
-  const paymentMethod = form.get('paymentMethod')?.trim() || 'Não especificado';
-  // checkbox: presente ('on') só quando marcado
-  const recorrente = form.get('recorrente') === 'on';
-  const tipoSaidaRaw = form.get('tipoSaida')?.trim();
-  const tipoSaida = ['operacional', 'retiradaSocio', 'investimento', 'imposto'].includes(tipoSaidaRaw)
-    ? tipoSaidaRaw
-    : 'operacional';
-
-  if (!description || isNaN(value) || value <= 0) {
-    toastMsg('Descrição e valor são obrigatórios');
-    return;
-  }
-
-  if (!user) {
-    toastMsg('Você não está autenticado');
-    return;
-  }
-
-  try {
-    setExpenseSaving(true);
-    const d = dateStr ? new Date(dateStr) : new Date();
-    const expenseData = {
-      description,
-      category,
-      value,
-      date: d.toISOString(),
-      month: d.getMonth() + 1,
-      year: d.getFullYear(),
-      paymentMethod,
-      recorrente,
-      tipoSaida
-    };
-
-    if (modal.data?.id) {
-      await updateDoc(doc(col('expenses'), modal.data.id), {
-        ...expenseData,
-        updatedAt: Date.now()
-      });
-      toastMsg('Despesa atualizada com sucesso!');
-    } else {
-      await addDoc(col('expenses'), {
-        ...expenseData,
-        createdAt: Date.now()
-      });
-      toastMsg('Despesa registrada com sucesso!');
-    }
-
-    setModal({ open: false, type: null, data: null });
-  } catch (err) {
-    if (import.meta.env.DEV) {
-      console.error('Erro ao salvar despesa:', err);
-    }
-    toastMsg('Erro ao salvar despesa');
-  } finally {
-    setExpenseSaving(false);
-  }
-};
-
-/**
- * Delete an expense
- */
-export const handleDeleteExpense = async (id, toastMsg) => {
-  if (!confirm('Remover despesa?')) return;
-  try {
-    await deleteDoc(doc(col('expenses'), id));
-    toastMsg('Despesa removida');
-  } catch (err) {
-    console.error(err);
-    toastMsg('Erro ao remover despesa');
   }
 };
 

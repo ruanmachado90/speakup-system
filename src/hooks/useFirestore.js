@@ -1,5 +1,20 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
-import { collection, onSnapshot, query, orderBy, limit } from 'firebase/firestore';
+import { collection, onSnapshot, query, orderBy, limit, where } from 'firebase/firestore';
+
+/**
+ * Tipos de saída que a secretaria pode ver. Pró-labore (`retiradaSocio`) é
+ * dado de sócio: as regras do Firestore bloqueiam a consulta dela se a query
+ * não excluir esse tipo, então o filtro tem que vir daqui.
+ *
+ * `in` só casa documento que TENHA o campo — por isso
+ * `scripts/migrate-despesas.mjs` grava `tipoSaida` em todos os lançamentos
+ * antigos. Sem rodar a migração, lançamento sem o campo não apareceria.
+ */
+export const TIPOS_SAIDA_SECRETARIA = ['operacional', 'investimento', 'imposto'];
+
+/** Filtro de despesas para o papel. Admin vê tudo; secretaria, tudo menos pró-labore. */
+export const filtroDespesasPorPapel = (role) =>
+  role === 'admin' ? [] : [where('tipoSaida', 'in', TIPOS_SAIDA_SECRETARIA)];
 
 /**
  * Hook otimizado para Firestore com memoização e ordenação
@@ -12,7 +27,9 @@ import { collection, onSnapshot, query, orderBy, limit } from 'firebase/firestor
  * @param {string} options.orderByField - Campo para ordenação
  * @param {string} options.orderDirection - Direção da ordenação ('asc' ou 'desc')
  * @param {number} options.limitTo - Limite de documentos
- * 
+ * @param {Array}  options.filtros - Cláusulas `where()` prontas. Precisa ter
+ *   referência estável (useMemo no chamador), senão reinscreve a cada render.
+ *
  * @returns {{ data: Array, isLoading: boolean }} Documentos memoizados e estado de carregamento
  */
 export const useFirestoreCollection = (db, appId, collectionName, user, options = {}) => {
@@ -21,7 +38,7 @@ export const useFirestoreCollection = (db, appId, collectionName, user, options 
   const dataRef = useRef([]);
   const isInitialMount = useRef(true);
 
-  const { orderByField, orderDirection = 'asc', limitTo } = options;
+  const { orderByField, orderDirection = 'asc', limitTo, filtros } = options;
 
   useEffect(() => {
     if (!user) {
@@ -38,8 +55,8 @@ export const useFirestoreCollection = (db, appId, collectionName, user, options 
     const col = collection(db, "artifacts", appId, "public", "data", collectionName);
     
     // Construir query com ordenação e limite se fornecidos
-    let firestoreQuery = query(col);
-    
+    let firestoreQuery = filtros?.length ? query(col, ...filtros) : query(col);
+
     if (orderByField) {
       firestoreQuery = query(firestoreQuery, orderBy(orderByField, orderDirection));
     }
@@ -79,7 +96,7 @@ export const useFirestoreCollection = (db, appId, collectionName, user, options 
     return () => {
       unsubscribe();
     };
-  }, [db, appId, collectionName, user, orderByField, orderDirection, limitTo]);
+  }, [db, appId, collectionName, user, orderByField, orderDirection, limitTo, filtros]);
 
   // Memoiza o resultado para manter referência estável
   return useMemo(() => ({ data, isLoading }), [data, isLoading]);

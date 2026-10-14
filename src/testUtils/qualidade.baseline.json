@@ -2,7 +2,6 @@
   "hex": {
     "src/App.jsx": 3,
     "src/components/auth/RequireAuth.jsx": 1,
-    "src/components/charts/DonutChart.jsx": 12,
     "src/components/charts/ExpenseEvolutionChart.jsx": 7,
     "src/components/charts/PaymentMethodChart.jsx": 12,
     "src/components/forms/LeadForm.jsx": 1,
@@ -45,7 +44,7 @@
     "src/utils/timbre.js": 9
   },
   "linhas": {
-    "src/App.jsx": 784,
+    "src/App.jsx": 782,
     "src/pages/AIManager.jsx": 638,
     "src/pages/AulasAdmin.jsx": 698,
     "src/pages/Finance.jsx": 979,
@@ -55,7 +54,7 @@
     "src/pages/Vendas.jsx": 1575,
     "src/utils/aiUtils.js": 638,
     "src/utils/export.js": 803,
-    "src/utils/handlers.js": 856,
+    "src/utils/handlers.js": 667,
     "src/utils/reportKPIs.js": 1369
   }
 }

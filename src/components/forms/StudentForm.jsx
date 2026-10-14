@@ -4,6 +4,8 @@ import { useUI } from '../../context/UIContext';
 import { useLoading } from '../../context/LoadingContext';
 import { DataContext } from '../../context/DataContext';
 import { CursoBookSelect, TeacherSelect, ContratoFinanceiroFields, AvisoCpfExistente } from '../students/MatriculaFields';
+import MudancaMensalidade from '../students/MudancaMensalidade';
+import HistoricoMensalidade from '../students/HistoricoMensalidade';
 import { alunosComMesmoCpf } from '../../utils/matricula';
 
 const formatCPF = (value) => {
@@ -69,6 +71,19 @@ export const StudentForm = ({ onSubmit }) => {
   const editando = Boolean(aluno.id);
   const [cpf, setCpf] = useState(aluno.cpf || '');
 
+  // Mensalidade é controlada: mudá-la abre o passo que decide se a mudança
+  // vale só daqui pra frente (plano) ou retroage (correção de cadastro).
+  const feeAnterior = Number(aluno.fee) || 0;
+  const [fee, setFee] = useState(aluno.fee ?? '');
+  const feeNum = Number(fee);
+  const feeMudou = editando && feeNum > 0 && feeNum !== feeAnterior;
+
+  const payments = useContext(DataContext)?.payments;
+  const parcelasDoAluno = useMemo(
+    () => (aluno.id ? (payments || []).filter((p) => p.studentId === aluno.id) : []),
+    [payments, aluno.id]
+  );
+
   // Na matrícula nova, CPF já cadastrado: ativo bloqueia, inativo sugere reativar.
   const duplicados = useMemo(
     () => (editando ? [] : alunosComMesmoCpf(students || [], cpf)),
@@ -106,11 +121,33 @@ export const StudentForm = ({ onSubmit }) => {
       <TeacherSelect defaultValue={aluno.teacher} defaultProfessorId={aluno.professorId} required />
 
       {editando ? (
-        <div className="space-y-2">
-          <Form label="Mensalidade (R$)" name="fee" type="number" step="0.01" defaultValue={aluno.fee} required />
-          <p className="text-xs text-slate-500">
-            Mudar a mensalidade atualiza só as parcelas pendentes. Para mudar a data de uma parcela, use o Financeiro.
-          </p>
+        <div className="space-y-3">
+          <div className="flex flex-col">
+            <label htmlFor="fee" className="text-sm font-bold text-slate-600 mb-1">
+              Mensalidade (R$) <span className="text-rose-500">*</span>
+            </label>
+            <input
+              id="fee"
+              name="fee"
+              type="number"
+              min="0.01"
+              step="0.01"
+              value={fee}
+              onChange={(e) => setFee(e.target.value)}
+              required
+              className="border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-accent"
+            />
+          </div>
+
+          {feeMudou ? (
+            <MudancaMensalidade fee={Number(fee)} feeAnterior={feeAnterior} parcelas={parcelasDoAluno} />
+          ) : (
+            <p className="text-xs text-slate-500">
+              Para mudar a data de uma parcela, use o Financeiro.
+            </p>
+          )}
+
+          <HistoricoMensalidade historico={aluno.historicoMensalidade} />
         </div>
       ) : (
         <ContratoFinanceiroFields />

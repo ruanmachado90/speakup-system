@@ -38,7 +38,6 @@ import {
   useLeads,
   useDashboardStats,
   useFinanceData,
-  useExpenseData,
   useSaving,
   usePaymentSaving,
   useExpenseSaving,
@@ -152,7 +151,7 @@ function AppContent() {
   
   const { saving, setSaving } = useSaving();
   const { paymentSaving } = usePaymentSaving();
-  const { expenseSaving } = useExpenseSaving();
+  const { expenseSaving, setExpenseSaving } = useExpenseSaving();
   const user = useUser();
   const students = useStudents();
   const payments = usePayments();
@@ -161,12 +160,12 @@ function AppContent() {
   const professores = useProfessoresData();
   const { stats, teacherStats, filteredExpenses, monthlyData, dataLoading } = useDashboardStats();
   const { financeStats, filteredPayments } = useFinanceData();
-  const { filteredExpensesData, expenseEvolutionData } = useExpenseData();
+  // Despesas calcula os próprios cortes (realizado x a pagar) — sem useExpenseData.
 
   /* ================= ACTIONS ================= */
   const { saveStudent, handleCancelEnrollment, handleReactivateEnrollment, handleDeleteStudent, handleExcelUpload } = useStudentActions(user, modal, toastMsg, setModal, setSaving);
   const { savePayment, handleEditDueDate, handleAddPayment, handleUndoPayment } = usePaymentActions(modal, toastMsg, setModal, setSaving);
-  const { saveExpense, handleDeleteExpense } = useExpenseActions(user, modal, toastMsg, setModal, setSaving);
+  const { saveExpense, handleDeleteExpense, marcarDespesaPaga, reabrirDespesa, gerarRecorrentes } = useExpenseActions(user, modal, toastMsg, setModal, setExpenseSaving);
   const { saveLead } = useLeadActions(user, modal, toastMsg, setModal, setSaving);
   const { printDashboard, printFicha } = usePrintActions(dashboardRange, stats, monthlyData, teacherStats, filteredExpenses, modal, payments, professores);
   const nomeProfessorModal = professores.find((p) => p.id === modal.data?.professorId)?.nome || modal.data?.teacher;
@@ -419,10 +418,9 @@ function AppContent() {
               expenseYear={expenseYear}
               setExpenseYear={setExpenseYear}
               expenses={expenses}
-              filteredExpensesData={filteredExpensesData}
-              expenseEvolutionData={expenseEvolutionData}
               setModal={setModal}
               handleDeleteExpense={handleDeleteExpense}
+              marcarDespesaPaga={marcarDespesaPaga} reabrirDespesa={reabrirDespesa} gerarRecorrentes={gerarRecorrentes}
             />}
 
             {page === "leads" && <Leads setModal={setModal} leads={leads} />}

@@ -25,13 +25,28 @@ export const PARAMETROS_PADRAO = {
   metaOcupacaoPct: 60,
 };
 
+/**
+ * Orçamento mensal em R$ por grupo de custo (ids de GRUPOS em
+ * utils/despesasAnalise.js). Zero ou ausente = sem meta própria; a tela de
+ * Despesas cai na faixa de referência do setor. Fica fora de
+ * PARAMETROS_PADRAO porque é um mapa, não um número.
+ */
+export const ORCAMENTO_PADRAO = {};
+
 /** Mescla os parâmetros salvos com os padrões, ignorando campos inválidos. */
 export function resolverParametros(salvos) {
-  const out = { ...PARAMETROS_PADRAO };
+  const out = { ...PARAMETROS_PADRAO, orcamentoDespesas: { ...ORCAMENTO_PADRAO } };
   if (salvos && typeof salvos === 'object') {
     for (const chave of Object.keys(PARAMETROS_PADRAO)) {
       const v = Number(salvos[chave]);
       if (Number.isFinite(v) && v >= 0) out[chave] = v;
+    }
+    const orc = salvos.orcamentoDespesas;
+    if (orc && typeof orc === 'object') {
+      for (const [grupo, valor] of Object.entries(orc)) {
+        const v = Number(valor);
+        if (Number.isFinite(v) && v > 0) out.orcamentoDespesas[grupo] = v;
+      }
     }
   }
   return out;

@@ -5,10 +5,16 @@ export const DonutChart = ({data}) => {
   const radius = 90;
   const innerRadius = 60;
   
+  // Tokens do design system (sem hex cru) e SEM repetição: a lista antiga
+  // tinha 10 posições mas repetia a partir da 6ª, então duas categorias
+  // diferentes recebiam o mesmo azul. Agora são 5 cores distintas e o
+  // excedente é agrupado em "Outras" — repetir cor numa legenda engana mais
+  // do que agrupar.
   const colors = [
-    '#0e48fe', '#fc6e1f', '#ffae1e', '#f30961', '#d1d5db',
-    '#9ca3af', '#0e48fe', '#fc6e1f', '#ffae1e', '#f30961'
+    'var(--su-blue)', 'var(--su-orange)', 'var(--su-yellow)',
+    'var(--su-pink)', 'var(--su-blue-300)', 'var(--gr-400)',
   ];
+  const MAX_FATIAS = 5;
 
   // Agrupar despesas por categoria
   const categoryData = data.reduce((acc, expense) => {
@@ -20,27 +26,43 @@ export const DonutChart = ({data}) => {
     return acc;
   }, {});
 
-  const categories = Object.keys(categoryData);
-  const total = Object.values(categoryData).reduce((a, b) => a + b, 0);
+  // Maiores primeiro; o que passar do limite vira uma fatia "Outras".
+  const porValor = Object.entries(categoryData).sort((a, b) => b[1] - a[1]);
+  const fatias = porValor.length > MAX_FATIAS + 1
+    ? [
+        ...porValor.slice(0, MAX_FATIAS),
+        [`Outras (${porValor.length - MAX_FATIAS})`, porValor.slice(MAX_FATIAS).reduce((s, [, v]) => s + v, 0)],
+      ]
+    : porValor;
+
+  const valorDa = Object.fromEntries(fatias);
+  const categories = fatias.map(([c]) => c);
+  const total = fatias.reduce((a, [, v]) => a + v, 0);
 
   if (total === 0) {
     return (
-      <div className="flex items-center justify-center h-[300px] text-slate-400">
+      <div className="flex items-center justify-center h-[300px] text-content-muted">
         Nenhuma despesa registrada
       </div>
     );
   }
 
-  // Calcular ângulos para cada fatia
-  let currentAngle = -90; // Começar do topo
+  // Ângulo onde cada fatia começa, somado de uma vez. Antes era um acumulador
+  // reatribuído dentro do map — o compilador do React não aceita reatribuição
+  // depois do render.
+  const inicioDe = [];
+  categories.reduce((acc, cat) => {
+    inicioDe.push(acc);
+    return acc + (valorDa[cat] / total) * 360;
+  }, -90); // -90: começa no topo
+
   const slices = categories.map((cat, i) => {
-    const value = categoryData[cat];
+    const value = valorDa[cat];
     const percentage = (value / total) * 100;
     const angle = (value / total) * 360;
-    
-    const startAngle = currentAngle;
-    const endAngle = currentAngle + angle;
-    currentAngle = endAngle;
+
+    const startAngle = inicioDe[i];
+    const endAngle = startAngle + angle;
 
     // Converter ângulos para radianos
     const startRad = (startAngle * Math.PI) / 180;
@@ -112,8 +134,8 @@ export const DonutChart = ({data}) => {
             textAnchor="middle"
             fontSize="20"
             fontWeight="700"
-            fontFamily="Montserrat, sans-serif"
-            fill="#111827"
+            fontFamily="Manrope, sans-serif"
+            fill="var(--text-strong)"
           >
             R$ {total.toLocaleString('pt-BR', {minimumFractionDigits: 0})}
           </text>
@@ -121,9 +143,9 @@ export const DonutChart = ({data}) => {
             x={centerX}
             y={centerY + 12}
             textAnchor="middle"
-            fontSize="10"
-            fontFamily="Montserrat, sans-serif"
-            fill="#9ca3af"
+            fontSize="11"
+            fontFamily="Source Sans 3, sans-serif"
+            fill="var(--text-muted)"
           >
             Total
           </text>

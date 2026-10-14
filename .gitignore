@@ -29,3 +29,8 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Biblioteca Resources (fase visual): provas, gabaritos e áudios ficam só na
+# máquina local — o repositório é público e o gabarito não pode vazar.
+# firebase.json também ignora a pasta no deploy.
+public/extra-resources/

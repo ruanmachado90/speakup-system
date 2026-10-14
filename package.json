@@ -4,7 +4,10 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "vite --mode emulador",
+    "dev:producao": "vite",
+    "emuladores": "firebase emulators:start --only auth,firestore --project demo-speakup",
+    "emuladores:dados": "node scripts/emulador/popular.mjs",
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",

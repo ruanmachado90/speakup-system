@@ -3,9 +3,19 @@
  * Facilita manutenção e mudanças futuras
  */
 
+import { decidirAmbiente, PROJETO_EMULADOR, PORTAS_EMULADOR } from './ambiente';
+
+const { emulador } = decidirAmbiente({
+  env: import.meta.env,
+  hostname: typeof window !== 'undefined' ? window.location.hostname : '',
+});
+
 export const AI_CONFIG = {
-  // URL da Cloud Function
-  API_ENDPOINT: "https://us-central1-speakup-system.cloudfunctions.net/chatWithAI",
+  // URL da Cloud Function. No emulador aponta para o emulador de Functions
+  // (que não liga por padrão): a chamada falha em vez de gastar a produção.
+  API_ENDPOINT: emulador
+    ? `http://127.0.0.1:${PORTAS_EMULADOR.functions}/${PROJETO_EMULADOR}/us-central1/chatWithAI`
+    : "https://us-central1-speakup-system.cloudfunctions.net/chatWithAI",
 
   // Timeout para requisições (em milissegundos)
   // Precisa ser generoso: a resposta só chega ao navegador de uma vez, no

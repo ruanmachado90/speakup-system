@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { signInWithPopup, signOut } from 'firebase/auth';
+import { signInWithPopup, signInWithCredential, GoogleAuthProvider, signOut } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
 import { useNavigate, Link } from 'react-router-dom';
-import { auth, db, googleProvider } from '../firebase';
+import { auth, db, googleProvider, AMBIENTE } from '../firebase';
+import contasTeste from '../config/contasTesteEmulador.json';
 
 const SPEAKUP_LOGO_URL =
   'https://www.speakupcataguases.com/wp-content/uploads/2025/11/logo-speakup-brancal-1.png';
@@ -25,11 +26,11 @@ export default function LoginPage() {
   const [error, setError] = useState('');
   const navigate = useNavigate();
 
-  const handleGoogle = async () => {
+  const entrar = async (fazerLogin) => {
     setLoading(true);
     setError('');
     try {
-      const result = await signInWithPopup(auth, googleProvider);
+      const result = await fazerLogin();
       const snap = await getDoc(doc(db, 'users', result.user.uid));
 
       if (!snap.exists() || !ROLES_PERMITIDOS.includes(snap.data().role)) {
@@ -49,6 +50,15 @@ export default function LoginPage() {
       setLoading(false);
     }
   };
+
+  const handleGoogle = () => entrar(() => signInWithPopup(auth, googleProvider));
+
+  // Só no emulador: login "Google" falso, aceito apenas pelo emulador local.
+  // O papel continua vindo de users/{uid}, criado por `npm run emuladores:dados`.
+  const entrarComoTeste = (conta) => entrar(() => signInWithCredential(
+    auth,
+    GoogleAuthProvider.credential(JSON.stringify({ sub: conta.googleSub, email: conta.email, email_verified: true }))
+  ));
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#EEF4FF] via-slate-50 to-[#E8F0FE] flex items-center justify-center p-4">
@@ -83,6 +93,26 @@ export default function LoginPage() {
           )}
           {loading ? 'Entrando...' : 'Continuar com Google'}
         </button>
+
+        {AMBIENTE.emulador && (
+          <div className="mt-6 rounded-xl border border-amber-300 bg-amber-50 p-4 text-left">
+            <p className="text-xs font-bold uppercase tracking-wide text-amber-900">Ambiente de teste</p>
+            <p className="mt-1 text-xs text-amber-900">Contas fictícias do emulador. Rode antes <code>npm run emuladores:dados</code>.</p>
+            <div className="mt-3 flex flex-col gap-2">
+              {contasTeste.equipe.map((conta) => (
+                <button
+                  key={conta.uid}
+                  type="button"
+                  onClick={() => entrarComoTeste(conta)}
+                  disabled={loading}
+                  className="w-full rounded-lg bg-accent px-3 py-2 text-sm font-semibold text-white hover:bg-accent-hover disabled:opacity-50"
+                >
+                  Entrar como {conta.role === 'admin' ? 'admin' : 'secretaria'} de teste
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         {error && (
           <p className="mt-4 text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">

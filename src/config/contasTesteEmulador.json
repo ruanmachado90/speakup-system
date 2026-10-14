@@ -1,0 +1,11 @@
+{
+  "_aviso": "Contas que só existem no emulador local (projeto demo-speakup). Não valem na produção.",
+  "equipe": [
+    { "uid": "teste-admin", "googleSub": "google-teste-admin", "email": "admin@teste.local", "nome": "Admin de Teste", "role": "admin" },
+    { "uid": "teste-secretaria", "googleSub": "google-teste-secretaria", "email": "secretaria@teste.local", "nome": "Secretaria de Teste", "role": "secretaria" }
+  ],
+  "professores": [
+    { "uid": "teste-prof-ana", "email": "ana.prof@teste.local", "senha": "teste123", "nome": "Ana Teste", "slug": "ana-teste" },
+    { "uid": "teste-prof-bruno", "email": "bruno.prof@teste.local", "senha": "teste123", "nome": "Bruno Teste", "slug": "bruno-teste" }
+  ]
+}

@@ -6,6 +6,12 @@
   "functions": {
     "source": "functions"
   },
+  "emulators": {
+    "singleProjectMode": true,
+    "auth": { "host": "127.0.0.1", "port": 9099 },
+    "firestore": { "host": "127.0.0.1", "port": 8080 },
+    "ui": { "enabled": true, "host": "127.0.0.1", "port": 4000 }
+  },
   "hosting": {
     "public": "dist",
     "ignore": [

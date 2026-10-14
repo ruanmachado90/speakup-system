@@ -62,6 +62,9 @@ const Expenses = ({
   // Receita e margem são leitura de gestão — a secretaria vê só as saídas,
   // como no dashboard dela.
   const verReceita = role === 'admin';
+  // Gráficos de análise (estrutura de custos, categorias, formas de pagamento,
+  // evolução): só admin. A secretaria fica com indicadores + lançamentos.
+  const verAnalises = role === 'admin';
 
   const [busca, setBusca] = useState('');
   const buscaAdiada = useDeferredValue(busca);
@@ -393,26 +396,38 @@ const Expenses = ({
         </div>
       )}
 
-      {/* ── Estrutura de custos + categorias ─────────────────────────── */}
-      <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
-        <EstruturaCustos
-          className="lg:col-span-3"
-          estrutura={estrutura}
-          rotuloPeriodo={rotuloPeriodo}
-          verReceita={verReceita}
-          foraOperacional={resumo.foraOperacional}
-          grupoFiltro={grupoFiltro}
-          onFiltrarGrupo={setGrupoFiltro}
-          hideValues={hideValues}
-          loading={dataLoading}
-        />
+      {/* ── Estrutura de custos + categorias e formas de pagamento ───────
+          Só admin: a secretaria lança e confere despesas, não analisa a
+          estrutura de custos (decisão do Ruan, 14/10/2026). */}
+      {verAnalises && (
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
+          <EstruturaCustos
+            className="lg:col-span-3"
+            estrutura={estrutura}
+            rotuloPeriodo={rotuloPeriodo}
+            verReceita={verReceita}
+            foraOperacional={resumo.foraOperacional}
+            grupoFiltro={grupoFiltro}
+            onFiltrarGrupo={setGrupoFiltro}
+            hideValues={hideValues}
+            loading={dataLoading}
+          />
 
-        <Card className="lg:col-span-2">
-          <h3 className="font-display font-bold text-base text-content-strong mb-1">Por categoria</h3>
-          <p className="text-su-sm text-content-muted mb-4">{rotuloPeriodo} · só o que já foi pago</p>
-          {pagasDoPeriodo.length > 0 ? <DonutChart data={pagasDoPeriodo} /> : <SemDados>Sem dados para exibir</SemDados>}
-        </Card>
-      </div>
+          <div className="lg:col-span-2 flex flex-col gap-4">
+            <Card>
+              <h3 className="font-display font-bold text-base text-content-strong mb-1">Por categoria</h3>
+              <p className="text-su-sm text-content-muted mb-4">{rotuloPeriodo} · só o que já foi pago</p>
+              {pagasDoPeriodo.length > 0 ? <DonutChart data={pagasDoPeriodo} /> : <SemDados>Sem dados para exibir</SemDados>}
+            </Card>
+
+            <Card>
+              <h3 className="font-display font-bold text-base text-content-strong mb-1">Formas de pagamento</h3>
+              <p className="text-su-sm text-content-muted mb-4">{rotuloPeriodo} · só o que já foi pago</p>
+              {pagasDoPeriodo.length > 0 ? <PaymentMethodChart data={pagasDoPeriodo} /> : <SemDados>Sem dados para exibir</SemDados>}
+            </Card>
+          </div>
+        </div>
+      )}
 
       {/* ── Lista ────────────────────────────────────────────────────── */}
       <Card padding="none">
@@ -527,22 +542,16 @@ const Expenses = ({
         )}
       </Card>
 
-      {/* ── Evolução + formas de pagamento ───────────────────────────── */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <Card className="lg:col-span-2">
+      {/* ── Evolução (só admin) ──────────────────────────────────────── */}
+      {verAnalises && (
+        <Card>
           <h3 className="font-display font-bold text-base text-content-strong mb-1">Evolução das saídas</h3>
           <p className="text-su-sm text-content-muted mb-4">Mês a mês em {expenseYear} · só o que já foi pago</p>
           {evolucao.values.some((v) => v > 0)
             ? <ExpenseEvolutionChart labels={evolucao.labels} values={evolucao.values} year={expenseYear} />
             : <SemDados>Sem dados de evolução para exibir</SemDados>}
         </Card>
-
-        <Card>
-          <h3 className="font-display font-bold text-base text-content-strong mb-1">Formas de pagamento</h3>
-          <p className="text-su-sm text-content-muted mb-4">{rotuloPeriodo}</p>
-          {pagasDoPeriodo.length > 0 ? <PaymentMethodChart data={pagasDoPeriodo} /> : <SemDados>Sem dados para exibir</SemDados>}
-        </Card>
-      </div>
+      )}
 
       <ConfirmDialog
         isOpen={confirmDialog.isOpen}

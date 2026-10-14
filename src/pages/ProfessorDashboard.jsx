@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useMemo } from 'react';
+﻿import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   Calendar,
@@ -9,6 +9,7 @@ import {
   AlertCircle,
   Plus,
   FileText,
+  Library,
   Search,
   Bell,
   X,
@@ -16,12 +17,14 @@ import {
   Trash2,
   Send,
   MessageSquare,
-  Printer,
   Menu,
   LogOut,
   LayoutDashboard,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
+  ListChecks,
+  Check,
   TrendingUp,
   Pencil,
 } from 'lucide-react';
@@ -40,42 +43,16 @@ import HistoricoAulas from '../components/HistoricoAulas';
 import { NotasView } from './Notas';
 import { SidebarNav } from '../components/professor/SidebarNav';
 import { RankingTarefas } from '../components/professor/RankingTarefas';
-import { ProfessorRelatorio } from '../components/professor/ProfessorRelatorio';
+import { AvisoItem, LembreteItem } from '../components/professor/AvisoItem';
+import { HASH_PREFIX as RESOURCES_HASH } from '../utils/resourcesFilter';
+import {
+  carregarDismissed, carregarLembretes, mesDiaNascimento, getHorarioDia, nomeDiaSemana, dataDeISO,
+  diasDaTurma, compararHorario, compararDiasTurma, ordemDia, datasPendentes, contarAlunos, totalAlunosUnicos,
+} from '../utils/professorDashboard';
+import { useHojeISO } from '../hooks/useHojeISO';
 
-// Avisos dispensados expiram: sem isso, dispensar uma pendência silenciava
-// aquele tipo de alerta para a turma para sempre (o id fica no localStorage).
-const DISMISS_TTL_MS = 30 * 24 * 60 * 60 * 1000;
-
-// Formato legado: array de ids. Formato atual: { id: timestamp }, para poder expirar.
-function carregarDismissed(slug) {
-  try {
-    const raw = JSON.parse(localStorage.getItem(`dismissed-avisos-${slug}`) || '{}');
-    const agora = Date.now();
-    const entries = Array.isArray(raw)
-      ? raw.map(id => [id, agora])
-      : Object.entries(raw).filter(([, ts]) => agora - ts < DISMISS_TTL_MS);
-    return new Map(entries);
-  } catch { return new Map(); }
-}
-
-function carregarLembretes(slug) {
-  try {
-    const raw = JSON.parse(localStorage.getItem(`lembretes-${slug}`) || '[]');
-    return Array.isArray(raw) ? raw : [];
-  } catch { return []; }
-}
-
-// Retorna o horário específico de um dia para uma turma (suporta horarios[] e campo legado)
-function getHorarioDia(turma, dia) {
-  if (turma.horarios?.length) {
-    const entry = turma.horarios.find(h => h.dia === dia);
-    if (entry?.horario) return entry.horario;
-  }
-  // Legado: turma.horario pode ser "20:00" ou "Seg 20:00 · Sex 07:00"
-  // Extrai só o HH:MM do primeiro token que parece hh:mm
-  const match = (turma.horario || '').match(/\b(\d{1,2}:\d{2})\b/);
-  return match ? match[1] : (turma.horario || '');
-}
+// Biblioteca Resources só carrega quando o professor abre a aba
+const ResourcesView = React.lazy(() => import('../components/professor/resources/ResourcesView'));
 
 export default function ProfessorDashboard() {
   const { professorSlug } = useParams();
@@ -99,16 +76,21 @@ export default function ProfessorDashboard() {
 
   // Estados de navegação sidebar
   const [sidebarMode, setSidebarMode] = useState(() => window.innerWidth < 1024 ? 'closed' : 'open'); // 'open' | 'mini' | 'closed'
-  const [activeView, setActiveView] = useState('dashboard'); // 'dashboard' | 'turmas' | 'notas' | 'historico' | 'avisos'
+  // 'dashboard' | 'turmas' | 'notas' | 'historico' | 'avisos' | 'resources'
+  // Resources guarda os filtros no endereço (#resources?...): recarregar volta para a aba.
+  const [activeView, setActiveView] = useState(() => window.location.hash.startsWith(RESOURCES_HASH) ? 'resources' : 'dashboard');
   const navClick = (fn) => () => { fn(); if (window.innerWidth < 1024) setSidebarMode('closed'); };
 
   // Estados
   const [turmas, setTurmas] = useState([]);
   const [alunosPorTurma, setAlunosPorTurma] = useState({}); // { turmaId: [aluno, ...] }
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(null);
+  const [reloadTick, setReloadTick] = useState(0);
   const [selectedTurma, setSelectedTurma] = useState(null);
   const [selectedDate, setSelectedDate] = useState(null);
   const [showRegistroAula, setShowRegistroAula] = useState(false);
+  const abrirRegistroPendente = (aviso) => { setSelectedTurma(aviso.turmaObj); setSelectedDate(aviso.dataPendente || null); setShowRegistroAula(true); };
   const [semanaOffset, setSemanaOffset] = useState(0); // 0 = semana atual, -1 = semana passada, etc.
   const [historicoTurmaFiltro, setHistoricoTurmaFiltro] = useState(null);
   const [showFAB, setShowFAB] = useState(false);
@@ -118,6 +100,16 @@ export default function ProfessorDashboard() {
   const [saving, setSaving] = useState(false);
   const [successMsg, setSuccessMsg] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
+  // Um timer só: antes cada mensagem criava o seu, e o timer de uma mensagem
+  // antiga apagava a nova antes da hora.
+  const toastTimer = useRef(null);
+  const mostrarMensagem = (tipo, texto) => {
+    clearTimeout(toastTimer.current);
+    setSuccessMsg(tipo === 'sucesso' ? texto : '');
+    setErrorMsg(tipo === 'erro' ? texto : '');
+    toastTimer.current = setTimeout(() => { setSuccessMsg(''); setErrorMsg(''); }, tipo === 'erro' ? 8000 : 4000);
+  };
+  useEffect(() => () => clearTimeout(toastTimer.current), []);
   const [turmaFiltro, setTurmaFiltro] = useState({ busca: '', nivel: '', dia: '', ordenar: 'nome' });
 
   // Lembretes e avisos dispensados, persistidos por professor.
@@ -139,6 +131,7 @@ export default function ProfessorDashboard() {
       ids.flat().forEach(id => dismissed.set(id, agora));
       return { ...s, dismissed };
     });
+  const excluirLembrete = (id) => setLembretes(prev => prev.filter(l => l.id !== id));
   const [novoLembrete, setNovoLembrete] = useState('');
   const [showAvisos, setShowAvisos] = useState(false);
 
@@ -148,9 +141,6 @@ export default function ProfessorDashboard() {
   const [recadoTipo, setRecadoTipo] = useState('geral');
   const [savingRecado, setSavingRecado] = useState(false);
   const [recadoSent, setRecadoSent] = useState(false);
-
-  // Relatório mensal do professor
-  const [showRelatorio, setShowRelatorio] = useState(false);
 
   // Frequência por aluno
   const [freqAluno, setFreqAluno] = useState(null); // { aluno, turma }
@@ -186,8 +176,7 @@ export default function ProfessorDashboard() {
       await updateDoc(doc(db, 'recados', id), { lido: true, lidoEm: Date.now() });
     } catch (err) {
       console.error('Erro ao marcar recado como lido:', err);
-      setErrorMsg('Não foi possível marcar o recado como lido. Tente novamente.');
-      setTimeout(() => setErrorMsg(''), 6000);
+      mostrarMensagem('erro', 'Não foi possível marcar o recado como lido. Tente novamente.');
     }
   };
 
@@ -205,8 +194,7 @@ export default function ProfessorDashboard() {
       setRespostasRecados(r => ({ ...r, [id]: '' }));
     } catch (err) {
       console.error('Erro ao enviar resposta:', err);
-      setErrorMsg('Não foi possível enviar a resposta. Tente novamente.');
-      setTimeout(() => setErrorMsg(''), 6000);
+      mostrarMensagem('erro', 'Não foi possível enviar a resposta. Tente novamente.');
     } finally {
       setSendingResposta(s => ({ ...s, [id]: false }));
     }
@@ -235,8 +223,14 @@ export default function ProfessorDashboard() {
     return turmas[0]?.professor || professorNome;
   }, [turmas, professorNome]);
 
-  // Hook de aulas - usa o nome canônico (com acentos) para salvar e consultar corretamente
-  const { aulas, registrarAula, atualizarAula, excluirAula } = useAulas(professorNomeReal);
+  // Hook de aulas - lê pelas turmas do professor (robusto a acento/grafia);
+  // só a gravação usa o nome canônico, exigido pelas regras do Firestore.
+  const { aulas, loading: aulasLoading, error: aulasError, registrarAula, atualizarAula, excluirAula } = useAulas(professorNomeReal, turmas.map(t => t.id));
+  // Pendência só se calcula com as aulas carregadas: antes, as turmas chegavam
+  // primeiro e, com aulas = [], tudo aparecia "Pendente" (ou para sempre, se a
+  // leitura falhasse).
+  const aulasProntas = !aulasLoading && !aulasError;
+  const hojeISO = useHojeISO();
 
   // Responsividade da sidebar
   useEffect(() => {
@@ -262,15 +256,13 @@ export default function ProfessorDashboard() {
       setShowRegistroAula(false);
       setSelectedTurma(null);
       setSelectedDate(null);
-      setSuccessMsg('Aula registrada com sucesso!');
-      setTimeout(() => setSuccessMsg(''), 4000);
+      mostrarMensagem('sucesso', 'Aula registrada com sucesso!');
     } else {
       const code = result.error || '';
       const mensagem = code.includes('permission-denied') || code.includes('Missing or insufficient permissions')
         ? 'Seu cadastro não tem permissão para lançar aulas desta turma. Contate a coordenação para corrigir seu cadastro de professor.'
         : `Erro ao salvar aula: ${code || 'tente novamente.'}`;
-      setErrorMsg(mensagem);
-      setTimeout(() => setErrorMsg(''), 8000);
+      mostrarMensagem('erro', mensagem);
     }
   };
 
@@ -294,8 +286,10 @@ export default function ProfessorDashboard() {
       setRecadoTexto('');
       setRecadoSent(true);
       setTimeout(() => { setShowRecado(false); setRecadoSent(false); }, 2000);
-    } catch {
-      // silencioso
+    } catch (err) {
+      // O texto continua no campo para o professor tentar de novo
+      console.error('Erro ao enviar recado:', err);
+      mostrarMensagem('erro', 'Não foi possível enviar o recado. Verifique a conexão e tente novamente.');
     } finally {
       setSavingRecado(false);
     }
@@ -306,7 +300,8 @@ export default function ProfessorDashboard() {
     const fetchData = async () => {
       try {
         setLoading(true);
-        
+        setLoadError(null);
+
         // Buscar turmas do professor
         // Normaliza acentos para comparar "Bárbara" == "barbara", "João" == "joao" etc.
         const norm = str => str.normalize('NFD').replace(/\p{Mn}/gu, '').toLowerCase();
@@ -326,14 +321,18 @@ export default function ProfessorDashboard() {
             // `includes` casaria "Ana" com "Mariana" e entregaria turma de outro professor.
             return prof.split(/\s+/).includes(norm(professorPrimeiroNome));
           });
-        
+
         setTurmas(turmasData);
 
         // Só os alunos das turmas do professor, numa busca por ids
         setAlunosPorTurma(await buscarAlunosDasTurmas(turmasData));
-        
+
       } catch (error) {
+        // Antes caía direto na tela "Nenhuma turma encontrada" (turmas = [])
+        // mesmo quando o erro era de rede/permissão — o professor achava que
+        // simplesmente não tinha turmas cadastradas. Agora distinguimos os casos.
         console.error('Erro ao buscar dados:', error);
+        setLoadError(error.message || 'Erro desconhecido');
       } finally {
         setLoading(false);
       }
@@ -342,49 +341,27 @@ export default function ProfessorDashboard() {
     if (professorPrimeiroNome) {
       fetchData();
     }
-  }, [professorPrimeiroNome, professorNome, professorSlug]);
+  }, [professorPrimeiroNome, professorNome, professorSlug, reloadTick]);
 
   // Estatísticas do professor
   const stats = useMemo(() => {
-    const totalTurmas = turmas.length;
-    // Aluno em duas turmas do mesmo professor não pode contar duas vezes
-    const idsUnicos = new Set(turmas.flatMap(t => t.alunosIds || []));
-    const totalAlunos = idsUnicos.size > 0
-      ? idsUnicos.size
-      : turmas.reduce((acc, turma) => acc + (turma.alunosCount || 0), 0);
-    const totalAulas = aulas.length;
-    
-    // Aulas do mês atual
-    const hoje = new Date();
-    const mesAtual = hoje.getMonth();
-    const anoAtual = hoje.getFullYear();
-    
-    const aulasMesAtual = aulasRealizadas(aulas).filter(aula => {
-      if (!aula.data || typeof aula.data !== 'string') return false;
-      const [ano, mes] = aula.data.split('-').map(Number);
-      return ano === anoAtual && (mes - 1) === mesAtual;
-    }).length;
-
-    return {
-      totalTurmas,
-      totalAlunos,
-      totalAulas,
-      aulasMesAtual
-    };
-  }, [turmas, aulas]);
+    // Mesmo número da lista de alunos; aluno em duas turmas conta uma vez
+    const totalAlunos = totalAlunosUnicos(turmas, alunosPorTurma);
+    const mesAtual = hojeISO.slice(0, 7); // "AAAA-MM"
+    const aulasMesAtual = aulasRealizadas(aulas)
+      .filter(aula => typeof aula.data === 'string' && aula.data.startsWith(mesAtual)).length;
+    return { totalTurmas: turmas.length, totalAlunos, aulasMesAtual };
+  }, [turmas, aulas, alunosPorTurma, hojeISO]);
 
   // Aulas de hoje — data no fuso local (UTC quebraria a partir das 21h)
-  const aulasHoje = useMemo(() => {
-    const hoje = dataLocalISO();
-    return aulas.filter(aula => aula.data === hoje);
-  }, [aulas]);
+  const aulasHoje = useMemo(() => aulas.filter(aula => aula.data === hojeISO), [aulas, hojeISO]);
 
   // Agenda semanal — turmas agrupadas por dia da semana
   const agendaSemanal = useMemo(() => {
     // Domingo só entra na grade se alguma turma realmente tiver aula nesse dia
-    const temDomingo = turmas.some(t => (t.dias || '').split(',').map(d => d.trim()).includes('Domingo'));
+    const temDomingo = turmas.some(t => diasDaTurma(t).includes('Domingo'));
     const DIAS_ORDEM = ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado', ...(temDomingo ? ['Domingo'] : [])];
-    const hoje = new Date();
+    const hoje = dataDeISO(hojeISO);
     // Início da semana (segunda-feira) + offset de semanas
     const diaSemana = hoje.getDay(); // 0=Dom,...6=Sab
     const diffParaSegunda = diaSemana === 0 ? -6 : 1 - diaSemana;
@@ -396,38 +373,25 @@ export default function ProfessorDashboard() {
       const dataRef = new Date(segunda);
       dataRef.setDate(segunda.getDate() + i);
       const dateStr = dataLocalISO(dataRef);
-      const isHoje = dateStr === dataLocalISO(hoje);
-      const isFuturo = dateStr > dataLocalISO(hoje);
+      const isHoje = dateStr === hojeISO;
+      const isFuturo = dateStr > hojeISO;
 
       const turmasDia = turmas
-        .filter(t => (t.dias || '').split(',').map(d => d.trim()).includes(dia))
-        .sort((a, b) => getHorarioDia(a, dia).localeCompare(getHorarioDia(b, dia)));
+        .filter(t => diasDaTurma(t).includes(dia))
+        .sort((a, b) => compararHorario(getHorarioDia(a, dia), getHorarioDia(b, dia)));
 
       return { dia, dateStr, isHoje, isFuturo, turmasDia };
     });
-  }, [turmas, semanaOffset]);
+  }, [turmas, semanaOffset, hojeISO]);
 
-  // Próximas aulas (baseado em horário das turmas)
+  // Turmas com aula hoje, em ordem de horário
   const proximasAulas = useMemo(() => {
-    const diaHoje = new Date().toLocaleDateString('pt-BR', { weekday: 'long' });
-    const diaMap = {
-      'segunda-feira': 'Segunda',
-      'terça-feira': 'Terça',
-      'quarta-feira': 'Quarta',
-      'quinta-feira': 'Quinta',
-      'sexta-feira': 'Sexta',
-      'sábado': 'Sábado',
-      'domingo': 'Domingo'
-    };
-    
-    const diaHojeNome = diaMap[diaHoje] || '';
-    if (!diaHojeNome) return [];
-    return turmas.filter(turma =>
-      (turma.dias || '').split(',').map(d => d.trim()).includes(diaHojeNome)
-    ).sort((a, b) =>
-      getHorarioDia(a, diaHojeNome).localeCompare(getHorarioDia(b, diaHojeNome))
-    );
-  }, [turmas]);
+    const diaHojeNome = nomeDiaSemana(dataDeISO(hojeISO));
+    return turmas.filter(turma => diasDaTurma(turma).includes(diaHojeNome))
+      .sort((a, b) => compararHorario(getHorarioDia(a, diaHojeNome), getHorarioDia(b, diaHojeNome)));
+  }, [turmas, hojeISO]);
+  // KPI "Aulas Hoje": aulas já registradas entre as agendadas (antes mostrava só as agendadas)
+  const aulasDadasHoje = proximasAulas.filter(t => aulasHoje.some(a => a.turmaId === t.id)).length;
 
   // Turmas com filtro + ordenação
   const turmasFiltradas = useMemo(() => {
@@ -444,29 +408,27 @@ export default function ProfessorDashboard() {
     lista.sort((a, b) => {
       if (ordenar === 'nome') return (a.nome || '').localeCompare(b.nome || '');
       if (ordenar === 'nivel') return (a.nivel || '').localeCompare(b.nivel || '');
-      if (ordenar === 'horario') return (a.horario || '').localeCompare(b.horario || '');
-      if (ordenar === 'alunos') return ((b.alunosIds?.length || b.alunosCount || 0) - (a.alunosIds?.length || a.alunosCount || 0));
-      if (ordenar === 'dia') return (a.dias || '').localeCompare(b.dias || '');
+      if (ordenar === 'horario') return compararHorario(a.horario, b.horario);
+      if (ordenar === 'alunos') return contarAlunos(b, alunosPorTurma) - contarAlunos(a, alunosPorTurma);
+      if (ordenar === 'dia') return compararDiasTurma(a, b);
       return 0;
     });
 
     return lista;
-  }, [turmas, turmaFiltro]);
+  }, [turmas, turmaFiltro, alunosPorTurma]);
 
   // Valores únicos para os selects de filtro
   const niveisUnicos = useMemo(() => [...new Set(turmas.map(t => t.nivel).filter(Boolean))].sort(), [turmas]);
   const diasUnicos = useMemo(() => {
     const todos = turmas.flatMap(t => (t.dias || '').split(',').map(d => d.trim()).filter(Boolean));
-    return [...new Set(todos)].sort();
+    return [...new Set(todos)].sort((a, b) => ordemDia(a) - ordemDia(b));
   }, [turmas]);
 
   // Notificações automáticas
   const notificacoesAuto = useMemo(() => {
     const avisos = [];
-    const diasPT = { 'Segunda': 1, 'Terça': 2, 'Quarta': 3, 'Quinta': 4, 'Sexta': 5, 'Sábado': 6, 'Domingo': 0 };
-    const hojeDate = new Date(); hojeDate.setHours(0, 0, 0, 0);
-    const hojeStr = dataLocalISO(hojeDate);
-    const amanha = new Date(hojeDate); amanha.setDate(amanha.getDate() + 1);
+    const hojeStr = hojeISO;
+    const amanha = dataDeISO(hojeISO); amanha.setDate(amanha.getDate() + 1);
 
     // 0. Aniversários de alunos (hoje e amanhã)
     const todosAlunos = Object.values(alunosPorTurma).flat();
@@ -475,10 +437,8 @@ export default function ProfessorDashboard() {
     todosAlunos.forEach(aluno => {
       if (vistos.has(aluno.id)) return;
       vistos.add(aluno.id);
-      const dn = aluno.dataNascimento;
-      if (!dn) return;
-      const [, mes, dia] = dn.split('-');
-      const mesDia = `${mes}-${dia}`;
+      const mesDia = mesDiaNascimento(aluno.dataNascimento);
+      if (!mesDia) return;
       const hojeMMDD = hojeStr.slice(5);
       const amanhaMMDD = dataLocalISO(amanha).slice(5);
       if (mesDia === hojeMMDD) anivHoje.push(aluno.nome || aluno.name);
@@ -486,13 +446,13 @@ export default function ProfessorDashboard() {
     });
     if (anivHoje.length > 0) {
       avisos.push({ id: `aniv-hoje-${hojeStr}`, tipo: 'aniversario', cor: 'blue',
-        titulo: `🎂 Aniversário hoje!`,
+        titulo: `Aniversário hoje`,
         texto: `${anivHoje.join(', ')} faz${anivHoje.length > 1 ? 'em' : ''} aniversário hoje. Não se esqueça de parabenizar!`,
       });
     }
     if (anivAmanha.length > 0) {
       avisos.push({ id: `aniv-amanha-${dataLocalISO(amanha)}`, tipo: 'aniversario', cor: 'blue',
-        titulo: `🎂 Aniversário amanhã`,
+        titulo: `Aniversário amanhã`,
         texto: `${anivAmanha.join(', ')} faz${anivAmanha.length > 1 ? 'em' : ''} aniversário amanhã.`,
       });
     }
@@ -533,26 +493,9 @@ export default function ProfessorDashboard() {
         });
       }
 
-      // 3. Aulas pendentes (últimos 14 dias)
-      const datasRegistradas = new Set(aulasT.map(a => a.data));
-      const diasTurmaList = (turma.dias || '').split(',').map(d => d.trim()).filter(Boolean);
-      const numDias = diasTurmaList.map(d => diasPT[d]).filter(n => n !== undefined);
-      const pendentes = [];
-      const pendentesRaw = [];
-      for (let i = 1; i <= 14; i++) {
-        const d = new Date(hojeDate);
-        d.setDate(d.getDate() - i);
-        if (numDias.includes(d.getDay())) {
-          const dateStr = dataLocalISO(d);
-          if (!datasRegistradas.has(dateStr)) {
-            const dataFmt = dateStr.split('-').reverse().join('/');
-            const diaNome = diasTurmaList[numDias.indexOf(d.getDay())];
-            pendentes.push(`${dataFmt} (${diaNome})`);
-            pendentesRaw.push(dateStr);
-          }
-          if (pendentes.length >= 2) break;
-        }
-      }
+      // 3. Aulas pendentes (últimos 14 dias) — só com as aulas carregadas
+      const pendentesRaw = aulasProntas ? datasPendentes(turma, aulasT, hojeISO) : [];
+      const pendentes = pendentesRaw.map(iso => `${iso.split('-').reverse().join('/')} (${nomeDiaSemana(dataDeISO(iso))})`);
       if (pendentes.length > 0) {
         avisos.push({
           id: `pendente-${turma.id}-${pendentesRaw.join('_')}`,
@@ -567,7 +510,7 @@ export default function ProfessorDashboard() {
     });
 
     return avisos;
-  }, [turmas, aulas, alunosPorTurma]);
+  }, [turmas, aulas, alunosPorTurma, hojeISO, aulasProntas]);
 
   if (loading) {
     return (
@@ -576,6 +519,35 @@ export default function ProfessorDashboard() {
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-accent mx-auto mb-4"></div>
           <p className="text-slate-600">Carregando...</p>
         </div>
+      </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-slate-50">
+        <Card className="max-w-md text-center">
+          <AlertCircle size={48} className="text-red-500 mx-auto mb-4" />
+          <h2 className="text-xl font-bold mb-2">Não foi possível carregar seu painel</h2>
+          <p className="text-slate-600 mb-4">
+            Houve um erro ao buscar suas turmas. Pode ser uma falha de conexão ou de permissão no seu cadastro.
+          </p>
+          <p className="text-xs text-slate-500 mb-4 break-words">{loadError}</p>
+          <div className="flex gap-3 justify-center">
+            <button
+              onClick={() => setReloadTick(t => t + 1)}
+              className="px-4 py-2 bg-accent text-white rounded-lg hover:bg-accent-hover"
+            >
+              Tentar novamente
+            </button>
+            <button
+              onClick={() => { auth.signOut(); navigate('/professor-login'); }}
+              className="px-4 py-2 border border-slate-300 text-slate-600 rounded-lg hover:bg-slate-50"
+            >
+              Sair da conta
+            </button>
+          </div>
+        </Card>
       </div>
     );
   }
@@ -639,7 +611,7 @@ export default function ProfessorDashboard() {
           {sidebarMode === 'open' && (
             <button
               onClick={() => setSidebarMode('mini')}
-              className="p-1.5 text-slate-400 hover:text-accent hover:bg-slate-50 rounded-lg transition-colors"
+              className="p-1.5 text-slate-500 hover:text-accent hover:bg-slate-50 rounded-lg transition-colors"
               title="Recolher sidebar"
             >
               <ChevronLeft size={18} />
@@ -679,9 +651,16 @@ export default function ProfessorDashboard() {
           />
           <SidebarNav
             collapsed={sidebarMode === 'mini'}
+            icon={<Library size={18} />}
+            label="Resources"
+            active={activeView === 'resources'}
+            onClick={navClick(() => setActiveView('resources'))}
+          />
+          <SidebarNav
+            collapsed={sidebarMode === 'mini'}
             icon={<Bell size={18} />}
             label="Avisos"
-            badge={notificacoesAuto.filter(a => !dismissedIds.has(a.id)).length + lembretes.length + recadosAdmin.filter(r => !r.lido).length}
+            badge={notificacoesAuto.filter(a => !dismissedIds.has(a.id)).length + recadosAdmin.filter(r => !r.lido).length}
             active={activeView === 'avisos'}
             onClick={navClick(() => setActiveView('avisos'))}
           />
@@ -690,12 +669,6 @@ export default function ProfessorDashboard() {
             icon={<MessageSquare size={18} />}
             label="Enviar Recado"
             onClick={navClick(() => setShowRecado(true))}
-          />
-          <SidebarNav
-            collapsed={sidebarMode === 'mini'}
-            icon={<Printer size={18} />}
-            label="Relatório Mensal"
-            onClick={navClick(() => setShowRelatorio(true))}
           />
         </nav>
 
@@ -708,7 +681,7 @@ export default function ProfessorDashboard() {
               </div>
               <button
                 onClick={() => { auth.signOut(); navigate('/professor-login'); }}
-                className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                className="p-1.5 text-slate-500 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
                 title="Sair"
               >
                 <LogOut size={16} />
@@ -722,12 +695,12 @@ export default function ProfessorDashboard() {
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-xs font-semibold text-slate-700 truncate leading-tight">{professorNomeReal}</p>
-                  <p className="text-[11px] text-slate-400 leading-tight mt-0.5">Professor(a)</p>
+                  <p className="text-[11px] text-slate-500 leading-tight mt-0.5">Professor(a)</p>
                 </div>
               </div>
               <button
                 onClick={() => { auth.signOut(); navigate('/professor-login'); }}
-                className="w-full text-[11px] text-slate-400 hover:text-red-500 hover:bg-red-50 px-3 py-1.5 rounded-lg transition-colors text-left flex items-center gap-2"
+                className="w-full text-[11px] text-slate-500 hover:text-red-500 hover:bg-red-50 px-3 py-1.5 rounded-lg transition-colors text-left flex items-center gap-2"
               >
                 <LogOut size={14} />
                 Sair da conta
@@ -798,45 +771,62 @@ export default function ProfessorDashboard() {
         </div>
       )}
 
-      {/* Conteúdo principal (Dashboard, Turmas, Avisos) */}
-      {activeView !== 'notas' && activeView !== 'historico' && (
-      <React.Fragment>
+      {/* Toasts — fora das views para aparecerem em qualquer tela */}
       {successMsg && (
-        <div className="fixed top-5 right-5 z-50 bg-emerald-500 text-white px-5 py-3 rounded-xl shadow-lg flex items-center gap-2 animate-pulse">
+        <div className="fixed top-5 right-5 z-[60] bg-emerald-500 text-white px-5 py-3 rounded-xl shadow-lg flex items-center gap-2 animate-pulse">
           <CheckCircle size={20} />
           {successMsg}
         </div>
       )}
       {errorMsg && (
-        <div className="fixed top-5 right-5 z-50 bg-red-500 text-white px-5 py-3 rounded-xl shadow-lg flex items-center gap-2">
+        <div className="fixed top-5 right-5 z-[60] bg-red-500 text-white px-5 py-3 rounded-xl shadow-lg flex items-center gap-2">
           <AlertCircle size={20} />
           {errorMsg}
         </div>
       )}
+
+      {/* Conteúdo principal (Dashboard, Turmas, Avisos) */}
+      {activeView !== 'notas' && activeView !== 'historico' && (
+      <React.Fragment>
 
       {/* Header */}
       <div className="mb-8">
         <div className="flex items-center gap-4">
           <div>
             <h1 className="text-xl lg:text-3xl font-bold text-slate-800 mb-1">
-              {activeView === 'dashboard' ? `Olá, ${professorNomeReal}! 👋` :
+              {activeView === 'dashboard' ? `Olá, ${professorNomeReal.split(' ')[0]}` :
                activeView === 'turmas' ? 'Minhas Turmas' :
                activeView === 'avisos' ? 'Avisos e Notificações' :
+               activeView === 'resources' ? 'Resources' :
                'Painel do Professor'}
             </h1>
             <p className="text-slate-600">
               {activeView === 'dashboard' ? 'Painel de controle das suas turmas e aulas' :
                activeView === 'turmas' ? 'Gerencie suas turmas e alunos' :
                activeView === 'avisos' ? 'Acompanhe notificações e lembretes' :
+               activeView === 'resources' ? 'Tests, worksheets and practice materials for every course.' :
                'Sistema de gestão acadêmica'}
             </p>
           </div>
         </div>
       </div>
 
+      {/* Biblioteca Resources (interface em inglês, como o LMS) */}
+      {activeView === 'resources' && (
+        <React.Suspense fallback={<p className="text-slate-500 text-sm">Carregando…</p>}>
+          <ResourcesView />
+        </React.Suspense>
+      )}
+
       {/* Estatísticas Rápidas e Dashboard Principal */}
       {activeView === 'dashboard' && (
       <React.Fragment>
+      {aulasError && (
+        <div className="mb-6 bg-red-50 border border-red-200 text-red-700 rounded-xl p-4 text-sm flex items-start gap-3">
+          <AlertCircle size={18} className="flex-shrink-0 mt-0.5" />
+          Não foi possível carregar as aulas registradas. Os alertas de pendência ficam desligados até a conexão voltar — recarregue a página.
+        </div>
+      )}
 
       {/* Banner de recados da coordenação não lidos */}
       {recadosAdmin.filter(r => !r.lido).length > 0 && (
@@ -864,8 +854,10 @@ export default function ProfessorDashboard() {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
         <KPI label="Turmas Ativas" value={stats.totalTurmas} format="number" accent="blue" />
         <KPI label="Total de Alunos" value={stats.totalAlunos} format="number" accent="green" />
-        <KPI label="Aulas Este Mês" value={stats.aulasMesAtual} format="number" accent="yellow" />
-        <KPI label="Aulas Hoje" value={proximasAulas.length} format="number" accent={proximasAulas.length > 0 ? 'green' : 'blue'} />
+        <KPI label="Aulas Este Mês" value={stats.aulasMesAtual} format="number" accent="yellow" loading={aulasLoading} />
+        <KPI label="Aulas Hoje" value={aulasDadasHoje} format="number" loading={aulasLoading}
+          sub={proximasAulas.length ? `de ${proximasAulas.length} agendada${proximasAulas.length > 1 ? 's' : ''}` : 'Sem aulas hoje'}
+          accent={!proximasAulas.length ? 'blue' : aulasDadasHoje >= proximasAulas.length ? 'green' : 'yellow'} />
       </div>
 
       {/* Próximas Aulas de Hoje */}
@@ -894,7 +886,7 @@ export default function ProfessorDashboard() {
                     <div>
                       <h3 className="font-semibold text-slate-800">{turma.nome}</h3>
                       <p className="text-sm text-slate-600">
-                        {turma.horario} • {turma.nivel} • {turma.alunosIds?.length || turma.alunosCount || 0} alunos
+                        {getHorarioDia(turma, nomeDiaSemana(dataDeISO(hojeISO)))} • {turma.nivel} • {contarAlunos(turma, alunosPorTurma)} alunos
                       </p>
                     </div>
                   </div>
@@ -939,7 +931,7 @@ export default function ProfessorDashboard() {
               className="p-2 rounded-lg border border-slate-200 hover:border-accent hover:text-accent text-slate-500 transition-all"
               title="Semana anterior"
             >
-              ←
+              <ChevronLeft size={16} aria-hidden="true" />
             </button>
             {semanaOffset !== 0 && (
               <button
@@ -955,7 +947,7 @@ export default function ProfessorDashboard() {
               className="p-2 rounded-lg border border-slate-200 hover:border-accent hover:text-accent text-slate-500 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
               title="Próxima semana"
             >
-              →
+              <ChevronRight size={16} aria-hidden="true" />
             </button>
           </div>
         </div>
@@ -969,17 +961,17 @@ export default function ProfessorDashboard() {
                 className={`rounded-2xl border p-3 flex flex-col gap-2 min-h-[100px] ${
                   isHoje
                     ? 'border-accent bg-blue-50 shadow-md'
-                    : !isFuturo && turmasDia.length > 0 && turmasDia.some(t => !aulas.some(a => a.turmaId === t.id && a.data === dateStr))
+                    : aulasProntas && !isFuturo && turmasDia.length > 0 && turmasDia.some(t => !aulas.some(a => a.turmaId === t.id && a.data === dateStr))
                     ? 'border-orange-300 bg-orange-50'
                     : 'border-slate-200 bg-white'
                 }`}
               >
                 <div className="flex items-center justify-between">
                   <span className={`text-xs font-bold ${isHoje ? 'text-accent' : 'text-slate-500'}`}>{dia}</span>
-                  <span className={`text-xs ${isHoje ? 'text-accent font-semibold' : 'text-slate-400'}`}>{label}</span>
+                  <span className={`text-xs ${isHoje ? 'text-accent font-semibold' : 'text-slate-500'}`}>{label}</span>
                 </div>
                 {turmasDia.length === 0 ? (
-                  <p className="text-xs text-slate-300 text-center mt-2">—</p>
+                  <p className="text-xs text-slate-400 text-center mt-2">—</p>
                 ) : (
                   turmasDia.map(turma => {
                     const registrada = aulas.some(a => a.turmaId === turma.id && a.data === dateStr);
@@ -999,7 +991,7 @@ export default function ProfessorDashboard() {
                         className={`w-full text-left rounded-xl px-2 py-1.5 text-xs transition-all border ${
                           registrada
                             ? 'bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100'
-                            : 'bg-white border-slate-200 text-slate-700 hover:border-accent hover:bg-blue-50'
+                            : 'bg-white border-slate-200 text-slate-700 hover:border-accent hover:bg-blue-50 hover:text-accent'
                         }`}
                       >
                         <div className="flex items-center justify-between gap-1">
@@ -1026,12 +1018,6 @@ export default function ProfessorDashboard() {
       {(() => {
         const avisosVisiveis = notificacoesAuto.filter(a => !dismissedIds.has(a.id));
         const totalAvisos = avisosVisiveis.length + lembretes.length;
-        const corMap = {
-          red:    { bg: 'bg-red-50',    border: 'border-red-200',    icon: 'text-red-500',    dot: 'bg-red-500' },
-          amber:  { bg: 'bg-amber-50',  border: 'border-amber-200',  icon: 'text-amber-500',  dot: 'bg-amber-500' },
-          orange: { bg: 'bg-orange-50', border: 'border-orange-200', icon: 'text-orange-500', dot: 'bg-orange-500' },
-          blue:   { bg: 'bg-blue-50',   border: 'border-blue-200',   icon: 'text-blue-500',   dot: 'bg-blue-500' },
-        };
         return (
           <div className="mb-8 bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
             {/* Header clicavel — toggle sanfona */}
@@ -1048,63 +1034,21 @@ export default function ProfessorDashboard() {
                   </span>
                 )}
               </div>
-              <svg
-                className={`w-4 h-4 text-slate-400 transition-transform duration-200 ${showAvisos ? 'rotate-180' : ''}`}
-                fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-              </svg>
+              <ChevronDown size={16} aria-hidden="true"
+                className={`text-slate-500 transition-transform duration-200 ${showAvisos ? 'rotate-180' : ''}`} />
             </button>
 
             {showAvisos && <div className="p-4 space-y-2 border-t border-slate-100">
-              {/* Auto-alertas */}
-              {avisosVisiveis.map(aviso => {
-                const c = corMap[aviso.cor] || corMap.blue;
-                const IconAviso = aviso.tipo === 'frequencia' ? AlertCircle : aviso.tipo === 'conteudo' ? FileText : Clock;
-                return (
-                  <div key={aviso.id} className={`flex items-start gap-3 p-3 rounded-xl border ${c.bg} ${c.border}`}>
-                    <IconAviso size={16} className={`${c.icon} flex-shrink-0 mt-0.5`} />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs font-semibold text-slate-700">{aviso.titulo}</p>
-                      <p className="text-xs text-slate-500 mt-0.5">{aviso.texto}</p>
-                      {aviso.turmaObj && (
-                        <button
-                          onClick={() => { setSelectedTurma(aviso.turmaObj); setSelectedDate(aviso.dataPendente || null); setShowRegistroAula(true); }}
-                          className="mt-1.5 text-xs text-accent font-medium hover:underline"
-                        >
-                          Registrar agora →
-                        </button>
-                      )}
-                    </div>
-                    <button
-                      onClick={() => dispensarAvisos(aviso.id)}
-                      className="flex-shrink-0 text-slate-400 hover:text-slate-600 p-0.5"
-                    >
-                      <X size={13} />
-                    </button>
-                  </div>
-                );
-              })}
-
-              {/* Lembretes manuais */}
-              {lembretes.map(l => (
-                <div key={l.id} className="flex items-start gap-3 p-3 rounded-xl border bg-blue-50 border-blue-200">
-                  <Bell size={16} className="text-blue-500 flex-shrink-0 mt-0.5" />
-                  <p className="flex-1 text-xs text-slate-700">{l.texto}</p>
-                  <button
-                    onClick={() => setLembretes(prev => prev.filter(x => x.id !== l.id))}
-                    className="flex-shrink-0 text-slate-400 hover:text-red-500 p-0.5"
-                  >
-                    <Trash2 size={13} />
-                  </button>
-                </div>
+              {avisosVisiveis.map(aviso => (
+                <AvisoItem key={aviso.id} aviso={aviso} compact onDispensar={dispensarAvisos} onRegistrar={abrirRegistroPendente} />
               ))}
+              {lembretes.map(l => <LembreteItem key={l.id} lembrete={l} compact onExcluir={excluirLembrete} />)}
 
               {/* Estado vazio */}
               {totalAvisos === 0 && (
                 <div className="text-center py-4">
                   <CheckCircle size={28} className="text-emerald-400 mx-auto mb-1" />
-                  <p className="text-sm text-slate-400">Tudo em ordem! Nenhum aviso no momento.</p>
+                  <p className="text-sm text-slate-500">Tudo em ordem! Nenhum aviso no momento.</p>
                 </div>
               )}
 
@@ -1166,30 +1110,31 @@ export default function ProfessorDashboard() {
               </h2>
               <div className="space-y-3">
                 {recadosAdmin.map(r => {
-                  const tipoColor =
-                    r.tipo === 'urgente'  ? 'border-l-red-500 bg-red-50' :
-                    r.tipo === 'material' ? 'border-l-blue-500 bg-blue-50' :
-                    r.tipo === 'falta'    ? 'border-l-amber-500 bg-amber-50' :
-                                           'border-l-slate-400 bg-white';
+                  // Tipo vira etiqueta colorida (antes: borda lateral grossa no cartão)
+                  const tipoTag =
+                    r.tipo === 'urgente'  ? 'bg-red-100 text-red-800' :
+                    r.tipo === 'material' ? 'bg-blue-100 text-blue-800' :
+                    r.tipo === 'falta'    ? 'bg-amber-100 text-amber-900' :
+                                           'bg-slate-100 text-slate-700';
                   return (
-                    <div key={r.id} className={`border border-slate-200 border-l-4 rounded-xl p-4 shadow-sm ${tipoColor} ${!r.lido ? 'shadow-md' : 'opacity-80'}`}>
+                    <div key={r.id} className={`bg-white border rounded-xl p-4 ${!r.lido ? 'border-slate-300 shadow-md' : 'border-slate-200 shadow-sm'}`}>
                       <div className="flex items-start justify-between gap-3">
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 mb-1 flex-wrap">
                             {!r.lido && (
-                              <span className="text-xs font-bold bg-emerald-500 text-white px-2 py-0.5 rounded-full">Novo</span>
+                              <span className="text-xs font-bold bg-emerald-600 text-white px-2 py-0.5 rounded-full">Novo</span>
                             )}
                             {r.tipo && r.tipo !== 'geral' && (
-                              <span className="text-xs font-medium text-slate-500 capitalize">{r.tipo}</span>
+                              <span className={`text-xs font-semibold capitalize px-2 py-0.5 rounded-full ${tipoTag}`}>{r.tipo}</span>
                             )}
-                            <span className="text-xs text-slate-400 ml-auto">
+                            <span className="text-xs text-slate-500 ml-auto">
                               {r.createdAt ? new Date(r.createdAt).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : ''}
                             </span>
                           </div>
                           <p className="text-sm text-slate-800 leading-relaxed">{r.texto}</p>
                           {r.resposta && (
                             <div className="mt-2 bg-white border border-slate-200 rounded-lg px-3 py-2">
-                              <p className="text-xs text-slate-400 font-semibold mb-0.5">Sua resposta:</p>
+                              <p className="text-xs text-slate-500 font-semibold mb-0.5">Sua resposta:</p>
                               <p className="text-xs text-slate-600">{r.resposta}</p>
                             </div>
                           )}
@@ -1241,7 +1186,7 @@ export default function ProfessorDashboard() {
               </h2>
               <button
                 onClick={() => dispensarAvisos(notificacoesAuto.map(a => a.id))}
-                className="text-xs text-slate-400 hover:text-red-500 transition-colors"
+                className="text-xs text-slate-500 hover:text-red-500 transition-colors"
               >
                 Dispensar todos
               </button>
@@ -1249,57 +1194,12 @@ export default function ProfessorDashboard() {
           )}
 
           {notificacoesAuto.filter(a => !dismissedIds.has(a.id)).map(aviso => (
-            <div key={aviso.id} className="bg-white border-l-4 rounded-lg p-4 shadow-sm"
-              style={{ borderLeftColor: aviso.cor === 'blue' ? '#0e48fe' : aviso.cor === 'orange' ? '#f97316' : aviso.cor === 'red' ? '#dc2626' : '#10b981' }}
-            >
-              <div className="flex items-start justify-between">
-                <div className="flex-1">
-                  <h3 className="font-semibold text-slate-800 mb-1">{aviso.titulo}</h3>
-                  <p className="text-sm text-slate-600">{aviso.texto}</p>
-                </div>
-                <button
-                  onClick={() => dispensarAvisos(aviso.id)}
-                  className="text-slate-400 hover:text-slate-600 ml-2"
-                >
-                  <X size={16} />
-                </button>
-              </div>
-              {aviso.turmaObj && aviso.dataPendente && (
-                <button
-                  onClick={() => {
-                    setSelectedTurma(aviso.turmaObj);
-                    setSelectedDate(aviso.dataPendente);
-                    setShowRegistroAula(true);
-                  }}
-                  className="mt-3 text-sm text-accent hover:underline font-medium"
-                >
-                  Registrar agora
-                </button>
-              )}
-            </div>
+            <AvisoItem key={aviso.id} aviso={aviso} onDispensar={dispensarAvisos} onRegistrar={abrirRegistroPendente} />
           ))}
-
-          {lembretes.map(lembrete => (
-            <div key={lembrete.id} className="bg-amber-50 border border-amber-200 rounded-lg p-4 shadow-sm">
-              <div className="flex items-start justify-between">
-                <div className="flex-1">
-                  <p className="text-sm text-slate-700">{lembrete.texto}</p>
-                  {lembrete.data && <p className="text-xs text-slate-400 mt-1">{lembrete.data}</p>}
-                </div>
-                <button
-                  onClick={() => {
-                    setLembretes(prev => prev.filter(l => l.id !== lembrete.id));
-                  }}
-                  className="text-slate-400 hover:text-slate-600 ml-2"
-                >
-                  <Trash2 size={16} />
-                </button>
-              </div>
-            </div>
-          ))}
+          {lembretes.map(l => <LembreteItem key={l.id} lembrete={l} onExcluir={excluirLembrete} />)}
 
           {notificacoesAuto.filter(a => !dismissedIds.has(a.id)).length === 0 && lembretes.length === 0 && (
-            <div className="text-center py-12 text-slate-400">
+            <div className="text-center py-12 text-slate-500">
               <Bell size={48} className="mx-auto mb-3 opacity-30" />
               <p>Nenhum aviso no momento</p>
             </div>
@@ -1314,7 +1214,7 @@ export default function ProfessorDashboard() {
           <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
             <Users size={24} className="text-accent" />
             Minhas Turmas
-            <span className="text-sm font-normal text-slate-400">({turmasFiltradas.length}/{turmas.length})</span>
+            <span className="text-sm font-normal text-slate-500">({turmasFiltradas.length}/{turmas.length})</span>
           </h2>
         </div>
 
@@ -1322,7 +1222,7 @@ export default function ProfessorDashboard() {
         <div className="flex flex-wrap gap-2 mb-4">
           {/* Busca por nome */}
           <div className="relative flex-1 min-w-[160px]">
-            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
             <input
               type="text"
               placeholder="Buscar turma..."
@@ -1394,7 +1294,7 @@ export default function ProfessorDashboard() {
             <tbody className="divide-y divide-slate-100">
               {turmasFiltradas.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="py-10 text-center text-slate-400 text-sm">
+                  <td colSpan={9} className="py-10 text-center text-slate-500 text-sm">
                     Nenhuma turma encontrada para os filtros selecionados.
                   </td>
                 </tr>
@@ -1403,23 +1303,10 @@ export default function ProfessorDashboard() {
                 const aulasPrevistas = turma.totalAulas || 40;
                 const aulasProgress = Math.min(Math.round((aulasCount / aulasPrevistas) * 100), 100);
                 const aulaHojeRegistrada = aulasHoje.some(a => a.turmaId === turma.id);
-                // Detectar se a aula mais recente agendada não foi registrada (pendente)
-                const aulaPendente = (() => {
-                  if (aulaHojeRegistrada) return false;
-                  const diasPT = { 'Segunda': 1, 'Terça': 2, 'Quarta': 3, 'Quinta': 4, 'Sexta': 5, 'Sábado': 6, 'Domingo': 0 };
-                  const aulasT = aulas.filter(a => a.turmaId === turma.id);
-                  const datasReg = new Set(aulasT.map(a => a.data));
-                  const numDias = (turma.dias || '').split(',').map(d => diasPT[d.trim()]).filter(n => n !== undefined);
-                  const hojeD = new Date(); hojeD.setHours(0, 0, 0, 0);
-                  for (let i = 1; i <= 14; i++) {
-                    const d = new Date(hojeD); d.setDate(d.getDate() - i);
-                    if (numDias.includes(d.getDay())) {
-                      return !datasReg.has(dataLocalISO(d));
-                    }
-                  }
-                  return false;
-                })();
-                const qtdAlunos = turma.alunosIds?.length || turma.alunosCount || 0;
+                // Mesma regra do alerta "Aula pendente" (antes a tabela só olhava o último dia)
+                const aulaPendente = aulasProntas && !aulaHojeRegistrada &&
+                  datasPendentes(turma, aulas.filter(a => a.turmaId === turma.id), hojeISO).length > 0;
+                const qtdAlunos = contarAlunos(turma, alunosPorTurma);
                 const freqMedia = frequenciaMediaTurma(aulas.filter(a => a.turmaId === turma.id));
 
                 return (
@@ -1438,7 +1325,7 @@ export default function ProfessorDashboard() {
                     <td className="py-3 pr-4 text-center">
                       <div className="flex flex-col items-center gap-1">
                         <span className="text-sm font-semibold text-slate-800">
-                          {aulasCount}<span className="text-slate-400 font-normal">/{aulasPrevistas}</span>
+                          {aulasCount}<span className="text-slate-500 font-normal">/{aulasPrevistas}</span>
                         </span>
                         <div className="w-16 bg-slate-200 rounded-full h-1">
                           <div
@@ -1462,14 +1349,14 @@ export default function ProfessorDashboard() {
                           </div>
                         </div>
                       ) : (
-                        <span className="text-xs text-slate-300">—</span>
+                        <span className="text-xs text-slate-400">—</span>
                       )}
                     </td>
                     <td className="py-3 pr-4 text-center">
                       {aulaHojeRegistrada ? (
                         <span className="inline-flex items-center gap-1 text-xs text-emerald-600 font-medium bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full whitespace-nowrap">
                           <CheckCircle size={11} />
-                          Hoje ✓
+                          Hoje
                         </span>
                       ) : aulaPendente ? (
                         <span className="inline-flex items-center gap-1 text-xs text-orange-600 font-medium bg-orange-50 border border-orange-200 px-2 py-0.5 rounded-full whitespace-nowrap">
@@ -1477,7 +1364,7 @@ export default function ProfessorDashboard() {
                           Pendente
                         </span>
                       ) : (
-                        <span className="text-xs text-slate-400">—</span>
+                        <span className="text-xs text-slate-500">—</span>
                       )}
                     </td>
                     <td className="py-3 text-right">
@@ -1490,10 +1377,10 @@ export default function ProfessorDashboard() {
                         </button>
                         <button
                           onClick={() => { setTurmaRanking(turma); setShowRankingTarefas(true); }}
-                          className="text-xs px-3 py-1.5 border border-purple-300 text-purple-600 rounded-lg hover:bg-purple-50 transition-all"
+                          className="inline-flex items-center gap-1 text-xs px-3 py-1.5 border border-purple-300 text-purple-600 rounded-lg hover:bg-purple-50 transition-all"
                           title="Ranking de Tarefas"
                         >
-                          📚 Tarefas
+                          <ListChecks size={12} aria-hidden="true" /> Tarefas
                         </button>
                         <button
                           onClick={() => { setSelectedTurma(turma); setSelectedDate(null); setShowRegistroAula(true); }}
@@ -1512,6 +1399,12 @@ export default function ProfessorDashboard() {
         </div>
       </Card>
       )}
+      </React.Fragment>
+      )}
+
+      {/* Modais — fora do bloco das views: antes ficavam presos dentro dele e
+          "Enviar Recado" não abria nada quando o professor estava em Notas ou
+          Histórico (o modal só aparecia ao voltar para o Início). */}
 
       {/* Modal de Ranking de Tarefas */}
       {showRankingTarefas && turmaRanking && (
@@ -1541,9 +1434,9 @@ export default function ProfessorDashboard() {
               </div>
               <button
                 onClick={() => { setShowDetalheTurma(false); setSelectedTurma(null); }}
-                className="text-slate-400 hover:text-slate-600 text-2xl leading-none"
+                aria-label="Fechar" className="p-1 rounded-lg text-slate-500 hover:text-slate-700 hover:bg-slate-100"
               >
-                ×
+                <X size={20} />
               </button>
             </div>
 
@@ -1558,14 +1451,14 @@ export default function ProfessorDashboard() {
                 <div className="grid grid-cols-3 gap-4 p-6 border-b border-slate-100">
                   <div className="text-center">
                     <p className="text-2xl font-bold text-accent">
-                      {selectedTurma.alunosIds?.length || selectedTurma.alunosCount || 0}
+                      {contarAlunos(selectedTurma, alunosPorTurma)}
                     </p>
                     <p className="text-xs text-slate-500">Alunos</p>
                   </div>
                   <div className="text-center">
                     <p className="text-2xl font-bold text-purple-600">
                       {dadas}
-                      <span className="text-sm text-slate-400 font-normal">/{previstas}</span>
+                      <span className="text-sm text-slate-500 font-normal">/{previstas}</span>
                     </p>
                     <p className="text-xs text-slate-500">Aulas dadas / previstas</p>
                     <div className="w-full bg-slate-200 rounded-full h-1 mt-1">
@@ -1592,14 +1485,14 @@ export default function ProfessorDashboard() {
                 Alunos da turma
               </h3>
               {(alunosPorTurma[selectedTurma.id] || []).length === 0 ? (
-                <p className="text-slate-400 text-sm text-center py-6">Nenhum aluno cadastrado nesta turma.</p>
+                <p className="text-slate-500 text-sm text-center py-6">Nenhum aluno cadastrado nesta turma.</p>
               ) : (
                 <div className="space-y-2">
                   {(alunosPorTurma[selectedTurma.id] || []).map((aluno) => {
                     // Frequência do aluno nesta turma (ignora feriado/cancelada/recesso)
                     const pct = frequenciaAluno(aulas.filter(a => a.turmaId === selectedTurma.id), aluno.id);
                     const lowFreq = pct !== null && pct < 75;
-                    const pctColor = pct === null ? 'text-slate-400' : pct >= 75 ? 'text-emerald-600' : pct >= 50 ? 'text-amber-600' : 'text-red-600';
+                    const pctColor = pct === null ? 'text-slate-500' : pct >= 75 ? 'text-emerald-600' : pct >= 50 ? 'text-amber-600' : 'text-red-600';
 
                     return (
                       <div key={aluno.id} className={`flex items-center justify-between p-3 rounded-lg border ${lowFreq ? 'bg-red-50 border-red-200' : 'bg-slate-50 border-transparent'}`}>
@@ -1660,9 +1553,9 @@ export default function ProfessorDashboard() {
                               <div className="flex items-center gap-2 text-xs">
                                 {realizada ? (
                                   <>
-                                    <span className="text-emerald-600">✓ {presentes}</span>
-                                    <span className="text-red-500">✗ {faltas}</span>
-                                    {total > 0 && <span className="text-slate-400 bg-slate-200 px-1.5 py-0.5 rounded">{Math.round(presentes / total * 100)}%</span>}
+                                    <span className="inline-flex items-center gap-0.5 text-emerald-700" title="Presentes"><Check size={12} aria-hidden="true" />{presentes}</span>
+                                    <span className="inline-flex items-center gap-0.5 text-red-600" title="Faltas"><X size={12} aria-hidden="true" />{faltas}</span>
+                                    {total > 0 && <span className="text-slate-700 bg-slate-200 px-1.5 py-0.5 rounded">{Math.round(presentes / total * 100)}%</span>}
                                   </>
                                 ) : (
                                   <span className="text-slate-500 bg-slate-200 px-1.5 py-0.5 rounded capitalize">{aula.status}</span>
@@ -1742,7 +1635,7 @@ export default function ProfessorDashboard() {
                 <h2 className="text-lg font-bold text-slate-800">Recado para a Coordenação</h2>
               </div>
               <button onClick={() => { setShowRecado(false); setRecadoSent(false); setRecadoTexto(''); }}
-                className="text-slate-400 hover:text-slate-600">
+                className="text-slate-500 hover:text-slate-600">
                 <X size={20} />
               </button>
             </div>
@@ -1761,11 +1654,11 @@ export default function ProfessorDashboard() {
                     onChange={e => setRecadoTipo(e.target.value)}
                     className="w-full border border-slate-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 bg-white"
                   >
-                    <option value="geral">📋 Geral</option>
-                    <option value="aluno">🎓 Sobre um aluno</option>
-                    <option value="material">📦 Material / Recurso</option>
-                    <option value="falta">📅 Falta / Ausência</option>
-                    <option value="urgente">🚨 Urgente</option>
+                    <option value="geral">Geral</option>
+                    <option value="aluno">Sobre um aluno</option>
+                    <option value="material">Material / Recurso</option>
+                    <option value="falta">Falta / Ausência</option>
+                    <option value="urgente">Urgente</option>
                   </select>
                 </div>
                 <div>
@@ -1779,7 +1672,7 @@ export default function ProfessorDashboard() {
                     required
                   />
                 </div>
-                <div className="text-xs text-slate-400">De: <strong>{professorNomeReal}</strong></div>
+                <div className="text-xs text-slate-500">De: <strong>{professorNomeReal}</strong></div>
                 <div className="flex gap-3">
                   <button type="button" onClick={() => setShowRecado(false)}
                     className="flex-1 py-2.5 border border-slate-300 rounded-xl text-slate-600 text-sm font-medium hover:bg-slate-50">
@@ -1797,16 +1690,6 @@ export default function ProfessorDashboard() {
         </div>
       )}
 
-      {/* Modal de Relatório Mensal do Professor */}
-      {showRelatorio && (
-        <ProfessorRelatorio
-          professor={professorNomeReal}
-          turmas={turmas}
-          aulas={aulas}
-          alunosPorTurma={alunosPorTurma}
-          onClose={() => setShowRelatorio(false)}
-        />
-      )}
 
       {/* Modal: Relatório de Frequência do Aluno */}
       {freqAluno && (
@@ -1826,14 +1709,21 @@ export default function ProfessorDashboard() {
           onClose={() => setEditAula(null)}
           onSave={async (dados) => {
             setSavingEdit(true);
-            await atualizarAula(editAula.id, dados);
+            const result = await atualizarAula(editAula.id, dados);
             setSavingEdit(false);
-            setEditAula(null);
+            if (result.success) {
+              setEditAula(null);
+              mostrarMensagem('sucesso', 'Chamada atualizada.');
+            } else {
+              // Mantém o modal aberto para o professor não perder a edição
+              mostrarMensagem('erro', `Não foi possível salvar a chamada: ${result.error || 'tente novamente.'}`);
+            }
           }}
         />
       )}
 
-      {/* FAB — Nova Aula */}
+      {/* FAB — Nova Aula (só nas views que não têm tabela própria embaixo) */}
+      {activeView !== 'notas' && activeView !== 'historico' && activeView !== 'resources' && (
       <div className="fixed bottom-6 right-6 z-40">
         {showFAB && (
           <div className="absolute bottom-16 right-0 bg-white rounded-2xl shadow-2xl border border-slate-200 p-3 w-64 max-h-72 overflow-y-auto">
@@ -1845,21 +1735,19 @@ export default function ProfessorDashboard() {
                 className="w-full text-left px-3 py-2.5 rounded-xl hover:bg-blue-50 hover:text-accent text-sm text-slate-700 transition-colors"
               >
                 <div className="font-medium">{turma.nome}</div>
-                <div className="text-xs text-slate-400 mt-0.5">{turma.dias} • {turma.horario}</div>
+                <div className="text-xs text-slate-500 mt-0.5">{turma.dias} • {turma.horario}</div>
               </button>
             ))}
           </div>
         )}
         <button
-          onClick={() => setShowFAB(v => !v)}
+          onClick={() => setShowFAB(v => !v)} aria-expanded={showFAB} aria-label={showFAB ? "Fechar" : "Nova aula"}
           className="w-14 h-14 bg-accent text-white rounded-full shadow-lg hover:bg-accent-hover transition-all flex items-center justify-center text-2xl font-light"
           title="Nova Aula"
         >
-          {showFAB ? '×' : '+'}
+          {showFAB ? <X size={24} aria-hidden="true" /> : <Plus size={24} aria-hidden="true" />}
         </button>
       </div>
-
-      </React.Fragment>
       )}
         </div>
       </main>

@@ -46,6 +46,9 @@ export default function ChamadaForm({ turma, alunosIniciais, professorNome, onSa
       .sort((a, b) => (b.data || '').localeCompare(a.data || ''))[0] || null;
   }, [aulasRecentes]);
   const [tipoAula, setTipoAula] = useState('realizada'); // realizada | cancelada | feriado | recesso
+  // Chamada de aula que ainda não aconteceu não existe. Feriado/cancelada/recesso
+  // com antecedência pode (e tira o dia dos alertas de pendência).
+  const futuraRealizada = data > hoje && tipoAula === 'realizada';
   const [conteudo, setConteudo] = useState('');
   const [homework, setHomework] = useState('');
   const [observacoes, setObservacoes] = useState('');
@@ -143,6 +146,10 @@ export default function ChamadaForm({ turma, alunosIniciais, professorNome, onSa
   const [checkingDuplicate, setCheckingDuplicate] = useState(false);
 
   const handleSave = async () => {
+    if (futuraRealizada) {
+      setSaveError('Aula futura só pode ser registrada como Cancelada, Feriado ou Recesso.');
+      return;
+    }
     if (tipoAula === 'realizada' && !conteudo.trim()) {
       setSaveError('Informe o conteúdo da aula antes de salvar.');
       return;
@@ -269,7 +276,10 @@ export default function ChamadaForm({ turma, alunosIniciais, professorNome, onSa
               />
               {data > hoje && (
                 <p className="mt-1.5 flex items-center gap-1.5 text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1.5">
-                  <AlertCircle size={13} /> Você está registrando uma aula futura.
+                  <AlertCircle size={13} />
+                  {futuraRealizada
+                    ? 'Data futura: só dá para registrar como Cancelada, Feriado ou Recesso.'
+                    : 'Registro antecipado de uma data futura.'}
                 </p>
               )}
               {data < hoje && data !== hoje && (
@@ -531,7 +541,7 @@ export default function ChamadaForm({ turma, alunosIniciais, professorNome, onSa
 
           <button
             onClick={handleSave}
-            disabled={saving || (tipoAula === 'realizada' && loadingAlunos) || checkingDuplicate}
+            disabled={saving || futuraRealizada || (tipoAula === 'realizada' && loadingAlunos) || checkingDuplicate}
             className={`flex items-center gap-2 px-6 py-2 text-white rounded-lg transition-all disabled:opacity-60 disabled:cursor-not-allowed font-medium ${
               tipoAula === 'cancelada' ? 'bg-red-500 hover:bg-red-600' :
               tipoAula === 'feriado'   ? 'bg-amber-500 hover:bg-amber-600' :

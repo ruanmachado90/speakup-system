@@ -62,14 +62,6 @@ const AgendaGoogle = lazy(() => import('./pages/Agenda'));
 const Turmas = lazy(() => import('./pages/Turmas'));
 const ParametrosPage = lazy(() => import('./pages/ParametrosPage'));
 const ProfessorDashboard = lazy(() => import('./pages/ProfessorDashboard'));
-const ProfessorHome = lazy(() => import('./pages/ProfessorHome'));
-const ConteudoFrequenciaPage = lazy(() => import('./pages/ConteudoFrequenciaPage'));
-const NotasParciais = lazy(() => import('./pages/NotasParciais'));
-const RelatorioNotas = lazy(() => import('./pages/RelatorioNotas'));
-const TarefasPage = lazy(() => import('./pages/TarefasPage'));
-const AvisosPage = lazy(() => import('./pages/AvisosPage'));
-const ProfessorWikiPage = lazy(() => import('./pages/ProfessorWikiPage'));
-const HistoricoPage = lazy(() => import('./pages/HistoricoPage'));
 const Notas = lazy(() => import('./pages/Notas'));
 const LoginPage = lazy(() => import('./pages/LoginPage'));
 const ProfessorLoginPage = lazy(() => import('./pages/ProfessorLoginPage'));
@@ -78,7 +70,15 @@ const AulasAdmin = lazy(() => import('./pages/AulasAdmin'));
 const Registro = lazy(() => import('./pages/Registro'));
 const VerificarCertificado = lazy(() => import('./pages/VerificarCertificado'));
 
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useParams } from 'react-router-dom';
+
+// As páginas mobile do professor (home, frequencia, notas, avisos, tarefas,
+// wiki, historico, relatorio-notas) foram removidas: o painel cobre tudo.
+// Links antigos (favoritos, apps instalados) caem no painel.
+function RedirectParaPainelProfessor() {
+  const { professorSlug } = useParams();
+  return <Navigate to={`/professor/${professorSlug}`} replace />;
+}
 
 
 function AppContent() {
@@ -748,74 +748,18 @@ export default function App() {
             {/* Rotas do professor (magic link) */}
             <Route path="/professor/dashboard" element={<Navigate to="/" replace />} />
             <Route
-              path="/professor/:professorSlug/home"
-              element={
-                <RequireProfessorAuth>
-                  <ProfessorHome />
-                </RequireProfessorAuth>
-              }
-            />
-            <Route
-              path="/professor/:professorSlug/frequencia"
-              element={
-                <RequireProfessorAuth>
-                  <ConteudoFrequenciaPage />
-                </RequireProfessorAuth>
-              }
-            />
-            <Route
-              path="/professor/:professorSlug/notas"
-              element={
-                <RequireProfessorAuth>
-                  <NotasParciais />
-                </RequireProfessorAuth>
-              }
-            />
-            <Route
-              path="/professor/:professorSlug/avisos"
-              element={
-                <RequireProfessorAuth>
-                  <AvisosPage />
-                </RequireProfessorAuth>
-              }
-            />
-            <Route
-              path="/professor/:professorSlug/tarefas"
-              element={
-                <RequireProfessorAuth>
-                  <TarefasPage />
-                </RequireProfessorAuth>
-              }
-            />
-            <Route
-              path="/professor/:professorSlug/wiki"
-              element={
-                <RequireProfessorAuth>
-                  <ProfessorWikiPage />
-                </RequireProfessorAuth>
-              }
-            />
-            <Route
-              path="/professor/:professorSlug/historico"
-              element={
-                <RequireProfessorAuth>
-                  <HistoricoPage />
-                </RequireProfessorAuth>
-              }
-            />
-            <Route
-              path="/professor/:professorSlug/relatorio-notas"
-              element={
-                <RequireProfessorAuth>
-                  <RelatorioNotas />
-                </RequireProfessorAuth>
-              }
-            />
-            <Route
               path="/professor/:professorSlug"
               element={
                 <RequireProfessorAuth>
                   <ProfessorDashboard />
+                </RequireProfessorAuth>
+              }
+            />
+            <Route
+              path="/professor/:professorSlug/*"
+              element={
+                <RequireProfessorAuth>
+                  <RedirectParaPainelProfessor />
                 </RequireProfessorAuth>
               }
             />

@@ -29,4 +29,15 @@ export const CAMPANHA_PADRAO_2027 = {
   // da secretaria antes do envio.
   faixaMensalidadeRegular: { min: 100, max: 400 },
   cursosRevisaoManual: ['VIP', 'COMPANY'],   // trecho no nome do curso, sem acento/caixa
+  // Texto do WhatsApp (editável). Campos: {responsavel} {alunos} {ano} {prazo} {links}
+  mensagemWhatsApp: [
+    'Olá, {responsavel}!',
+    '',
+    'A renovação de matrícula de {alunos} para {ano} na SpeakUp English School está aberta até {prazo}.',
+    'Pelo link abaixo você confere os valores, escolhe a forma de pagamento e assina o contrato:',
+    '{links}',
+    '',
+    'Qualquer dúvida, estamos à disposição.',
+    'Equipe SpeakUp',
+  ].join('\n'),
 };

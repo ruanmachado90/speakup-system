@@ -107,14 +107,16 @@ O **código** é aleatório (32 caracteres) e vira o ID do documento e o final d
   codigo, anoLetivo: 2027, studentId,
   // foto para a página pública (só o que a família pode ver)
   alunoNome, responsavelNome, menorDeIdade, cursoAtual, turmasAtuais: ['Teens 3 — seg/qua 18h'],
-  mensalidadeAtual,          // fee no momento da geração
-  mensalidadeBase,           // = atual; a secretaria ajusta antes do envio (VIP, In Company, adultos)
-  mensalidadeNova,           // base + 7%, em centavos; recalculada se a base mudar
-  parcelasAntigas2027: { quantidade, valor, pagas },   // contrato de 2026 que invade 2027 (os 47); canceladas na efetivação
+  mensalidadeAtualCentavos,  // fee no momento da geração
+  mensalidadeBaseCentavos,   // = atual; a secretaria ajusta antes do envio (VIP, In Company, adultos)
+  mensalidadeNovaCentavos,   // base + 7%; recalculada se a base mudar
+  parcelasAntigas: { cancelar, bloqueiam },   // contrato de 2026 que invade 2027 (os 47); canceladas na efetivação
   descontoIrmao: true|false, // marcado à mão pela secretaria
   temPendencia: true|false,  // sem valores detalhados
-  // controle da secretaria (a página pública não vê)
-  telefoneEnvio, revisarValor: true|false, observacaoInterna,
+  revisarValor: true|false,  // some quando a secretaria confere o valor
+  // NADA de telefone, e-mail da equipe ou anotação aqui: quem tem o link lê
+  // o documento inteiro (etapa 4). Telefone sai do aluno na hora do envio;
+  // `por` no histórico é o uid.
   status: 'gerada' | 'enviada' | 'aberta' | 'respondida' | 'aguardando_regularizacao'
         | 'efetivada' | 'nao_renovara' | 'expirada' | 'cancelada',
   enviadaEm, enviosQtd, abertaEm,
@@ -127,11 +129,12 @@ O **código** é aleatório (32 caracteres) e vira o ID do documento e o final d
     valores: { mensalidade, parcelas, valorParcela, ultimaParcela, total, descontosAplicados },
     paymentIds, efetivadaEm, efetivadaPor,
   },
-  naoRenovara: { motivo, observacao, em, por },   // usa MOTIVOS_CANCELAMENTO
   historico: [ { evento, em, por } ],
   criadaEm, criadaPor,
 }
 ```
+
+**`renovacoes-notas/{codigo}`** (só a equipe lê; implementado na etapa 3): `{ codigo, anoLetivo, studentId, motivo, observacao, em, por }` — motivo de "não renovará" (lista `MOTIVOS_CANCELAMENTO`). Apagada ao desfazer.
 
 ### 4.3 `contratos/{idDoAluno}_2027` — contrato de 2027
 
@@ -253,7 +256,9 @@ Reabrir uma resposta (família quer trocar o plano) só antes da efetivação, r
 
 Um contato por vez, mensagem pronta e editável, botões "Abrir WhatsApp e ir para o próximo" (Enter), "Pular" e "Sem WhatsApp". Cada envio fica registrado. Irmãos com o mesmo telefone recebem **uma** mensagem com um link por filho. Telefone: `responsibleContact` (menor de idade ou com responsável) senão `contact`.
 
-### 6.3 Página da família `/renovacao/:codigo`
+### 6.3 Página da família `/renovar/:codigo`
+
+(`/renovacao` já é a página da secretaria.)
 
 Pensada para celular, no visual do `Registro.jsx`:
 1. Saudação, aluno, turma atual, mensalidade atual → nova (com a frase do reajuste) e descontos disponíveis, com o prazo.
@@ -297,7 +302,7 @@ Na ficha do aluno, para quem renova pessoalmente: as mesmas escolhas, com `canal
 | 1 | **Base e travas** | `utils/renovacao.js` (cálculos, escolha do desconto único, datas dos 3 planos, parcelas antigas de 2027 a cancelar, pendência, status) com testes; trava em `mensalidade.js` para não tocar parcelas da renovação | `npm test` verde, incluindo fevereiro, dia 31, centavos, prazo do desconto, "nunca dois descontos", parcela antiga já paga e a trava da mensalidade |
 | 2 | **Painel: configuração e lista** | Menu "Renovação 2027", configuração da campanha, tabela com seleção e valores calculados, atalhos Kids/Teens, "revisar valor", contrato até 2027 | A secretaria vê os alunos com os valores certos **antes** de qualquer envio |
 | 3 | **Convites e envio** | Gerar convites dos selecionados (lote, sem duplicar), copiar link, fila de WhatsApp com irmãos agrupados, copiar todos, exportar planilha, "não renovará"; correção do telefone da cobrança | No emulador, 30 envios em sequência, todos registrados |
-| 4 | **Página da família, contrato e regras** | `/renovacao/:codigo` com escolhas e contrato de 2027 (texto, assinatura por ano, PDF, e-mail); regras do Firestore e testes de ataque; tela de Alunos lendo o contrato do ano | Responder pelo link grava só a resposta e o contrato de 2027; as tentativas de ataque são recusadas; layout validado em 390 px |
+| 4 | **Página da família, contrato e regras** | `/renovar/:codigo` com escolhas e contrato de 2027 (texto, assinatura por ano, PDF, e-mail); regras do Firestore e testes de ataque; tela de Alunos lendo o contrato do ano | Responder pelo link grava só a resposta e o contrato de 2027; as tentativas de ataque são recusadas; layout validado em 390 px |
 | 5 | **Efetivação** | "Efetivar renovações" em lote: no mesmo lote, cancela as parcelas antigas de 2027 em aberto e cria as novas; modal de balcão, aguardando regularização, etiquetas em Alunos, card no Dashboard, ajuste no cancelamento | No emulador: efetivar gera as parcelas de 2027 sem tocar `fee`/`createdAt`; quem tinha contrato até 2027 fica só com as parcelas novas; parcela antiga já paga trava a efetivação e aparece para a secretaria; repetir não duplica; os números do painel batem com a contagem manual |
 | — | **Publicação e campanha** | Publicar regras e app; abrir a campanha no meio de novembro | Aprovação do Ruan |
 | 6 | **Fechamento do ano letivo 2026** (a partir de 18/12) | Foto das turmas (`turmas-historico`) e `historicoAnual` de cada aluno; renovações sem resposta → `expirada`; relatório final | Ficha do aluno mostra 2026 completo; nenhuma turma alterada ainda |

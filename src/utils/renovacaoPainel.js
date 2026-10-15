@@ -89,6 +89,7 @@ export function filtrarLinhas(linhas, f = {}) {
     if (f.soRevisar && !l.revisarValor) return false;
     if (f.soContrato && !l.contratoInvadeAno) return false;
     if (f.soSelecionados && !f.selecionados?.has(l.id)) return false;
+    if (f.soSemConvite && l.convite) return false;
     if (termos.length) {
       const texto = normalizar(`${l.nome} ${l.responsavel} ${l.curso} ${l.turmas.join(' ')}`);
       if (!termos.every((t) => texto.includes(t))) return false;
@@ -113,7 +114,11 @@ export function resumoPainel(linhas, selecionados = new Set()) {
     comPendencia: linhas.filter((l) => l.pendencia.quantidade).length,
     revisarValor: linhas.filter((l) => l.revisarValor).length,
     // receita do ano no valor cheio (12 × nova) dos selecionados, antes de descontos
-    receitaCheiaSelecionados: sel.reduce((s, l) => s + l.mensalidadeNova * 12, 0),
+    receitaCheiaSelecionados: sel.reduce((s, l) => s + (l.convite?.mensalidadeNovaCentavos ?? l.mensalidadeNova) * 12, 0),
+    // convites (etapa 3): `l.convite` vem da página; sem ele, tudo zero
+    convitesGerados: linhas.filter((l) => l.convite && l.convite.status !== 'nao_renovara').length,
+    convitesEnviados: linhas.filter((l) => l.convite?.enviosQtd > 0).length,
+    naoRenovam: linhas.filter((l) => l.convite?.status === 'nao_renovara').length,
   };
 }
 
@@ -156,5 +161,6 @@ export function validarCampanha(c) {
 
   const faixa = c.faixaMensalidadeRegular || {};
   if (faixa.min != null && faixa.max != null && Number(faixa.min) > Number(faixa.max)) erros.push('Na faixa de mensalidade regular, o mínimo passa do máximo.');
+  if (c.mensagemWhatsApp != null && !String(c.mensagemWhatsApp).includes('{links}')) erros.push('A mensagem do WhatsApp precisa conter {links}, onde entra o link de cada aluno.');
   return erros;
 }

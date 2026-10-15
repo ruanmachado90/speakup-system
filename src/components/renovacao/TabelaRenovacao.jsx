@@ -1,6 +1,8 @@
 import { useMemo, useState } from 'react';
-import { Search } from 'lucide-react';
+import { Search, Link2, Pencil, Users, UserX, Undo2 } from 'lucide-react';
 import { filtrarLinhas, contarPorGrupo, GRUPOS_FILTRO } from '../../utils/renovacaoPainel';
+import { SITUACAO_CONVITE, podeAjustar } from '../../utils/renovacaoEnvio';
+import { STATUS } from '../../utils/renovacao';
 
 const brl = (c) => (c / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 const mesAno = (ym) => (ym ? `${ym.slice(5, 7)}/${ym.slice(0, 4)}` : '');
@@ -16,18 +18,68 @@ function Etiqueta({ tom, children, title }) {
     aviso: 'bg-amber-50 text-amber-900 border-amber-200',
     info: 'bg-blue-50 text-blue-800 border-blue-200',
     neutro: 'bg-slate-100 text-slate-700 border-slate-200',
+    sucesso: 'bg-emerald-50 text-emerald-800 border-emerald-200',
   };
   return <span title={title} className={`inline-block rounded-md border px-1.5 py-0.5 text-[11px] font-semibold ${tons[tom]}`}>{children}</span>;
 }
 
+const acaoCls = 'p-1.5 rounded-su-sm border border-subtle text-content-body hover:bg-gr-50 disabled:opacity-40 focus:outline-none focus-visible:shadow-ring-accent';
+
+function AcaoIcone({ rotulo, onClick, children, pressionado }) {
+  return (
+    <button type="button" title={rotulo} aria-label={rotulo} aria-pressed={pressionado} onClick={onClick}
+      className={`${acaoCls} ${pressionado ? 'bg-blue-50 border-blue-200 text-blue-800' : ''}`}>{children}</button>
+  );
+}
+
+/** Situação do convite e as ações da linha (copiar, valor, irmão, não renovará). */
+function CelulaConvite({ l, onAcao }) {
+  const c = l.convite;
+  if (!c) {
+    return (
+      <div className="flex items-center gap-2">
+        <span className="text-su-xs text-content-muted">Sem convite</span>
+        <AcaoIcone rotulo="Não renovará" onClick={() => onAcao('naoRenovara', l)}><UserX size={14} aria-hidden="true" /></AcaoIcone>
+      </div>
+    );
+  }
+  const [rotulo, tom] = SITUACAO_CONVITE[c.status] || [c.status, 'neutro'];
+  const ajustavel = podeAjustar(c);
+  return (
+    <div className="space-y-1.5">
+      <div className="flex flex-wrap items-center gap-1">
+        <Etiqueta tom={tom} title={l.nota ? `Motivo: ${l.nota.motivo}${l.nota.observacao ? ` (${l.nota.observacao})` : ''}` : undefined}>{rotulo}</Etiqueta>
+        {c.enviosQtd > 1 && <span className="text-[11px] text-content-muted tabular-nums">{c.enviosQtd} envios</span>}
+      </div>
+      <div className="flex flex-wrap gap-1">
+        {c.status !== STATUS.NAO_RENOVARA && (
+          <AcaoIcone rotulo="Copiar link" onClick={() => onAcao('copiar', l)}><Link2 size={14} aria-hidden="true" /></AcaoIcone>
+        )}
+        {ajustavel && (
+          <>
+            <AcaoIcone rotulo="Ajustar valor" onClick={() => onAcao('valor', l)}><Pencil size={14} aria-hidden="true" /></AcaoIcone>
+            <AcaoIcone rotulo={c.descontoIrmao ? 'Tirar desconto de irmão' : 'Dar desconto de irmão'} pressionado={Boolean(c.descontoIrmao)}
+              onClick={() => onAcao('irmao', l)}><Users size={14} aria-hidden="true" /></AcaoIcone>
+          </>
+        )}
+        {c.status === STATUS.NAO_RENOVARA ? (
+          <AcaoIcone rotulo="Desfazer não renovará" onClick={() => onAcao('desfazer', l)}><Undo2 size={14} aria-hidden="true" /></AcaoIcone>
+        ) : ajustavel && (
+          <AcaoIcone rotulo="Não renovará" onClick={() => onAcao('naoRenovara', l)}><UserX size={14} aria-hidden="true" /></AcaoIcone>
+        )}
+      </div>
+    </div>
+  );
+}
+
 /**
- * Lista de alunos ativos com seleção. Nada aqui grava: a seleção vira convite
- * só na etapa 3.
+ * Lista de alunos ativos com seleção e a situação do convite de cada um.
+ * Quem grava é a página (onAcao); aqui só exibe e repassa.
  */
-export default function TabelaRenovacao({ linhas, selecionados, setSelecionados, anoLetivo }) {
+export default function TabelaRenovacao({ linhas, selecionados, setSelecionados, anoLetivo, acoesSelecao, onAcao }) {
   const [busca, setBusca] = useState('');
   const [grupo, setGrupo] = useState('todos');
-  const [marcadores, setMarcadores] = useState({ soPendencia: false, soRevisar: false, soContrato: false, soSelecionados: false });
+  const [marcadores, setMarcadores] = useState({ soPendencia: false, soRevisar: false, soContrato: false, soSemConvite: false, soSelecionados: false });
 
   const contagem = useMemo(() => contarPorGrupo(linhas), [linhas]);
   const visiveis = useMemo(
@@ -71,6 +123,7 @@ export default function TabelaRenovacao({ linhas, selecionados, setSelecionados,
             ['soPendencia', 'Com parcela vencida'],
             ['soRevisar', 'Revisar valor'],
             ['soContrato', `Contrato vai até ${anoLetivo}`],
+            ['soSemConvite', 'Sem convite'],
             ['soSelecionados', 'Só os selecionados'],
           ].map(([k, rotulo]) => (
             <button key={k} type="button" aria-pressed={marcadores[k]} onClick={() => alternarMarcador(k)} className={chipCls(marcadores[k])}>{rotulo}</button>
@@ -82,11 +135,12 @@ export default function TabelaRenovacao({ linhas, selecionados, setSelecionados,
           <button type="button" className={btnCls} onClick={() => alterar(linhas.filter((l) => l.sugerido).map((l) => l.id), true)}>Selecionar Kids e Teens</button>
           <button type="button" className={btnCls} disabled={!visiveis.length} onClick={() => alterar(visiveis.map((l) => l.id), true)}>Selecionar os {visiveis.length} da lista</button>
           <button type="button" className={btnCls} disabled={!selecionados.size} onClick={() => setSelecionados(new Set())}>Limpar seleção</button>
+          {acoesSelecao && <div className="flex flex-wrap gap-2 sm:ml-auto">{acoesSelecao}</div>}
         </div>
       </div>
 
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[760px] text-su-sm">
+        <table className="w-full min-w-[900px] text-su-sm">
           <thead className="bg-surface-sunken text-left text-su-xs uppercase tracking-wide text-content-muted">
             <tr>
               <th className="w-10 px-4 py-2.5">
@@ -97,6 +151,7 @@ export default function TabelaRenovacao({ linhas, selecionados, setSelecionados,
               <th className="px-3 py-2.5 font-semibold">Curso e turma</th>
               <th className="px-3 py-2.5 font-semibold">Mensalidade {anoLetivo - 1} → {anoLetivo}</th>
               <th className="px-3 py-2.5 font-semibold">Situação</th>
+              <th className="px-3 py-2.5 font-semibold">Convite</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-subtle">
@@ -118,9 +173,11 @@ export default function TabelaRenovacao({ linhas, selecionados, setSelecionados,
                 </td>
                 <td className="px-3 py-2.5 align-top tabular-nums">
                   <p className="text-content-body">
-                    {brl(l.mensalidadeAtual)} <span className="text-content-muted" aria-hidden="true">→</span> <strong className="text-content-strong">{brl(l.mensalidadeNova)}</strong>
+                    {brl(l.mensalidadeAtual)} <span className="text-content-muted" aria-hidden="true">→</span> <strong className="text-content-strong">{brl(l.convite?.mensalidadeNovaCentavos ?? l.mensalidadeNova)}</strong>
                   </p>
-                  {l.parcela12NoPrazo !== l.mensalidadeNova && (
+                  {l.convite && l.convite.mensalidadeBaseCentavos !== l.mensalidadeAtual ? (
+                    <p className="text-su-xs text-content-muted">Base ajustada para {brl(l.convite.mensalidadeBaseCentavos)}</p>
+                  ) : l.parcela12NoPrazo !== l.mensalidadeNova && (
                     <p className="text-su-xs text-content-muted">12x renovando no prazo: {brl(l.parcela12NoPrazo)}</p>
                   )}
                 </td>
@@ -139,14 +196,18 @@ export default function TabelaRenovacao({ linhas, selecionados, setSelecionados,
                         {l.antigas.bloqueiam} parcela(s) de {anoLetivo} já paga(s)
                       </Etiqueta>
                     )}
-                    {l.revisarValor && <Etiqueta tom="aviso">Revisar valor</Etiqueta>}
+                    {(l.convite ? l.convite.revisarValor : l.revisarValor) && (
+                      <Etiqueta tom="aviso" title="Confira o valor (lápis na coluna Convite) antes de enviar">Revisar valor</Etiqueta>
+                    )}
                     {l.irmaos.length > 0 && <Etiqueta tom="neutro" title={`Irmão(s): ${l.irmaos.join(', ')}`}>Irmão: {l.irmaos.map((n) => n.split(' ')[0]).join(', ')}</Etiqueta>}
+                    {l.convite?.descontoIrmao && <Etiqueta tom="sucesso">Desconto de irmão</Etiqueta>}
                   </div>
                 </td>
+                <td className="px-3 py-2.5 align-top"><CelulaConvite l={l} onAcao={onAcao} /></td>
               </tr>
             ))}
             {!visiveis.length && (
-              <tr><td colSpan={5} className="px-4 py-10 text-center text-content-muted">Nenhum aluno neste filtro.</td></tr>
+              <tr><td colSpan={6} className="px-4 py-10 text-center text-content-muted">Nenhum aluno neste filtro.</td></tr>
             )}
           </tbody>
         </table>

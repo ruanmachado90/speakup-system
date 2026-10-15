@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { SlidersHorizontal } from 'lucide-react';
 import { ModalShell } from '../students/MatriculaModals';
 import { validarCampanha } from '../../utils/renovacaoPainel';
+import { MENSAGEM_PADRAO } from '../../utils/renovacaoEnvio';
 
 const FORMAS = ['PIX', 'Boleto', 'Dinheiro', 'Cartão de crédito'];
 const DIAS = [5, 10, 15, 20, 25];
@@ -46,6 +47,12 @@ export default function ConfigCampanhaModal({ campanha, onSalvar, onClose }) {
       <form onSubmit={enviar} className="p-5 space-y-4" noValidate>
         <div className="space-y-3">
           <p className={tituloCls}>Período da campanha</p>
+          <label className="block"><span className={labelCls}>Situação</span>
+            <select className={inputCls} value={c.status} onChange={(e) => set({ status: e.target.value })}>
+              <option value="rascunho">Em preparação (nada pode ser enviado)</option>
+              <option value="aberta">Aberta (links podem ser enviados)</option>
+              <option value="encerrada">Encerrada</option>
+            </select></label>
           <div className="grid grid-cols-2 gap-3">
             <label className="block"><span className={labelCls}>Abertura</span>
               <input type="date" className={inputCls} value={c.abertura || ''} onChange={(e) => set({ abertura: e.target.value || null })} /></label>
@@ -125,6 +132,15 @@ export default function ConfigCampanhaModal({ campanha, onSalvar, onClose }) {
           </div>
           <label className="block"><span className={labelCls}>Cursos (separados por vírgula)</span>
             <input type="text" className={inputCls} value={(c.cursosRevisaoManual || []).join(', ')} onChange={(e) => set({ cursosRevisaoManual: e.target.value.split(',').map((s) => s.trim()).filter(Boolean) })} /></label>
+        </div>
+
+        <div className={secaoCls}>
+          <p className={tituloCls}>Mensagem do WhatsApp</p>
+          <p className="text-su-xs text-content-muted">
+            Campos trocados no envio: {'{responsavel}'} (primeiro nome), {'{alunos}'}, {'{ano}'}, {'{prazo}'} (encerramento) e {'{links}'} (obrigatório).
+          </p>
+          <textarea rows={8} className={`${inputCls} font-mono text-su-xs`} aria-label="Mensagem do WhatsApp"
+            value={c.mensagemWhatsApp ?? MENSAGEM_PADRAO} onChange={(e) => set({ mensagemWhatsApp: e.target.value })} />
         </div>
 
         {erros.length > 0 && (

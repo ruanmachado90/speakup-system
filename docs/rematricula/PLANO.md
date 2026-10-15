@@ -82,7 +82,7 @@ Todas as coleções novas ficam em `artifacts/speakup-manager/public/data/` (hel
   ],
   // Nenhum desconto acumula (decisão do Ruan): vale UM só por renovação (seção 5.2).
   descontoRenovacaoNoPrazo: {
-    pct: 5, planos: ['12x'],
+    pct: 3.5, planos: ['12x'],
     respostaAte: '2026-12-15',          // renovar dentro da campanha
     primeiraParcelaPagaAte: '2027-01-10' // e pagar a 1ª mensalidade até 10/01; senão, valor cheio no ano
   },
@@ -202,7 +202,7 @@ Qual desconto vale (nunca mais de um):
 
 | Plano | Descontos possíveis | Vale |
 |---|---|---|
-| 12 parcelas | renovação no prazo (5%), irmão (10%, se marcado) | o maior dos que se aplicam |
+| 12 parcelas | renovação no prazo (3,5%), irmão (10%, se marcado) | o maior dos que se aplicam |
 | Semestralidade | do plano (5%), irmão (10%, se marcado) | o maior |
 | À vista | do plano (10%), irmão (10%, se marcado) | o maior (10%) |
 
@@ -322,6 +322,12 @@ Calendário: etapas 0 a 5 até o início de novembro, para abrir a campanha no m
 - Correção da regra `students` com leitura pública (tarefa de segurança separada; a página de contrato atual depende dela).
 - Gráficos por professor e evolução diária (podem entrar depois que a campanha estiver rodando).
 
+### Lista para o próximo ano (pedido do Ruan, 15/10/2026)
+
+1. **Padronizar os nomes dos cursos**: uma lista fechada e bem definida (hoje o mesmo curso aparece escrito de vários jeitos, como "VIP-ADULTO", "VIP -  Adulto", "VIP - Adulto", e 12 alunos estão sem curso). Inclui migrar os cadastros atuais para os nomes novos.
+2. **Tabela de preços fixos por curso**: a mensalidade passa a vir do curso (não digitada aluno a aluno), e os descontos (plano, renovação, irmão) são aplicados sobre ela. Casos especiais (VIP por hora, In Company) continuam com valor próprio.
+3. Com os dois itens acima, a próxima renovação calcula tudo direto pela tabela, sem a etapa de "revisar valor".
+
 ---
 
 ## 11. Decisões
@@ -331,7 +337,7 @@ Calendário: etapas 0 a 5 até o início de novembro, para abrir a campanha no m
 | # | Assunto | Decisão |
 |---|---|---|
 | 1 | Arredondamento | Centavos |
-| 2 | Renovação no prazo | 5% de desconto nas mensalidades (12x): renovar até o **fim da campanha** **e pagar a 1ª mensalidade até 10/01/2027**; quem pagar depois fica com o valor cheio no ano |
+| 2 | Renovação no prazo | 3,5% de desconto nas mensalidades (12x) — metade do reajuste (alterado em 15/10): renovar até o **fim da campanha** **e pagar a 1ª mensalidade até 10/01/2027**; quem pagar depois fica com o valor cheio no ano |
 | 3 | Planos | 12x (valor cheio), semestralidade com 5% (**2 pagamentos: janeiro e julho**), à vista com 10% |
 | 4 | Pagamento | PIX, Boleto e Dinheiro; vencimento nos dias 5, 10 e 15 |
 | 5 | Quem renova | Kids e Teens renovam; adultos em geral não (contrato renovado de outra forma). A secretaria **seleciona** os alunos e envia pelo WhatsApp ou copiando o link |

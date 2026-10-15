@@ -37,8 +37,8 @@ describe('desconto: vale um só, o maior', () => {
   const noPrazo = brt('2026-12-10T15:00:00Z');
   const foraDoPrazo = brt('2026-12-20T15:00:00Z');
 
-  it('12x: renovação no prazo dá 5%; fora do prazo, nenhum', () => {
-    expect(descontoAplicavel({ campanha, planoId: '12x', respondidaEm: noPrazo })).toMatchObject({ id: 'renovacao_no_prazo', pct: 5 });
+  it('12x: renovação no prazo dá 3,5%; fora do prazo, nenhum', () => {
+    expect(descontoAplicavel({ campanha, planoId: '12x', respondidaEm: noPrazo })).toMatchObject({ id: 'renovacao_no_prazo', pct: 3.5 });
     expect(descontoAplicavel({ campanha, planoId: '12x', respondidaEm: foraDoPrazo })).toBeNull();
     expect(descontoAplicavel({ campanha, planoId: '12x' })).toBeNull();
   });
@@ -57,7 +57,7 @@ describe('desconto: vale um só, o maior', () => {
     expect(descontoAplicavel({ campanha, planoId: 'avista', respondidaEm: noPrazo })).toMatchObject({ id: 'plano', pct: 10 });
   });
 
-  it('irmão (10%) ganha dos 5%, mas nunca soma', () => {
+  it('irmão (10%) ganha dos 3,5%, mas nunca soma', () => {
     expect(descontoAplicavel({ campanha, planoId: '12x', respondidaEm: noPrazo, irmao: true })).toMatchObject({ id: 'irmao', pct: 10 });
     expect(descontoAplicavel({ campanha, planoId: 'semestral', irmao: true })).toMatchObject({ id: 'irmao', pct: 10 });
     // à vista: empate em 10% fica com o do próprio plano
@@ -87,10 +87,10 @@ describe('valores dos planos (mensalidade de R$ 189 → R$ 202,23)', () => {
       .toMatchObject({ pagamentos: 12, valorPagamento: 20223, total: 242676, desconto: null });
   });
 
-  it('12x com 5%: 12 parcelas iguais de R$ 192,12', () => {
-    const r = calcularPlano({ mensalidadeCentavos: m, plano: plano('12x'), desconto: { id: 'renovacao_no_prazo', pct: 5 } });
-    expect(r).toMatchObject({ valorPagamento: 19212, total: 230544 });
-    expect(r.desconto.valor).toBe(242676 - 230544);
+  it('12x com 3,5%: 12 parcelas iguais de R$ 195,15', () => {
+    const r = calcularPlano({ mensalidadeCentavos: m, plano: plano('12x'), desconto: { id: 'renovacao_no_prazo', pct: 3.5 } });
+    expect(r).toMatchObject({ valorPagamento: 19515, total: 234180 });
+    expect(r.desconto.valor).toBe(242676 - 234180);
   });
 
   it('semestralidade com 5%: 2 × R$ 1.152,71', () => {
@@ -110,7 +110,7 @@ describe('valores dos planos (mensalidade de R$ 189 → R$ 202,23)', () => {
   it('opções da página: reajuste aplicado e economia em relação ao 12x cheio', () => {
     const { mensalidade, opcoes } = opcoesDePlano({ campanha, mensalidadeBaseCentavos: 18900, respondidaEm: brt('2026-12-01T12:00:00Z') });
     expect(mensalidade).toBe(20223);
-    expect(opcoes.map((o) => [o.planoId, o.total])).toEqual([['12x', 230544], ['semestral', 230542], ['avista', 218408]]);
+    expect(opcoes.map((o) => [o.planoId, o.total])).toEqual([['12x', 234180], ['semestral', 230542], ['avista', 218408]]);
     expect(opcoes.find((o) => o.planoId === 'avista').economia).toBe(242676 - 218408);
   });
 });
@@ -135,7 +135,7 @@ describe('datas dos pagamentos em 2027', () => {
 });
 
 describe('parcelas da renovação', () => {
-  const valores = calcularPlano({ mensalidadeCentavos: 20223, plano: planoDaCampanha(campanha, '12x'), desconto: { id: 'renovacao_no_prazo', pct: 5 } });
+  const valores = calcularPlano({ mensalidadeCentavos: 20223, plano: planoDaCampanha(campanha, '12x'), desconto: { id: 'renovacao_no_prazo', pct: 3.5 } });
   const datas = datasDosPagamentos({ ano: 2027, meses: planoDaCampanha(campanha, '12x').meses, dia: 10 });
   const parcelas = montarParcelasRenovacao({
     studentId: 'al-1', studentName: 'Aluno', course: 'TEENS', professorId: 'p1', valores, datas, renovacaoId: 'cod123', anoLetivo: 2027,
@@ -146,9 +146,9 @@ describe('parcelas da renovação', () => {
     expect(Object.keys(parcelas[0]).sort()).toEqual([...Object.keys(matricula), 'anoLetivo', 'origem', 'renovacaoId'].sort());
   });
 
-  it('12 parcelas de R$ 192,12, numeradas, em aberto, com vencimento de 2027', () => {
+  it('12 parcelas de R$ 195,15, numeradas, em aberto, com vencimento de 2027', () => {
     expect(parcelas).toHaveLength(12);
-    expect(parcelas.every((p) => p.valuePlanned === 192.12 && p.status === 'Pendente' && p.valuePaid === 0)).toBe(true);
+    expect(parcelas.every((p) => p.valuePlanned === 195.15 && p.status === 'Pendente' && p.valuePaid === 0)).toBe(true);
     expect(parcelas.map((p) => p.installmentNum)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]);
     expect(parcelas[0]).toMatchObject({ dueDate: '2027-01-10T00:00:00', month: 1, year: 2027, origem: 'renovacao', anoLetivo: 2027 });
   });

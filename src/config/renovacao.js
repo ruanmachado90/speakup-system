@@ -17,7 +17,7 @@ export const CAMPANHA_PADRAO_2027 = {
   ],
   // Nenhum desconto acumula: vale o maior que se aplica ao plano.
   descontoRenovacaoNoPrazo: {
-    pct: 5,
+    pct: 3.5,                                // metade do reajuste (decisão de 15/10/2026)
     planos: ['12x'],
     respostaAte: null,                       // = encerramento da campanha
     primeiraParcelaPagaAte: '2027-01-10',    // senão, valor cheio no ano (etapa 7b)

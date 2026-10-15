@@ -3,7 +3,7 @@ import { CheckCircle, RotateCcw, X, Loader2 } from 'lucide-react';
 import { CursoBookSelect, TeacherSelect, ContratoFinanceiroFields, AvisoCpfExistente } from './MatriculaFields';
 import { lerCamposMatricula, validarContrato, proximaDataParaDia, MOTIVOS_CANCELAMENTO } from '../../utils/matricula';
 
-function ModalShell({ icon, iconBg, title, subtitle, onClose, children }) {
+export function ModalShell({ icon, iconBg, title, subtitle, onClose, children }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4" role="dialog" aria-modal="true">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xl max-h-[90vh] overflow-y-auto">

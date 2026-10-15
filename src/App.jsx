@@ -7,8 +7,9 @@ import { auth, db } from './firebase';
 import { collection, query, where, onSnapshot, doc, getDoc, updateDoc } from 'firebase/firestore';
 import { APP_ID } from './utils/constants';
 import { formatDate } from './utils/formatters';
+import { TITULOS_ADMIN } from './utils/rotasAdmin';
 import { AuthProvider, useAuthContext } from './context/AuthContext';
-import { Users, LayoutDashboard, FileText, PieChart, PlusCircle, Calendar, ClipboardCheck, UserPlus, Menu, Sparkles, MessageSquare, BookOpen, SlidersHorizontal, Award } from 'lucide-react';
+import { Users, LayoutDashboard, FileText, PieChart, PlusCircle, Calendar, ClipboardCheck, UserPlus, Menu, Sparkles, MessageSquare, BookOpen, SlidersHorizontal, Award, RefreshCw } from 'lucide-react';
 import EmitirCertificadoModal from './components/students/EmitirCertificadoModal';
 
 import {
@@ -60,6 +61,7 @@ const PaymentLink = lazy(() => import('./pages/PaymentLink'));
 const Agenda = lazy(() => import('./pages/Agenda'));
 const Turmas = lazy(() => import('./pages/Turmas'));
 const ParametrosPage = lazy(() => import('./pages/ParametrosPage'));
+const Renovacao = lazy(() => import('./pages/Renovacao'));
 const ProfessorDashboard = lazy(() => import('./pages/ProfessorDashboard'));
 const Notas = lazy(() => import('./pages/Notas'));
 const LoginPage = lazy(() => import('./pages/LoginPage'));
@@ -200,6 +202,7 @@ function AppContent() {
 
           {/* PEDAGÓGICO */}
           <Nav collapsed={sidebarMode === 'mini'} icon={<Users size={16} />} label="Alunos" active={page==="students"} onClick={()=>setPage("students")} />
+          <Nav collapsed={sidebarMode === 'mini'} icon={<RefreshCw size={16} />} label="Renovação 2027" active={page==="renovacao"} onClick={()=>setPage("renovacao")} />
           <Nav collapsed={sidebarMode === 'mini'} icon={<Users size={16} />} label="Turmas" active={page==="turmas"} onClick={()=>setPage("turmas")} />
           {role === 'admin' && (
             <Nav collapsed={sidebarMode === 'mini'} icon={<BookOpen size={16} />} label="Aulas" active={page==="aulas"} onClick={()=>setPage("aulas")} />
@@ -318,25 +321,12 @@ function AppContent() {
               <Menu size={20} />
             </button>
             <h1 className="font-semibold text-slate-800 text-base">
-              {page === "dashboard" && "Painel de controle"}
-              {page === "students" && "Gestão de alunos"}
-              {page === "leads" && "Leads"}
-              {page === "finance" && "Financeiro"}
-              {page === "expenses" && "Despesas"}
-              {page === "ia" && "IA Gerencial"}
-              {page === "calendar" && "Calendário"}
-              {page === "turmas" && "Turmas"}
-              {page === "agenda" && "Agenda"}
-              {page === "vendas" && "Vendas"}
-              {page === "recados" && "Recados"}
-              {page === "professores" && "Professores"}
-              {page === "config" && "Parâmetros de negócio"}
-              {page === "aulas" && "Registro de Aulas"}
+              {TITULOS_ADMIN[page]}
             </h1>
           </div>
 
           <div className="flex gap-2 items-center">
-            {page !== "dashboard" && (
+            {page !== "dashboard" && page !== "renovacao" && (
               <button
                 onClick={() => setModal({ open: true, type: page === 'expenses' ? 'expense' : 'student' })}
                 className="bg-accent text-white px-4 py-2 rounded-full font-semibold text-sm flex gap-2 items-center hover:bg-accent-hover transition-colors"
@@ -435,6 +425,7 @@ function AppContent() {
             {page === "recados" && <Recados />}
             {page === "professores" && role === 'admin' && <ProfessoresAdmin />}
             {page === "config" && role === 'admin' && <ParametrosPage />}
+            {page === "renovacao" && (role === 'admin' || role === 'secretaria') && <Renovacao />}
             {page === "aulas" && role === 'admin' && <AulasAdmin />}
           </Suspense>
         </div>

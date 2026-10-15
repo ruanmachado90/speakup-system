@@ -17,6 +17,26 @@ export const ROTAS_ADMIN = {
   config: '/parametros',
   recados: '/recados',
   ia: '/ia',
+  renovacao: '/renovacao',
+};
+
+/** Título de cada página no topo do painel (antes uma lista de condicionais no App.jsx). */
+export const TITULOS_ADMIN = {
+  dashboard: 'Painel de controle',
+  students: 'Gestão de alunos',
+  leads: 'Leads',
+  finance: 'Financeiro',
+  expenses: 'Despesas',
+  ia: 'IA Gerencial',
+  calendar: 'Calendário',
+  turmas: 'Turmas',
+  agenda: 'Agenda',
+  vendas: 'Vendas',
+  recados: 'Recados',
+  professores: 'Professores',
+  config: 'Parâmetros de negócio',
+  aulas: 'Registro de Aulas',
+  renovacao: 'Renovação de matrícula',
 };
 
 // Páginas com sub-rota: /agenda/:professorId abre a página do professor.

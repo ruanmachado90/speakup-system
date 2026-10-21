@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { collection, getDocs } from 'firebase/firestore';
-import { Settings2, Info, Download } from 'lucide-react';
+import { Settings2, Info, Download, LayoutList, BookOpen } from 'lucide-react';
 import { db } from '../firebase';
 import { KPI } from '../components';
 import { useData } from '../context/DataContext';
@@ -13,9 +13,15 @@ import { CAMPANHA_PADRAO_2027 } from '../config/renovacao';
 import TabelaRenovacao from '../components/renovacao/TabelaRenovacao';
 import ConfigCampanhaModal from '../components/renovacao/ConfigCampanhaModal';
 import { useAcoesRenovacao } from '../components/renovacao/useAcoesRenovacao';
+import ComoFunciona from '../components/renovacao/ComoFunciona';
 
 const ANO = CAMPANHA_PADRAO_2027.anoLetivo;
 const CHAVE_SELECAO = `renovacao-selecao-${ANO}`;
+const CHAVE_ABA = 'renovacao-aba';
+const ABAS = [
+  { id: 'painel', rotulo: 'Painel', icone: <LayoutList size={16} aria-hidden="true" /> },
+  { id: 'como-funciona', rotulo: 'Como funciona', icone: <BookOpen size={16} aria-hidden="true" /> },
+];
 const dataBR = (iso) => (iso ? iso.split('-').reverse().join('/') : null);
 const brl = (c) => (c / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
@@ -29,6 +35,10 @@ function lerSelecao() {
   try { return new Set(JSON.parse(localStorage.getItem(CHAVE_SELECAO) || '[]')); } catch { return new Set(); }
 }
 
+function lerAba() {
+  try { const a = localStorage.getItem(CHAVE_ABA); return ABAS.some((x) => x.id === a) ? a : 'painel'; } catch { return 'painel'; }
+}
+
 /**
  * Renovação de matrícula (etapas 2 e 3 do docs/rematricula/PLANO.md):
  * configuração da campanha, lista dos alunos com os valores, convites e envio.
@@ -36,9 +46,10 @@ function lerSelecao() {
 export default function Renovacao() {
   const { students = [], payments = [], dataLoading } = useData();
   const { role, user } = useAuthContext();
-  const { campanha, carregando, erro, criar, salvar } = useCampanhaRenovacao(ANO);
+  const { campanha, carregando, erro, criar, salvar, marcarItemGuia } = useCampanhaRenovacao(ANO);
   const [turmas, setTurmas] = useState([]);
   const [selecionados, setSelecionados] = useState(lerSelecao);
+  const [aba, setAba] = useState(lerAba);
   const [configurando, setConfigurando] = useState(false);
   const [criando, setCriando] = useState(false);
   const ehAdmin = role === 'admin';
@@ -55,6 +66,10 @@ export default function Renovacao() {
   useEffect(() => {
     try { localStorage.setItem(CHAVE_SELECAO, JSON.stringify([...selecionados])); } catch { /* sem armazenamento */ }
   }, [selecionados]);
+
+  useEffect(() => {
+    try { localStorage.setItem(CHAVE_ABA, aba); } catch { /* sem armazenamento */ }
+  }, [aba]);
 
   const renovacoes = useRenovacoes(ANO);
   const linhas = useMemo(() => {
@@ -136,12 +151,34 @@ export default function Renovacao() {
         </div>
       </div>
 
+      <div role="tablist" aria-label="Seções da renovação" className="flex gap-1 border-b border-subtle overflow-x-auto">
+        {ABAS.map(({ id, rotulo, icone }) => (
+          <button key={id} type="button" role="tab" id={`aba-${id}`} aria-selected={aba === id} aria-controls={`painel-${id}`}
+            onClick={() => setAba(id)}
+            className={`-mb-px flex items-center gap-2 whitespace-nowrap border-b-2 px-4 py-2.5 text-su-sm font-semibold transition-colors focus:outline-none focus-visible:shadow-ring-accent ${
+              aba === id ? 'border-accent text-accent' : 'border-transparent text-content-muted hover:text-content-body'
+            }`}>
+            {icone} {rotulo}
+          </button>
+        ))}
+      </div>
+
+      {aba === 'como-funciona' && (
+        <div role="tabpanel" id="painel-como-funciona" aria-labelledby="aba-como-funciona">
+          <ComoFunciona campanha={campanha} onMarcarItem={marcarItemGuia} quem={quem} />
+        </div>
+      )}
+
+      {aba === 'painel' && (
+      <div role="tabpanel" id="painel-painel" aria-labelledby="aba-painel" className="space-y-5">
       <div className="flex items-start gap-3 rounded-su-md border border-blue-200 bg-blue-50 p-3 text-su-sm text-blue-900">
         <Info size={18} className="flex-shrink-0 mt-0.5" aria-hidden="true" />
         <p>
           Selecione os alunos e gere os convites; gerar não envia nada. Confira os marcados com "Revisar valor"
           (lápis na coluna Convite) e envie pelo WhatsApp quando a campanha estiver aberta.
           {!acoes.aberta && ' A campanha ainda está em preparação, então o envio fica bloqueado.'}
+          {' '}Passo a passo completo na aba{' '}
+          <button type="button" onClick={() => setAba('como-funciona')} className="font-semibold underline underline-offset-2">Como funciona</button>.
         </p>
       </div>
 
@@ -158,6 +195,8 @@ export default function Renovacao() {
 
       <TabelaRenovacao linhas={linhas} selecionados={selecaoValida} setSelecionados={setSelecionados} anoLetivo={ANO}
         acoesSelecao={acoes.barra} onAcao={acoes.onAcao} />
+      </div>
+      )}
 
       {configurando && (
         <ConfigCampanhaModal campanha={campanha} onSalvar={(dados) => salvar(dados, quem)} onClose={() => setConfigurando(false)} />

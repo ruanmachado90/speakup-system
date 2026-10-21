@@ -33,10 +33,23 @@ export function useCampanhaRenovacao(ano = CAMPANHA_PADRAO_2027.anoLetivo) {
   const salvar = useCallback(async (dados, por) => {
     const erros = validarCampanha(dados);
     if (erros.length) return { ok: false, erros };
-    const { id, criadoEm, criadoPor, ...resto } = dados; // eslint-disable-line no-unused-vars
+    // `guia` (checklist da aba "Como funciona") não passa pela configuração:
+    // a cópia do modal pode estar velha e apagaria marcações feitas enquanto isso.
+    const { id, criadoEm, criadoPor, guia, ...resto } = dados; // eslint-disable-line no-unused-vars
     await updateDoc(refCampanha(ano), { ...resto, atualizadoEm: Date.now(), atualizadoPor: por || null });
     return { ok: true, erros: [] };
   }, [ano]);
 
-  return { campanha, carregando: campanha === undefined, erro, criar, salvar };
+  /**
+   * Marca/desmarca um item do checklist da preparação (`guia.checklist.{id}`).
+   * Grava só o item: duas pessoas marcando ao mesmo tempo não se atrapalham.
+   * Admin e secretaria gravam (regra geral de artifacts/.../data); se a
+   * campanha ganhar regra própria "só admin", liberar este campo à secretaria.
+   */
+  const marcarItemGuia = useCallback(
+    (itemId, feito, por) => updateDoc(refCampanha(ano), { [`guia.checklist.${itemId}`]: { feito, por: por || null, em: Date.now() } }),
+    [ano]
+  );
+
+  return { campanha, carregando: campanha === undefined, erro, criar, salvar, marcarItemGuia };
 }

@@ -12,7 +12,7 @@ const chipCls = (ativo) => `px-3 py-1.5 rounded-full text-su-xs font-semibold bo
 }`;
 const btnCls = 'px-3 py-1.5 rounded-su-sm border border-strong bg-surface-card text-su-xs font-semibold text-content-body hover:bg-gr-50 disabled:opacity-50 focus:outline-none focus-visible:shadow-ring-accent';
 
-function Etiqueta({ tom, children, title }) {
+export function Etiqueta({ tom, children, title }) {
   const tons = {
     alerta: 'bg-orange-50 text-orange-800 border-orange-200',
     aviso: 'bg-amber-50 text-amber-900 border-amber-200',

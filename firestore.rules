@@ -179,6 +179,31 @@ service cloud.firestore {
       allow read, update, delete: if isAdminOrSecretaria();
     }
 
+    // ── Leads do site (questionário da landing de Adultos) ────────────────
+    // O visitante do speakupcataguases.com/adultos responde o questionário,
+    // informa nome e celular e o lead entra aqui como "novo", direto na tela
+    // Leads. Sem login: por isso só `create`, com campos fixos e tamanhos
+    // limitados. Leitura e edição continuam pelo catch-all de admin/secretaria.
+    match /artifacts/{appId}/public/data/leads/{docId} {
+      allow create: if request.auth == null
+        && request.resource.data.keys().hasOnly(['name', 'contact', 'interest', 'level', 'status', 'notes', 'createdAt', 'source', 'consentimentoLGPD', 'objetivo', 'formato', 'agenda', 'planoIndicado'])
+        && request.resource.data.name is string
+        && request.resource.data.name.size() >= 3 && request.resource.data.name.size() <= 120
+        && request.resource.data.contact is string
+        && request.resource.data.contact.size() >= 10 && request.resource.data.contact.size() <= 20
+        && request.resource.data.interest == 'Adultos'
+        && request.resource.data.level in ['Iniciante', 'Básico', 'Intermediário', 'Avançado']
+        && request.resource.data.status == 'novo'
+        && request.resource.data.source == 'site-adultos'
+        && request.resource.data.consentimentoLGPD == true
+        && request.resource.data.notes is string && request.resource.data.notes.size() <= 600
+        && request.resource.data.createdAt is int
+        && request.resource.data.objetivo is string && request.resource.data.objetivo.size() <= 60
+        && request.resource.data.formato is string && request.resource.data.formato.size() <= 60
+        && request.resource.data.agenda is string && request.resource.data.agenda.size() <= 60
+        && request.resource.data.planoIndicado is string && request.resource.data.planoIndicado.size() <= 60;
+    }
+
     // ── Certificados (verificação pública) ────────────────────────────────
     // Quem tem o código (do PDF/QR) consulta um certificado por `get`; a
     // coleção não pode ser listada por ninguém sem login (o código é aleatório,

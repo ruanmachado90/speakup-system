@@ -50,7 +50,11 @@ export function RequireProfessorAuth({ children }) {
 
   if (loading) return <PageLoader />;
   if (!user || !['professor', 'admin', 'secretaria'].includes(role)) {
-    if (professorSlug) localStorage.setItem('pendingProfessorSlug', professorSlug);
+    if (professorSlug) {
+      localStorage.setItem('pendingProfessorSlug', professorSlug);
+      // Guarda também o ?chamada= do link vindo do LMS, pra sobreviver ao login.
+      localStorage.setItem('pendingProfessorSearch', window.location.search);
+    }
     return <Navigate to="/professor-login" replace />;
   }
   return children;

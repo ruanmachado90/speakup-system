@@ -50,6 +50,7 @@ import {
   diasDaTurma, compararHorario, compararDiasTurma, ordemDia, datasPendentes, contarAlunos, totalAlunosUnicos,
 } from '../utils/professorDashboard';
 import { useHojeISO } from '../hooks/useHojeISO';
+import { useAbrirChamadaPeloLink } from '../hooks/useAbrirChamadaPeloLink';
 
 // Biblioteca Resources só carrega quando o professor abre a aba
 const ResourcesView = React.lazy(() => import('../components/professor/resources/ResourcesView'));
@@ -91,6 +92,7 @@ export default function ProfessorDashboard() {
   const [selectedDate, setSelectedDate] = useState(null);
   const [showRegistroAula, setShowRegistroAula] = useState(false);
   const abrirRegistroPendente = (aviso) => { setSelectedTurma(aviso.turmaObj); setSelectedDate(aviso.dataPendente || null); setShowRegistroAula(true); };
+  useAbrirChamadaPeloLink(turmas, loading, (turma) => abrirRegistroPendente({ turmaObj: turma }));
   const [semanaOffset, setSemanaOffset] = useState(0); // 0 = semana atual, -1 = semana passada, etc.
   const [historicoTurmaFiltro, setHistoricoTurmaFiltro] = useState(null);
   const [showFAB, setShowFAB] = useState(false);

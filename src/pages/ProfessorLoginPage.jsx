@@ -23,8 +23,10 @@ export default function ProfessorLoginPage() {
     if (!user || role !== 'professor') return;
     const pending = localStorage.getItem('pendingProfessorSlug');
     if (pending) {
+      const search = localStorage.getItem('pendingProfessorSearch') || '';
       localStorage.removeItem('pendingProfessorSlug');
-      navigate(`/professor/${pending}`, { replace: true });
+      localStorage.removeItem('pendingProfessorSearch');
+      navigate(`/professor/${pending}${search}`, { replace: true });
     }
   }, [user, role, navigate]);
 
@@ -39,7 +41,12 @@ export default function ProfessorLoginPage() {
       const snap = await getDoc(doc(db, 'users', result.user.uid));
       const slug = snap.exists() ? snap.data().slug : null;
       if (slug) {
-        navigate(`/professor/${slug}`, { replace: true });
+        // ?chamada= de um link do LMS que pediu login antes (RequireProfessorAuth)
+        const search = localStorage.getItem('pendingProfessorSlug') === slug
+          ? localStorage.getItem('pendingProfessorSearch') || '' : '';
+        localStorage.removeItem('pendingProfessorSlug');
+        localStorage.removeItem('pendingProfessorSearch');
+        navigate(`/professor/${slug}${search}`, { replace: true });
       } else {
         setError('Sua conta entrou, mas não está configurada corretamente (falta o link do painel). Contate a administração.');
       }

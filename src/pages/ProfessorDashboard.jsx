@@ -92,7 +92,7 @@ export default function ProfessorDashboard() {
   const [selectedDate, setSelectedDate] = useState(null);
   const [showRegistroAula, setShowRegistroAula] = useState(false);
   const abrirRegistroPendente = (aviso) => { setSelectedTurma(aviso.turmaObj); setSelectedDate(aviso.dataPendente || null); setShowRegistroAula(true); };
-  useAbrirChamadaPeloLink(turmas, loading, (turma) => abrirRegistroPendente({ turmaObj: turma }));
+  useAbrirChamadaPeloLink(turmas, loading, (turma) => abrirRegistroPendente({ turmaObj: turma }), showRegistroAula);
   const [semanaOffset, setSemanaOffset] = useState(0); // 0 = semana atual, -1 = semana passada, etc.
   const [historicoTurmaFiltro, setHistoricoTurmaFiltro] = useState(null);
   const [showFAB, setShowFAB] = useState(false);
@@ -1605,7 +1605,7 @@ export default function ProfessorDashboard() {
 
       {/* Modal de Registro de Aula */}
       {showRegistroAula && selectedTurma && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div data-modal="registro-aula" className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl max-w-3xl w-full max-h-[90vh] overflow-hidden shadow-2xl">
             <ChamadaForm
               turma={selectedTurma}

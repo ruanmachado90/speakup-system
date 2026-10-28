@@ -66,9 +66,11 @@
 /* Chamada embutida no LMS (iframe, ?embed=1 — ver useAbrirChamadaPeloLink):
    só o modal de registro de aula aparece; o painel por trás some e o fundo
    escurecido sai, porque o LMS já desenha a própria janela em volta. */
+/* Os seletores do modal repetem o #root: senão "#root *" (tem id) vence
+   e o modal fica invisível junto com o painel. */
 html.embed-chamada body { background: #fff; }
 html.embed-chamada #root * { visibility: hidden; }
-html.embed-chamada [data-modal="registro-aula"],
-html.embed-chamada [data-modal="registro-aula"] * { visibility: visible; }
-html.embed-chamada [data-modal="registro-aula"] { background: #fff; padding: 0; align-items: stretch; }
-html.embed-chamada [data-modal="registro-aula"] > div { max-width: none; max-height: 100vh; border-radius: 0; box-shadow: none; }
+html.embed-chamada #root [data-modal="registro-aula"],
+html.embed-chamada #root [data-modal="registro-aula"] * { visibility: visible; }
+html.embed-chamada #root [data-modal="registro-aula"] { background: #fff; padding: 0; align-items: stretch; }
+html.embed-chamada #root [data-modal="registro-aula"] > div { max-width: none; max-height: 100vh; border-radius: 0; box-shadow: none; }

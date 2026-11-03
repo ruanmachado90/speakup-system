@@ -57,7 +57,7 @@ const ContratoAssinatura = lazy(() => import('./pages/ContratoAssinatura'));
 const Vendas = lazy(() => import('./pages/Vendas'));
 const Recibo = lazy(() => import('./pages/Recibo'));
 const PaymentLink = lazy(() => import('./pages/PaymentLink'));
-const AgendaGoogle = lazy(() => import('./pages/Agenda'));
+const Agenda = lazy(() => import('./pages/Agenda'));
 const Turmas = lazy(() => import('./pages/Turmas'));
 const ParametrosPage = lazy(() => import('./pages/ParametrosPage'));
 const ProfessorDashboard = lazy(() => import('./pages/ProfessorDashboard'));
@@ -427,7 +427,7 @@ function AppContent() {
 
             {page === "calendar" && <CalendarPage />}
 
-            {page === "agenda" && <AgendaGoogle />}
+            {page === "agenda" && (role === 'admin' || role === 'secretaria') && <Agenda students={students} />}
 
             {page === "turmas" && <Turmas students={students} />}
 

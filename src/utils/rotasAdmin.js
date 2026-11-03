@@ -19,8 +19,13 @@ export const ROTAS_ADMIN = {
   ia: '/ia',
 };
 
+// Páginas com sub-rota: /agenda/:professorId abre a página do professor.
+const COM_SUBROTA = ['agenda'];
+
 /** Página correspondente à URL; desconhecida cai no Dashboard. */
 export const paginaDaUrl = (pathname) => {
   const limpo = pathname.replace(/\/+$/, '') || '/';
-  return Object.keys(ROTAS_ADMIN).find((p) => ROTAS_ADMIN[p] === limpo) || 'dashboard';
+  return Object.keys(ROTAS_ADMIN).find((p) => ROTAS_ADMIN[p] === limpo)
+    || COM_SUBROTA.find((p) => limpo.startsWith(`${ROTAS_ADMIN[p]}/`))
+    || 'dashboard';
 };

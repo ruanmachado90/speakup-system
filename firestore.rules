@@ -88,6 +88,15 @@ service cloud.firestore {
       allow update, delete: if isAdminOrSecretaria() || isProfessorOwner(resource.data.professor, resource.data.get('professorKey', null));
     }
 
+    // ── Aulas avulsas (reposição, aula extra) ────────────────────────────
+    // Separadas de `aulas` para não contar no andamento da turma. Mesma
+    // regra de dono: o professor grava só no próprio nome.
+    match /aulasAvulsas/{docId} {
+      allow read: if isEquipe();
+      allow create: if isAdminOrSecretaria() || isProfessorOwner(request.resource.data.professor, request.resource.data.get('professorKey', null));
+      allow update, delete: if isAdminOrSecretaria() || isProfessorOwner(resource.data.professor, resource.data.get('professorKey', null));
+    }
+
     // ── Diário do professor (conteúdo + frequência + tarefas) ────────────
     match /diario/{docId} {
       allow read, write: if isEquipe();

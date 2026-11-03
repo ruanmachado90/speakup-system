@@ -19,6 +19,12 @@ describe('rotas do painel admin', () => {
     expect(paginaDaUrl('/alunos/')).toBe('students');
   });
 
+  it('página do professor fica dentro da Agenda', () => {
+    expect(paginaDaUrl('/agenda/abc123')).toBe('agenda');
+    expect(paginaDaUrl('/agendas')).toBe('dashboard');
+    expect(paginaDaUrl('/alunos/abc')).toBe('dashboard');
+  });
+
   it('URL desconhecida cai no Dashboard', () => {
     expect(paginaDaUrl('/qualquer-coisa')).toBe('dashboard');
   });

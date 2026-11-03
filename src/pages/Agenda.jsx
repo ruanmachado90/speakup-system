@@ -1,146 +1,152 @@
-import React, { useState } from "react";
-import { Card } from "../components";
-import { Calendar, ChevronDown } from "lucide-react";
+import { lazy, Suspense, useMemo, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { ChevronRight, CalendarDays } from 'lucide-react';
+import { useProfessores } from '../hooks/useProfessores';
+import { useCalendarioLetivo } from '../hooks/useCalendarioLetivo';
+import { useHojeISO } from '../hooks/useHojeISO';
+import { useAgendaSemana, useTurmasDaEscola, useAgoraMin } from '../hooks/useAgendaSemana';
+import {
+  inicioDaSemana, diasDaSemana, rotuloSemana, turmasDoProfessor, resumoDoProfessor, criarDiaNaoLetivo,
+  ocorrenciasDaSemana, placarDeRegistro, eventosDoProfessor, minutosParaHora, formatarHoras,
+} from '../utils/agendaProfessor';
+import ProfessorAgenda from './ProfessorAgenda';
+import AvatarProfessor from '../components/agenda/AvatarProfessor';
 
-const calendars = [
-  {
-    label: "Ruan Machado",
-    name: "Ruan",
-    src: "https://calendar.google.com/calendar/embed?src=ruan.speakup%40gmail.com&ctz=America%2FSao_Paulo",
-    color: "bg-blue-500"
-  },
-  {
-    label: "Bárbara Dias",
-    name: "Bárbara",
-    src: "https://calendar.google.com/calendar/embed?src=babudiassantos%40gmail.com&ctz=America%2FSao_Paulo",
-    color: "bg-purple-500"
-  },
-  {
-    label: "Fernando Machado",
-    name: "Fernando",
-    src: "https://calendar.google.com/calendar/embed?src=fernando.speakup%40gmail.com&ctz=America%2FSao_Paulo",
-    color: "bg-green-500"
-  },
-  {
-    label: "Vera Machado",
-    name: "Vera",
-    src: "https://calendar.google.com/calendar/embed?src=vera.speakup%40gmail.com&ctz=America%2FSao_Paulo",
-    color: "bg-pink-500"
-  },
-  {
-    label: "Bruna Amorim",
-    name: "Bruna",
-    src: "https://calendar.google.com/calendar/embed?src=bruna.speakup%40gmail.com&ctz=America%2FSao_Paulo",
-    color: "bg-orange-500"
+const GoogleAgendas = lazy(() => import('../components/agenda/GoogleAgendas'));
+
+
+function CartaoProfessor({ linha, onAbrir }) {
+  const { professor, resumo, placar, hoje, eventos } = linha;
+  const pct = placar.devidas ? Math.round((placar.registradas / placar.devidas) * 100) : 0;
+  return (
+    <button
+      type="button"
+      onClick={onAbrir}
+      className="group w-full text-left bg-surface-card rounded-su-md border border-subtle p-4 hover:border-strong hover:shadow-card transition-shadow duration-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+    >
+      <div className="flex items-center gap-3">
+        <AvatarProfessor nome={professor.nome} />
+        <div className="min-w-0 flex-1">
+          <p className="font-display font-bold text-su-base text-content-strong truncate">{professor.nome}</p>
+          <p className="text-su-xs text-content-muted tabular-nums">
+            {resumo.turmas} {resumo.turmas === 1 ? 'turma' : 'turmas'} · {resumo.alunos} alunos · {formatarHoras(resumo.horasSemana)}/semana
+          </p>
+        </div>
+        <ChevronRight size={18} className="text-content-faint group-hover:text-accent flex-shrink-0" />
+      </div>
+
+      <div className="mt-4">
+        <div className="flex items-baseline justify-between text-su-xs">
+          <span className="font-semibold text-content-body">Registro da semana</span>
+          <span className="tabular-nums text-content-muted">{placar.devidas ? `${placar.registradas} de ${placar.devidas}` : 'nenhuma aula dada ainda'}</span>
+        </div>
+        <div className="mt-1.5 h-1.5 rounded-pill bg-surface-sunken overflow-hidden" aria-hidden="true">
+          <div className={`h-full rounded-pill ${placar.pendentes ? 'bg-warning' : 'bg-success'}`} style={{ width: `${pct}%` }} />
+        </div>
+        <p className={`mt-1.5 text-su-xs ${placar.pendentes ? 'text-warning-fg font-semibold' : 'text-content-faint'}`}>
+          {placar.pendentes
+            ? `${placar.pendentes} ${placar.pendentes === 1 ? 'aula já passou sem registro' : 'aulas já passaram sem registro'}`
+            : placar.devidas ? 'Tudo registrado até agora' : ' '}
+        </p>
+      </div>
+
+      <div className="mt-3 pt-3 border-t border-subtle text-su-xs text-content-muted space-y-0.5">
+        <p>
+          <span className="font-semibold text-content-body">Hoje: </span>
+          {hoje.length === 0 ? 'sem aulas' : hoje.map((o) => minutosParaHora(o.inicio)).join(', ')}
+        </p>
+        {eventos > 0 && <p>{eventos} {eventos === 1 ? 'compromisso agendado' : 'compromissos agendados'} na semana</p>}
+      </div>
+    </button>
+  );
+}
+
+/**
+ * /agenda — visão da equipe (um cartão por professor com turmas, alunos,
+ * horas e o registro de aulas da semana). /agenda/:professorId abre a página
+ * do professor com a grade semanal.
+ */
+export default function Agenda({ students = [] }) {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const professorId = decodeURIComponent(location.pathname.replace(/\/+$/, '').split('/')[2] || '');
+
+  if (professorId) {
+    return <ProfessorAgenda professorId={professorId} students={students} onVoltar={() => navigate('/agenda')} />;
   }
-];
+  return <AgendaEquipe students={students} onAbrir={(id) => navigate(`/agenda/${id}`)} />;
+}
 
-export default function AgendaGoogle() {
-  const [selected, setSelected] = useState(calendars[0].label);
-  const [loading, setLoading] = useState(true);
-  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  
-  const calendar = calendars.find(c => c.label === selected);
+function AgendaEquipe({ students, onAbrir }) {
+  const { professores, loading } = useProfessores();
+  const { turmas, loading: carregandoTurmas } = useTurmasDaEscola(professores);
+  const hojeISO = useHojeISO();
+  const agoraMin = useAgoraMin();
+  const semana = inicioDaSemana(hojeISO);
+  const dias = useMemo(() => diasDaSemana(semana), [semana]);
+  const { aulas, eventos, loading: carregandoSemana } = useAgendaSemana(dias[0], dias[6]);
+  const { dados: calendarioAno } = useCalendarioLetivo(Number(semana.slice(0, 4)));
+  const [verGoogle, setVerGoogle] = useState(false);
 
-  const handleCalendarChange = (label) => {
-    setSelected(label);
-    setLoading(true);
-    setIsDropdownOpen(false);
-  };
+  const linhas = useMemo(() => {
+    const diaNaoLetivo = criarDiaNaoLetivo(calendarioAno, [...new Set(dias.map((d) => Number(d.slice(0, 4))))]);
+    return professores
+      .filter((p) => p.status !== 'inativo')
+      .map((professor) => {
+        const turmasProf = turmasDoProfessor(turmas, professor);
+        const ocorrencias = ocorrenciasDaSemana(turmasProf, dias, aulas, { diaNaoLetivo, hojeISO, agoraMin, carregando: carregandoSemana });
+        return {
+          professor,
+          resumo: resumoDoProfessor(turmasProf, students),
+          placar: placarDeRegistro(ocorrencias),
+          hoje: ocorrencias.filter((o) => o.iso === hojeISO && o.status !== 'nao-letivo' && o.status !== 'cancelada'),
+          eventos: eventosDoProfessor(eventos, professor).length,
+        };
+      });
+  }, [professores, turmas, dias, aulas, eventos, calendarioAno, hojeISO, agoraMin, students, carregandoSemana]);
+
+  const totais = linhas.reduce((t, l) => ({
+    horas: t.horas + l.resumo.horasSemana,
+    pendentes: t.pendentes + l.placar.pendentes,
+  }), { horas: 0, pendentes: 0 });
 
   return (
-    <div className="pb-6">
-      <Card className="p-4 sm:p-6">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-3">
-            <div className={`p-2 rounded-lg ${calendar.color} bg-opacity-10`}>
-              <Calendar className={`w-6 h-6 ${calendar.color.replace('bg-', 'text-')}`} />
-            </div>
-            <div>
-              <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Agenda dos professores</h2>
-              <p className="text-sm text-gray-500 hidden sm:block">Visualize e gerencie as agendas</p>
-            </div>
-          </div>
+    <div className="space-y-5 pb-8">
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h1 className="font-display font-extrabold text-su-h3 text-content-strong leading-su-tight">Agenda da equipe</h1>
+          <p className="mt-0.5 text-su-sm text-content-muted tabular-nums">
+            Semana de {rotuloSemana(semana)} · {formatarHoras(Math.round(totais.horas * 10) / 10)} de aula por semana
+            {totais.pendentes > 0 && <span className="text-warning-fg font-semibold"> · {totais.pendentes} {totais.pendentes === 1 ? 'aula sem registro' : 'aulas sem registro'}</span>}
+          </p>
         </div>
+        <button
+          type="button"
+          onClick={() => setVerGoogle((v) => !v)}
+          aria-expanded={verGoogle}
+          className="inline-flex items-center gap-1.5 px-3 py-2 rounded-su-sm border border-strong text-su-sm font-semibold text-content-body hover:bg-surface-sunken"
+        >
+          <CalendarDays size={16} /> {verGoogle ? 'Esconder agendas do Google' : 'Agendas do Google'}
+        </button>
+      </div>
 
-        {/* Desktop: Buttons - Mobile: Dropdown */}
-        <div className="mb-4 shrink-0">
-          {/* Desktop version */}
-          <div className="hidden md:flex gap-2 flex-wrap">
-            {calendars.map(c => (
-              <button
-                key={c.label}
-                onClick={() => handleCalendarChange(c.label)}
-                className={`
-                  relative px-4 py-2.5 rounded-lg font-medium transition-all duration-200
-                  flex items-center gap-2 group
-                  ${selected === c.label 
-                    ? `${c.color} text-white shadow-lg scale-105` 
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200 hover:scale-102'
-                  }
-                `}
-              >
-                <span className={`w-2 h-2 rounded-full ${selected === c.label ? 'bg-white' : c.color}`}></span>
-                {c.label}
-              </button>
-            ))}
-          </div>
-
-          {/* Mobile version - Dropdown */}
-          <div className="md:hidden relative">
-            <button
-              onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-              className={`w-full px-4 py-3 rounded-lg font-medium transition-all duration-200
-                flex items-center justify-between gap-2 ${calendar.color} text-white shadow-lg`}
-            >
-              <div className="flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-white"></span>
-                {calendar.label}
-              </div>
-              <ChevronDown className={`w-5 h-5 transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`} />
-            </button>
-            
-            {isDropdownOpen && (
-              <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-lg shadow-xl border border-gray-200 overflow-hidden z-10">
-                {calendars.map(c => (
-                  <button
-                    key={c.label}
-                    onClick={() => handleCalendarChange(c.label)}
-                    className={`
-                      w-full px-4 py-3 text-left transition-colors flex items-center gap-2
-                      ${selected === c.label ? 'bg-gray-100 font-medium' : 'hover:bg-gray-50'}
-                    `}
-                  >
-                    <span className={`w-2 h-2 rounded-full ${c.color}`}></span>
-                    {c.label}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
+      {loading || carregandoTurmas ? (
+        <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-3">
+          {[1, 2, 3].map((i) => <div key={i} className="h-44 rounded-su-md bg-surface-sunken animate-pulse" />)}
         </div>
-
-        {/* Calendar Container */}
-        <div className="relative bg-gray-50 rounded-lg border-2 border-gray-200 overflow-hidden" style={{ height: '800px' }}>
-          {loading && (
-            <div className="absolute inset-0 flex items-center justify-center bg-white bg-opacity-90 z-10">
-              <div className="text-center">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-3"></div>
-                <p className="text-gray-600 font-medium">Carregando agenda...</p>
-              </div>
-            </div>
-          )}
-          <iframe
-            key={calendar.label}
-            title={`Google Calendar de ${calendar.label}`}
-            src={calendar.src}
-            className="w-full h-full"
-            frameBorder="0"
-            onLoad={() => setLoading(false)}
-          />
+      ) : linhas.length === 0 ? (
+        <p className="py-12 text-center text-su-sm text-content-muted">Nenhum professor ativo no diretório (Professores → Diretório).</p>
+      ) : (
+        <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-3">
+          {linhas.map((l) => <CartaoProfessor key={l.professor.id} linha={l} onAbrir={() => onAbrir(l.professor.id)} />)}
         </div>
-      </Card>
+      )}
+
+      {verGoogle && (
+        <Suspense fallback={<div className="h-40 rounded-su-md bg-surface-sunken animate-pulse" />}>
+          <GoogleAgendas />
+        </Suspense>
+      )}
     </div>
   );
 }

@@ -19,6 +19,7 @@ import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { APP_ID } from '../../utils/constants';
 import { buscarAlunosPorIds } from '../../utils/buscarAlunos';
+import { horarioDaTurmaNoDia } from '../../utils/agendaProfessor';
 
 const STATUS_OPTIONS = [
   { key: 'presente', label: 'Presente', icon: CheckCircle, color: 'bg-emerald-500 text-white border-emerald-500' },
@@ -189,6 +190,9 @@ export default function ChamadaForm({ turma, alunosIniciais, professorNome, onSa
       professor: professorNome,
       data,
       horario: turma.horario || '',
+      // Início/fim daquele dia gravados na aula: o relatório mensal não muda
+      // quando o horário da turma muda depois (ver utils/agendaProfessor).
+      ...(horarioDaTurmaNoDia(turma, data) || {}),
       conteudo: tipoAula === 'realizada' ? conteudo : '',
       homework: tipoAula === 'realizada' ? homework : '',
       observacoes,

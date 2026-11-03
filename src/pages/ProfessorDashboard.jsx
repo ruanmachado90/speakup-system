@@ -37,6 +37,7 @@ import { dataLocalISO, isAulaRealizada, aulasRealizadas, frequenciaMediaTurma, f
 import { useAulas } from '../hooks/useAulas';
 import { Card, KPI } from '../components';
 import ChamadaForm from '../components/forms/ChamadaForm';
+import AulaAvulsaBotao from '../components/professor/AulaAvulsaBotao';
 import EditarChamadaModal from '../components/forms/EditarChamadaModal';
 import FrequenciaAlunoModal from '../components/FrequenciaAlunoModal';
 import HistoricoAulas from '../components/HistoricoAulas';
@@ -247,8 +248,6 @@ export default function ProfessorDashboard() {
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
-
-  // Professor já autenticado via email+senha pelo RequireProfessorAuth — auth anônimo não é mais necessário
 
   const handleSalvarAula = async (aulaData) => {
     setSaving(true);
@@ -1738,6 +1737,7 @@ export default function ProfessorDashboard() {
                 <div className="text-xs text-slate-500 mt-0.5">{turma.dias} • {turma.horario}</div>
               </button>
             ))}
+            <AulaAvulsaBotao turmas={turmas} alunosPorTurma={alunosPorTurma} professorNome={professorNomeReal} professorSlug={professorSlug} onFeito={(m) => { setShowFAB(false); mostrarMensagem('sucesso', m); }} />
           </div>
         )}
         <button

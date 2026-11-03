@@ -1,11 +1,15 @@
 import { useState, useEffect } from 'react';
 import { db } from '../firebase';
 import { collection, query, where, onSnapshot, doc, updateDoc, addDoc, Timestamp } from 'firebase/firestore';
-import { Users, UserPlus, KeyRound, Trash2, Eye, EyeOff, GraduationCap } from 'lucide-react';
+import { Users, UserPlus, KeyRound, Trash2, Eye, EyeOff, GraduationCap, CalendarDays } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { useProfessoresData } from '../hooks';
 import { getFunctions, httpsCallable } from 'firebase/functions';
+import { normalizeNome } from '../utils/normalizeNome';
+import AvatarProfessor from '../components/agenda/AvatarProfessor';
 
 export default function ProfessoresAdmin() {
+  const navigate = useNavigate();
   const [professores, setProfessores] = useState([]);
   const [loading, setLoading] = useState(true);
   const [form, setForm] = useState({ nome: '', email: '', slug: '', senha: '' });
@@ -118,6 +122,8 @@ export default function ProfessoresAdmin() {
   // Fonte usada nos <select> de Turmas e do formul\u00e1rio de aluno \u2014 separado
   // da conta de acesso (login) acima, que \u00e9 gerenciada por Cloud Function.
   const diretorio = useProfessoresData();
+  // A agenda é do professor do diretório; a conta de login acha o dela pelo nome.
+  const diretorioDe = (conta) => diretorio.find((d) => normalizeNome(d.nome) === (conta.nomeKey || normalizeNome(conta.nome)));
   const [diretorioForm, setDiretorioForm] = useState({ nome: '', email: '', telefone: '' });
   const [diretorioSaving, setDiretorioSaving] = useState(false);
   const [diretorioError, setDiretorioError] = useState('');
@@ -280,14 +286,21 @@ export default function ProfessoresAdmin() {
             {professores.map(p => (
               <div key={p.uid} className="px-6 py-4">
                 <div className="flex items-center gap-4">
-                  <div className="w-9 h-9 rounded-full bg-[#0e48fe]/10 flex items-center justify-center flex-shrink-0">
-                    <GraduationCap size={16} className="text-accent" />
-                  </div>
+                  <AvatarProfessor nome={p.nome} tamanho="sm" />
                   <div className="flex-1 min-w-0">
                     <p className="font-medium text-slate-800 text-sm">{p.nome}</p>
                     <p className="text-xs text-slate-400">{p.email} · <span className="font-mono">/professor/{p.slug}</span></p>
                   </div>
                   <div className="flex items-center gap-2">
+                    {diretorioDe(p) && (
+                      <button
+                        onClick={() => navigate(`/agenda/${diretorioDe(p).id}`)}
+                        className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-slate-300 rounded-lg text-slate-600 hover:border-accent hover:text-accent transition-colors"
+                        title="Turmas, alunos, horas e agenda da semana"
+                      >
+                        <CalendarDays size={13} /> Agenda
+                      </button>
+                    )}
                     <button
                       onClick={() => { setResetUid(resetUid === p.uid ? null : p.uid); setNovaSenha(''); setError(''); setSuccess(''); }}
                       className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-slate-300 rounded-lg text-slate-600 hover:border-accent hover:text-accent transition-colors"
@@ -400,13 +413,20 @@ export default function ProfessoresAdmin() {
             <div className="divide-y divide-slate-100">
               {diretorio.map(p => (
                 <div key={p.id} className="px-6 py-4 flex items-center gap-4">
-                  <div className="w-9 h-9 rounded-full bg-[#0e48fe]/10 flex items-center justify-center flex-shrink-0">
-                    <Users size={16} className="text-accent" />
-                  </div>
+                  <AvatarProfessor nome={p.nome} tamanho="sm" />
                   <div className="flex-1 min-w-0">
-                    <p className="font-medium text-slate-800 text-sm">{p.nome}</p>
+                    <button type="button" onClick={() => navigate(`/agenda/${p.id}`)} className="font-medium text-slate-800 text-sm hover:text-accent hover:underline text-left">
+                      {p.nome}
+                    </button>
                     <p className="text-xs text-slate-400">{[p.email, p.telefone].filter(Boolean).join(' · ') || 'Sem contato cadastrado'}</p>
                   </div>
+                  <button
+                    type="button"
+                    onClick={() => navigate(`/agenda/${p.id}`)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-slate-300 rounded-lg text-slate-600 hover:border-accent hover:text-accent transition-colors"
+                  >
+                    <CalendarDays size={13} /> Agenda
+                  </button>
                   <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${p.status === 'inativo' ? 'bg-slate-200 text-slate-700' : 'bg-emerald-100 text-emerald-700'}`}>
                     {p.status === 'inativo' ? 'Inativo' : 'Ativo'}
                   </span>

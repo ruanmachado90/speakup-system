@@ -5,6 +5,7 @@
  */
 import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
 
 jest.mock('firebase/app', () => ({ initializeApp: jest.fn() }));
 jest.mock('firebase/auth', () => ({
@@ -53,9 +54,11 @@ describe('componentes extraídos montam', () => {
 
   it('ProfessoresAdmin monta com a lista vazia', () => {
     render(
-      <DataContext.Provider value={{ professores: [], students: [], turmas: [] }}>
-        <ProfessoresAdmin />
-      </DataContext.Provider>
+      <MemoryRouter>
+        <DataContext.Provider value={{ professores: [], students: [], turmas: [] }}>
+          <ProfessoresAdmin />
+        </DataContext.Provider>
+      </MemoryRouter>
     );
     expect(document.body.textContent.length).toBeGreaterThan(0);
   });

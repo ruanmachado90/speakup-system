@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot } from 'firebase/firestore';
+import { collection, deleteDoc, doc, onSnapshot, writeBatch } from 'firebase/firestore';
+import { juntarMovimentacao } from '../utils/handlersTurmas';
 import { db } from '../firebase';
 import { DEFAULT_MAX_ALUNOS, DEFAULT_TOTAL_AULAS } from '../constants/turmasConfig';
 import { normalizarDias } from '../utils/turmas';
@@ -74,8 +75,9 @@ export function useTurmas() {
     return unsub;
   }, []);
 
-  // CRUD — Criar
-  const criarTurma = useCallback(async (turmaData) => {
+  // CRUD — Criar. Quem entra na turma sai das outras (troca), exceto os ids
+  // em `manterNasDuas`; tudo no mesmo lote (utils/handlersTurmas).
+  const criarTurma = useCallback(async (turmaData, { manterNasDuas = [] } = {}) => {
     const payload = {
       ...turmaData,
       dias: normalizarDias(turmaData.dias ?? ''),
@@ -84,7 +86,11 @@ export function useTurmas() {
       updatedAt: new Date().toISOString(),
     };
     try {
-      const ref = await addDoc(collection(db, 'turmas'), payload);
+      const ref = doc(collection(db, 'turmas'));
+      const batch = writeBatch(db);
+      batch.set(ref, payload);
+      await juntarMovimentacao(batch, { turmaId: ref.id, turma: payload, antes: [], depois: payload.alunosIds || [], manterNasDuas });
+      await batch.commit();
       return ref.id;
     } catch (err) {
       console.error('[useTurmas] Erro ao criar turma:', err);
@@ -92,8 +98,9 @@ export function useTurmas() {
     }
   }, []);
 
-  // CRUD — Editar
-  const editarTurma = useCallback(async (id, turmaData, createdAtOriginal) => {
+  // CRUD — Editar. `antes` = alunosIds de antes da edição, para saber quem
+  // entrou (sai das outras turmas) e quem saiu (vai pro histórico).
+  const editarTurma = useCallback(async (id, turmaData, createdAtOriginal, { antes = [], manterNasDuas = [] } = {}) => {
     const payload = {
       ...turmaData,
       dias: normalizarDias(turmaData.dias ?? ''),
@@ -105,7 +112,10 @@ export function useTurmas() {
       payload.createdAt = createdAtOriginal;
     }
     try {
-      await updateDoc(doc(db, 'turmas', id), payload);
+      const batch = writeBatch(db);
+      batch.update(doc(db, 'turmas', id), payload);
+      await juntarMovimentacao(batch, { turmaId: id, turma: payload, antes, depois: payload.alunosIds || [], manterNasDuas });
+      await batch.commit();
     } catch (err) {
       console.error('[useTurmas] Erro ao editar turma:', err);
       throw err;

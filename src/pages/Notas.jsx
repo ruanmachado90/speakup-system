@@ -7,7 +7,7 @@ import { collection, getDocs, query, where } from 'firebase/firestore';
 import { signInAnonymously, onAuthStateChanged } from 'firebase/auth';
 import { db, auth } from '../firebase';
 import { buscarAlunosDasTurmas } from '../utils/buscarAlunos';
-import { useGrades, CATEGORIAS, calcularConceito, conceitoCor, calcularMediaCategoria } from '../hooks/useNotas';
+import { useGrades, useExAlunosComNotas, CATEGORIAS, calcularConceito, conceitoCor, calcularMediaCategoria } from '../hooks/useNotas';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function gerarSemestres() {
@@ -82,12 +82,13 @@ export function NotasView({ professorSlug, professorNome, turmas, alunosPorTurma
     return map;
   }, [aulas]);
 
+  // Quem saiu da turma mas tem nota no semestre aparece no fim, marcado.
+  const exAlunos = useExAlunosComNotas(alunosPorTurma[selectedTurma] || [], gradesMap);
   const alunos = useMemo(() => {
     if (!selectedTurma) return [];
-    return [...(alunosPorTurma[selectedTurma] || [])].sort((a, b) =>
-      (a.name || '').localeCompare(b.name || '', 'pt-BR')
-    );
-  }, [selectedTurma, alunosPorTurma]);
+    const porNome = (a, b) => (a.name || '').localeCompare(b.name || '', 'pt-BR');
+    return [...[...(alunosPorTurma[selectedTurma] || [])].sort(porNome), ...[...exAlunos].sort(porNome)];
+  }, [selectedTurma, alunosPorTurma, exAlunos]);
 
   const turmaObj = useMemo(() => turmas.find(t => t.id === selectedTurma) || null, [turmas, selectedTurma]);
 
@@ -382,6 +383,7 @@ export function NotasView({ professorSlug, professorNome, turmas, alunosPorTurma
                       {/* Nome */}
                       <td style={{ ...tdBase, fontWeight: 500, fontSize: 13, color: '#0f172a', whiteSpace: 'nowrap', borderRight: '2px solid #e2e8f0', padding: '6px 10px' }}>
                         {aluno.name}
+                        {aluno.saiu && <span style={{ marginLeft: 6, fontSize: 10, fontWeight: 600, color: 'var(--su-warning-fg)', background: 'var(--su-warning-bg)', borderRadius: 99, padding: '1px 6px' }}>saiu da turma</span>}
                       </td>
 
                       {/* Scores por categoria */}

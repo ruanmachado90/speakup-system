@@ -22,6 +22,7 @@ import {
   separarParcelasNoCancelamento,
 } from "./matricula";
 import { montarBaixa } from "./pagamento";
+import { registroDeTurma } from "./movimentacaoTurma";
 
 // Despesas e cadastro de aluno vivem em módulos próprios; reexportados aqui
 // para manter os imports atuais.
@@ -183,8 +184,6 @@ export const handleReactivateEnrollment = async (id, campos, toastMsg, { preCada
         reativadoEm: agora,
       });
     }
-    batch.update(doc(col("students"), id), update);
-
     montarParcelas({
       studentId: id,
       studentName: campos.studentName || atual.name,
@@ -198,10 +197,17 @@ export const handleReactivateEnrollment = async (id, campos, toastMsg, { preCada
     const turmasDeVolta = await Promise.all(
       (campos.voltarTurmaIds || []).map((tid) => getDoc(doc(db, 'turmas', tid)))
     );
-    turmasDeVolta.filter((s) => s.exists()).forEach((s) => {
+    const voltou = turmasDeVolta.filter((s) => s.exists());
+    voltou.forEach((s) => {
       const ids = alunosIdsCom(s.data(), id);
       batch.update(s.ref, { alunosIds: ids, alunosCount: ids.length, updatedAt: new Date(agora).toISOString() });
     });
+    if (voltou.length) {
+      update.historicoTurmas = arrayUnion(
+        ...voltou.map((s) => registroDeTurma({ id: s.id, ...s.data() }, 'entrada', 'reativacao', new Date(agora)))
+      );
+    }
+    batch.update(doc(col("students"), id), update);
 
     if (preCadastroId) {
       batch.update(doc(col('pre-cadastros'), preCadastroId), {
@@ -256,6 +262,9 @@ export const handleCancelEnrollment = async (
       cancelNote: observacao || null,
       turmasNoCancelamento: saiuDe.map((t) => ({ id: t.id, nome: t.nome || '' })),
       parcelasEmAbertoNoCancelamento: manter.length,
+      ...(saiuDe.length
+        ? { historicoTurmas: arrayUnion(...saiuDe.map((t) => registroDeTurma(t, 'saida', 'cancelamento', new Date(agora)))) }
+        : {}),
     });
     saiuDe.forEach((t) => {
       const ids = alunosIdsSem(t, id);
@@ -282,39 +291,7 @@ export const handleCancelEnrollment = async (
   }
 };
 
-/**
- * Limpeza única: alunos já cancelados que ficaram em turmas (antes o
- * cancelamento não tirava). `turmas`/`students` vêm do estado da tela; devolve
- * quantos saíram. Registra `turmasNoCancelamento` no aluno se ainda não tiver.
- */
-export const removerCanceladosDasTurmas = async (turmas, students) => {
-  const cancelados = new Map(students.filter((s) => s.status === 'cancelado').map((s) => [s.id, s]));
-  const batch = writeBatch(db);
-  const saidasPorAluno = new Map();
-  let removidos = 0;
-
-  for (const t of turmas) {
-    let ids = t.alunosIds || [];
-    for (const alunoId of ids.map((m) => (m && typeof m === 'object' ? m.id : m))) {
-      if (!cancelados.has(alunoId)) continue;
-      ids = alunosIdsSem({ alunosIds: ids }, alunoId);
-      removidos += 1;
-      if (!saidasPorAluno.has(alunoId)) saidasPorAluno.set(alunoId, []);
-      saidasPorAluno.get(alunoId).push({ id: t.id, nome: t.nome || '' });
-    }
-    if (ids.length !== (t.alunosIds || []).length) {
-      batch.update(doc(db, 'turmas', t.id), { alunosIds: ids, alunosCount: ids.length, updatedAt: new Date().toISOString() });
-    }
-  }
-  saidasPorAluno.forEach((saidas, alunoId) => {
-    if (!cancelados.get(alunoId).turmasNoCancelamento) {
-      batch.update(doc(col('students'), alunoId), { turmasNoCancelamento: saidas });
-    }
-  });
-
-  if (removidos > 0) await batch.commit();
-  return removidos;
-};
+export { removerCanceladosDasTurmas } from "./handlersTurmas"; // mudou para lá (regras de turma)
 
 /**
  * Save a payment

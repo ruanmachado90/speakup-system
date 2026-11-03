@@ -266,6 +266,10 @@ describe('handleCancelEnrollment', () => {
       turmasNoCancelamento: [{ id: 't1', nome: 'TEENS 1' }, { id: 't2', nome: 'VIP' }],
       parcelasEmAbertoNoCancelamento: 1,
     });
+    expect(fake.ler(`${ALUNO}/a1`).historicoTurmas.map((r) => [r.turmaId, r.evento, r.motivo, r.data])).toEqual([
+      ['t1', 'saida', 'cancelamento', '2026-09-24'],
+      ['t2', 'saida', 'cancelamento', '2026-09-24'],
+    ]);
   });
 
   it('cancela as parcelas que vencem de hoje em diante; vencida continua dívida; paga intacta', async () => {

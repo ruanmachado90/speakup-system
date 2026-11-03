@@ -1,5 +1,12 @@
+import { useState } from 'react';
 import { Users, X } from 'lucide-react';
+import { turmasDoAluno } from '../../utils/matricula';
 
+/**
+ * Colocar o aluno numa turma. Se ele já está em outra, o padrão é TROCAR
+ * (sai da antiga); desmarcando, fica nas duas. Quem grava é
+ * utils/handlersTurmas → colocarAlunoNaTurma, com o histórico do aluno.
+ */
 export default function InserirEmTurmaModal({
   aluno,
   onClose,
@@ -13,8 +20,10 @@ export default function InserirEmTurmaModal({
   onConfirm,
   inserindo,
 }) {
+  const atuais = turmasDoAluno(turmas, aluno.id);
+  const [trocar, setTrocar] = useState(true);
   const turmasFiltradas = turmas
-    .filter(t => !(t.alunosIds || []).includes(aluno.id))
+    .filter(t => !atuais.some(a => a.id === t.id))
     .filter(t => !filtroProf || t.professor === filtroProf)
     .filter(t => !filtroDia || (t.dias || '').includes(filtroDia));
 
@@ -33,6 +42,7 @@ export default function InserirEmTurmaModal({
 
         <p className="text-sm text-slate-600 mb-4">
           Aluno: <strong>{aluno.name}</strong>
+          {atuais.length > 0 && <span className="block text-xs text-slate-500 mt-0.5">Hoje em: {atuais.map(t => t.nome).join(', ')}</span>}
         </p>
 
         <div className="grid grid-cols-2 gap-2 mb-3">
@@ -110,16 +120,26 @@ export default function InserirEmTurmaModal({
           )}
         </div>
 
+        {atuais.length > 0 && (
+          <label className="mt-4 flex items-start gap-2 rounded-lg border border-warning bg-warning-bg px-3 py-2.5 text-xs text-warning-fg cursor-pointer">
+            <input type="checkbox" className="mt-0.5" checked={trocar} onChange={e => setTrocar(e.target.checked)} />
+            <span>
+              <strong>Troca de turma:</strong> tirar de {atuais.map(t => t.nome).join(', ')}.
+              Desmarque para manter nas duas (reforço, VIP + grupo). Chamadas e notas antigas continuam no histórico.
+            </span>
+          </label>
+        )}
+
         <div className="flex justify-end gap-2 mt-5">
           <button onClick={onClose} className="px-4 py-2 text-sm text-slate-600 border border-slate-300 rounded-lg hover:bg-slate-50">
             Cancelar
           </button>
           <button
-            onClick={onConfirm}
+            onClick={() => onConfirm({ manterNasOutras: atuais.length > 0 && !trocar })}
             disabled={inserindo || !turmaSelecionada}
             className="px-5 py-2 bg-accent text-white text-sm font-medium rounded-lg hover:bg-accent-hover disabled:opacity-50 transition-colors"
           >
-            {inserindo ? 'Inserindo...' : 'Inserir'}
+            {inserindo ? 'Salvando...' : atuais.length > 0 && trocar ? 'Trocar de turma' : 'Inserir'}
           </button>
         </div>
       </div>

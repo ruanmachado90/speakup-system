@@ -1,8 +1,22 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { X, CheckCircle, XCircle, AlertCircle, Download, Calendar } from 'lucide-react';
 import { isAulaRealizada } from '../utils/aulas';
+import { turmasDoHistorico, MOTIVOS_TURMA } from '../utils/movimentacaoTurma';
 
-export default function FrequenciaAlunoModal({ aluno, aulas, turma, semestre, onClose }) {
+const dataBR = (iso) => (iso ? iso.split('-').reverse().join('/') : '');
+
+export default function FrequenciaAlunoModal({ aluno, aulas, turma: turmaAtual, semestre, onClose }) {
+  // Turmas por onde o aluno passou (pelas chamadas): depois de trocar de
+  // turma ou cancelar, o histórico da turma antiga continua consultável.
+  const historico = useMemo(() => turmasDoHistorico(aulas, aluno.id), [aulas, aluno.id]);
+  const [turmaId, setTurmaId] = useState(() => turmaAtual?.id || historico[0]?.id || '');
+  const passada = historico.find((h) => h.id === turmaId);
+  const turma = turmaAtual && turmaAtual.id === turmaId ? turmaAtual : passada || turmaAtual;
+  const opcoes = [
+    ...(turmaAtual ? [{ id: turmaAtual.id, rotulo: `${turmaAtual.nome} (atual)` }] : []),
+    ...historico.filter((h) => h.id !== turmaAtual?.id).map((h) => ({ id: h.id, rotulo: `${h.nome || 'Turma'} · ${dataBR(h.primeira)} a ${dataBR(h.ultima)}` })),
+  ];
+  const saida = [...(aluno.historicoTurmas || [])].reverse().find((r) => r.turmaId === turmaId && r.evento === 'saida');
   const nomeAluno = aluno?.nome || aluno?.name || '?';
   const iniciais = nomeAluno.split(' ').filter(Boolean).slice(0, 2).map(w => w[0].toUpperCase()).join('');
   const [ano] = semestre ? semestre.split('-') : [new Date().getFullYear().toString()];
@@ -213,8 +227,23 @@ tr:last-child td{border-bottom:none}
           <div>
             <div style={{ color: 'white', fontWeight: 700, fontSize: 15 }}>Relatório de Frequência</div>
             <div style={{ color: 'rgba(255,255,255,0.75)', fontSize: 12, marginTop: 2 }}>
-              {nomeAluno}{turma ? ` — ${turma.nome}` : ''}
+              {nomeAluno}{turma && opcoes.length < 2 ? ` — ${turma.nome}` : ''}
             </div>
+            {opcoes.length > 1 && (
+              <select
+                value={turmaId}
+                onChange={(e) => setTurmaId(e.target.value)}
+                aria-label="Turma do histórico"
+                style={{ marginTop: 6, fontSize: 12, borderRadius: 6, border: 'none', padding: '3px 6px', maxWidth: 360 }}
+              >
+                {opcoes.map((o) => <option key={o.id} value={o.id}>{o.rotulo}</option>)}
+              </select>
+            )}
+            {saida && (
+              <div style={{ color: 'rgba(255,255,255,0.85)', fontSize: 11, marginTop: 4 }}>
+                Saiu da turma em {dataBR(saida.data)} · {MOTIVOS_TURMA[saida.motivo] || saida.motivo}
+              </div>
+            )}
           </div>
           <button onClick={onClose} style={{ background: 'rgba(255,255,255,0.15)', border: 'none', color: 'white', borderRadius: 8, padding: '6px 8px', cursor: 'pointer' }}>
             <X size={16} />

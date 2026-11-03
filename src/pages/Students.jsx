@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect } from 'react';
 import { useProfessores } from '../hooks/useProfessores';
 import { Search, Edit, X, FileText, CheckSquare, Square, Trash2, ArrowUpDown, School, Printer, UserCheck, UserX, Users, FileCheck, FileClock, FileMinus, GraduationCap, Loader2, RotateCcw, CheckCircle, Clock, Award } from 'lucide-react';
 import { db } from '../firebase';
-import { doc, collection, getDoc, setDoc, getDocs, onSnapshot, updateDoc, query, where } from 'firebase/firestore';
+import { doc, collection, getDoc, setDoc, getDocs, onSnapshot, query, where } from 'firebase/firestore';
 import { Card, Table, KPI } from '../components';
 import { APP_ID } from '../utils/constants';
 import { formatDate } from '../utils/formatters';
@@ -13,7 +13,9 @@ import ConfirmDialog from '../components/ui/ConfirmDialog';
 import FrequenciaAlunoModal from '../components/FrequenciaAlunoModal';
 import { buildBoletimHTML } from '../utils/boletim';
 import { ConfirmarMatriculaModal, ReativarMatriculaModal, CancelarMatriculaModal } from '../components/students/MatriculaModals';
-import { confirmarPreCadastro, descartarPreCadastro, removerCanceladosDasTurmas } from '../utils/handlers';
+import { confirmarPreCadastro, descartarPreCadastro } from '../utils/handlers';
+import { colocarAlunoNaTurma } from '../utils/handlersTurmas';
+import LimparCanceladosBotao from '../components/students/LimparCanceladosBotao';
 import { alunosComMesmoCpf, turmasDoAluno, paraISODia } from '../utils/matricula';
 import InserirEmTurmaModal from '../components/students/InserirEmTurmaModal';
 import BoletimModal from '../components/students/BoletimModal';
@@ -232,44 +234,26 @@ export const Students = ({
     };
   }, [cancelarAlvo, payments, turmas]);
 
-  // Cancelados que ficaram em turma antes do cancelamento passar a tirar da turma.
-  const canceladosEmTurma = useMemo(
-    () => students.filter(s => s.status === 'cancelado' && turmasDoAluno(turmas, s.id).length > 0).length,
+  // Ativos em mais de uma turma: trocas antigas que não tiravam da turma
+  // anterior (antes da regra de troca). A secretaria revisa caso a caso —
+  // alguns estão em duas de propósito (reforço, VIP + grupo).
+  const emVariasTurmas = useMemo(
+    () => new Set(students.filter(s => s.status !== 'cancelado' && turmasDoAluno(turmas, s.id).length > 1).map(s => s.id)),
     [students, turmas]
   );
-  const [limpandoTurmas, setLimpandoTurmas] = useState(false);
-  const handleLimparTurmas = async () => {
-    const ok = await requestConfirm({
-      title: 'Tirar cancelados das turmas',
-      message: `${canceladosEmTurma} aluno(s) com matrícula cancelada ainda aparecem em turmas. Removê-los das turmas? Chamadas e notas já lançadas continuam no histórico.`,
-      confirmLabel: 'Remover das turmas',
-    });
-    if (!ok) return;
-    setLimpandoTurmas(true);
-    try {
-      const n = await removerCanceladosDasTurmas(turmas, students);
-      toastMsg(`${n} vínculo(s) de aluno cancelado removido(s) das turmas`);
-    } catch (err) {
-      console.error(err);
-      toastMsg('Erro ao limpar turmas. Nada foi alterado.');
-    } finally {
-      setLimpandoTurmas(false);
-    }
-  };
 
-  const handleInserirEmTurma = async () => {
+  // Troca de turma por padrão: sai da antiga no mesmo lote (utils/handlersTurmas).
+  const handleInserirEmTurma = async ({ manterNasOutras = false } = {}) => {
     if (!inserirModal || !turmaSelecionada) return;
     setInserindo(true);
     try {
-      const turmaRef = doc(db, 'turmas', turmaSelecionada);
-      const turma = turmas.find(t => t.id === turmaSelecionada);
-      const novosIds = Array.from(new Set([...(turma?.alunosIds || []), inserirModal.id]));
-      await updateDoc(turmaRef, {
-        alunosIds: novosIds,
-        alunosCount: novosIds.length,
-      });
+      const saiuDe = await colocarAlunoNaTurma(inserirModal.id, turmaSelecionada, { manterNasOutras });
+      toastMsg(saiuDe.length ? `Turma trocada · saiu de ${saiuDe.map(t => t.nome).join(', ')}` : 'Aluno inserido na turma');
       setInserirModal(null);
       setTurmaSelecionada('');
+    } catch (err) {
+      console.error(err);
+      toastMsg('Erro ao colocar na turma. Nada foi alterado.');
     } finally {
       setInserindo(false);
     }
@@ -469,6 +453,7 @@ export const Students = ({
         if (statusFilter === 'ativo') return s.status !== 'cancelado';
         if (statusFilter === 'cancelado') return s.status === 'cancelado';
         if (statusFilter === 'sem-turma') return s.status !== 'cancelado' && !alunosEmTurma.has(s.id);
+        if (statusFilter === 'varias-turmas') return emVariasTurmas.has(s.id);
         return true;
       })
       .filter(s => {
@@ -608,6 +593,17 @@ export const Students = ({
             >
               <UserX size={12} /> Sem turma ({semTurmaCount})
             </button>
+            {emVariasTurmas.size > 0 && (
+              <button
+                onClick={() => setStatusFilter(statusFilter === 'varias-turmas' ? 'all' : 'varias-turmas')}
+                title="Alunos ativos em mais de uma turma — confira se é de propósito (reforço, VIP) ou troca que não tirou da turma antiga"
+                className={`px-4 py-2 rounded-full font-bold text-xs flex items-center gap-1 ${
+                  statusFilter === 'varias-turmas' ? 'bg-amber-500 text-white' : 'bg-amber-100 text-amber-700 hover:bg-amber-200'
+                }`}
+              >
+                <GraduationCap size={12} /> Em 2+ turmas ({emVariasTurmas.size})
+              </button>
+            )}
             {pendingCount > 0 && (
               <button
                 onClick={() => setStatusFilter(statusFilter === 'aguardando' ? 'all' : 'aguardando')}
@@ -668,17 +664,7 @@ export const Students = ({
         <div className="flex items-center justify-between mb-4">
           <div></div>
           <div className="flex gap-2">
-          {canceladosEmTurma > 0 && (
-            <button
-              onClick={handleLimparTurmas}
-              disabled={limpandoTurmas}
-              className="border border-amber-300 bg-amber-50 text-amber-800 px-4 py-2 rounded-full font-semibold text-xs flex gap-2 items-center hover:bg-amber-100 transition-colors disabled:opacity-60"
-              title="Alunos cancelados que ainda aparecem em turmas"
-            >
-              {limpandoTurmas ? <Loader2 size={15} className="animate-spin" /> : <UserX size={15} />}
-              Tirar {canceladosEmTurma} cancelado(s) das turmas
-            </button>
-          )}
+          <LimparCanceladosBotao students={students} turmas={turmas} requestConfirm={requestConfirm} toastMsg={toastMsg} />
           <button
             onClick={printActiveStudents}
             className="border border-slate-300 text-slate-600 px-4 py-2 rounded-full font-semibold text-xs flex gap-2 items-center hover:bg-slate-100 transition-colors"
@@ -809,6 +795,7 @@ export const Students = ({
                     <GraduationCap size={10} />
                     {alunoTurmaMap.get(s.id).nome || alunoTurmaMap.get(s.id).name || 'Turma'}
                   </span>
+                  {emVariasTurmas.has(s.id) && <span className="ml-1 text-[10px] font-semibold text-amber-700" title={turmasDoAluno(turmas, s.id).map(t => t.nome).join(' · ')}>+{turmasDoAluno(turmas, s.id).length - 1}</span>}
                 </div>
               )}
             </td>

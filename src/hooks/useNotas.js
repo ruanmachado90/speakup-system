@@ -4,6 +4,32 @@ import {
   doc, setDoc, Timestamp, query, where,
 } from 'firebase/firestore';
 import { db } from '../firebase';
+import { buscarAlunosPorIds } from '../utils/buscarAlunos';
+
+/**
+ * Alunos com nota nesta turma/semestre que já não estão nela (trocaram de
+ * turma ou cancelaram). A nota nunca é apagada ao sair, mas a tela listava só
+ * a turma atual e ela sumia. Devolve [{ ...aluno, saiu: true }].
+ */
+export function useExAlunosComNotas(atuais = [], gradesMap = {}) {
+  const ids = Object.keys(gradesMap).filter((id) => !atuais.some((a) => a.id === id)).sort();
+  const chave = ids.join(',');
+  const [achados, setAchados] = useState({ chave: '', alunos: [] });
+  useEffect(() => {
+    if (!chave) return undefined;
+    let vivo = true;
+    const lista = chave.split(',');
+    buscarAlunosPorIds(lista)
+      .then((docs) => {
+        if (!vivo) return;
+        const porId = new Map(docs.map((a) => [a.id, a]));
+        setAchados({ chave, alunos: lista.map((id) => ({ ...(porId.get(id) || { id, name: 'Aluno removido' }), saiu: true })) });
+      })
+      .catch((err) => console.error('[useExAlunosComNotas] Erro ao buscar ex-alunos:', err));
+    return () => { vivo = false; };
+  }, [chave]);
+  return chave && achados.chave === chave ? achados.alunos : [];
+}
 
 // ── 3 categorias fixas ────────────────────────────────────────────────────────
 // Written = 50pts, Listening = 30pts, Speaking = 20pts → total 100pts

@@ -1,8 +1,10 @@
-import React, { useEffect, useRef, useCallback, useMemo } from 'react';
+import React, { useEffect, useRef, useCallback, useMemo, useState } from 'react';
 import { X, Search, AlertTriangle, Loader2, RefreshCw, CalendarClock } from 'lucide-react';
 import { NIVEIS, DIAS_DISPONIVEIS, CURSOS, BOOKS_POR_CURSO, DEFAULT_MAX_ALUNOS, DEFAULT_TOTAL_AULAS } from '../../constants/turmasConfig';
 import { calcularPrevisaoAulas } from '../../utils/calendarioLetivo';
 import { useCalendarioLetivo } from '../../hooks/useCalendarioLetivo';
+import { outrasTurmasDoAluno } from '../../utils/movimentacaoTurma';
+import { idsDosMembros } from '../../utils/buscarAlunos';
 
 const FieldError = ({ field, formErrors }) =>
   formErrors[field] ? (
@@ -17,6 +19,7 @@ const FieldError = ({ field, formErrors }) =>
 export default function TurmasForm({
   isOpen,
   editingTurma,
+  turmas = [],
   professores,
   form,
   formErrors,
@@ -41,6 +44,27 @@ export default function TurmasForm({
     () => calcularPrevisaoAulas(form.horarios, calendarioAno),
     [form.horarios, calendarioAno]
   );
+
+  // Troca de turma: aluno novo aqui que já está em outra turma sai de lá ao
+  // salvar, a não ser que a secretaria marque para manter nas duas.
+  const [manterNasDuas, setManterNasDuas] = useState(() => new Set());
+  const [abertoAntes, setAbertoAntes] = useState(isOpen);
+  if (abertoAntes !== isOpen) {
+    setAbertoAntes(isOpen);
+    setManterNasDuas(new Set());
+  }
+  const trocas = useMemo(() => {
+    const jaEstavam = new Set(idsDosMembros(editingTurma?.alunosIds || []));
+    return selectedAlunos
+      .filter((a) => !jaEstavam.has(a.id))
+      .map((aluno) => ({ aluno, outras: outrasTurmasDoAluno(turmas, aluno.id, editingTurma?.id) }))
+      .filter((t) => t.outras.length > 0);
+  }, [selectedAlunos, turmas, editingTurma]);
+  const alternarManter = (id) => setManterNasDuas((atual) => {
+    const novo = new Set(atual);
+    if (novo.has(id)) novo.delete(id); else novo.add(id);
+    return novo;
+  });
 
   // Foco inicial quando o modal abre
   useEffect(() => {
@@ -481,6 +505,18 @@ export default function TurmasForm({
                 Limite atingido. Aumente o máximo ou remova alguns alunos.
               </p>
             )}
+            {trocas.length > 0 && (
+              <div className="mt-2 rounded-lg border border-warning bg-warning-bg px-3 py-2.5 text-xs text-warning-fg">
+                <p className="font-semibold mb-1">Troca de turma: ao salvar, estes alunos saem da turma antiga</p>
+                {trocas.map(({ aluno, outras }) => (
+                  <label key={aluno.id} className="flex items-start gap-2 py-0.5 cursor-pointer">
+                    <input type="checkbox" className="mt-0.5" checked={!manterNasDuas.has(aluno.id)} onChange={() => alternarManter(aluno.id)} disabled={saving} />
+                    <span><strong>{aluno.name}</strong> sai de {outras.map((t) => t.nome || 'turma sem nome').join(', ')}</span>
+                  </label>
+                ))}
+                <p className="mt-1">Desmarque para manter o aluno nas duas turmas (reforço, VIP + grupo). Chamadas e notas antigas continuam no histórico.</p>
+              </div>
+            )}
           </div>
         )}
 
@@ -494,7 +530,7 @@ export default function TurmasForm({
             Cancelar
           </button>
           <button
-            onClick={onSave}
+            onClick={() => onSave({ manterNasDuas: [...manterNasDuas] })}
             disabled={saving}
             className="bg-accent text-white px-4 py-2 rounded-lg hover:bg-[#0048b3] disabled:opacity-50 flex items-center gap-2 transition-colors text-sm font-semibold"
           >

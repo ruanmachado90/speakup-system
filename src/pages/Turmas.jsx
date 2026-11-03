@@ -261,7 +261,7 @@ export default function Turmas({ students }) {
     setSelectedAlunos(function(prev) { return prev.filter(function(a) { return a.id !== id; }); });
   }, []);
 
-  const salvarTurma = useCallback(async function() {
+  const salvarTurma = useCallback(async function(opcoes) { // opcoes.manterNasDuas: alunos que não saem das outras turmas
     const errors = validateForm(form, professoresAtivos.map(function(p) { return p.nome; }));
     if (Object.keys(errors).length > 0) {
       setFormErrors(errors);
@@ -288,13 +288,12 @@ export default function Turmas({ students }) {
       return;
     }
     try {
-      setSaving(true);
-      setFormErrors({});
+      setSaving(true); setFormErrors({});
       if (editingTurma) {
-        await editarTurma(editingTurma.id, turmaData, editingTurma.createdAt);
+        await editarTurma(editingTurma.id, turmaData, editingTurma.createdAt, { antes: editingTurma.alunosIds, manterNasDuas: (opcoes && opcoes.manterNasDuas) || [] });
         showToastMsg('Turma editada com sucesso!', 'success');
       } else {
-        await criarTurma(turmaData);
+        await criarTurma(turmaData, { manterNasDuas: (opcoes && opcoes.manterNasDuas) || [] });
         showToastMsg('Turma criada com sucesso!', 'success');
       }
       resetForm();
@@ -643,6 +642,7 @@ export default function Turmas({ students }) {
       <TurmasForm
         isOpen={showModal}
         editingTurma={editingTurma}
+        turmas={turmas}
         professores={professoresAtivos}
         form={form}
         formErrors={formErrors}

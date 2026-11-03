@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { lazy, Suspense, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { FileText, FileBarChart2 } from 'lucide-react';
 import {
   useStudents, usePayments, useExpenses, useLeads,
@@ -8,12 +9,19 @@ import { useTurmas } from '../hooks/useTurmas';
 import { useVendas } from '../hooks/useVendas';
 import { useSaldosBancarios } from '../hooks/useSaldosBancarios';
 
+const RelatorioTrimestral = lazy(() => import('../pages/RelatorioTrimestral'));
+
 /**
- * Botões de relatório gerencial — mensal e trimestral, ambos em PDF paisagem
- * (formato slides) gerados pelo mesmo motor (utils/relatorioMensal).
+ * Botões de relatório gerencial. Mensal: PDF paisagem (utils/relatorioMensal).
+ * Trimestral: folhas A4 para imprimir (pages/RelatorioTrimestral), abertas
+ * por cima desta página com ?relatorio=trimestral&ano=&tri= — o endereço
+ * pode ser recarregado e compartilhado.
  * Puxa os próprios dados — é só soltar onde quiser (hoje: página Financeiro).
  */
 export default function RelatoriosGerenciais() {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const abertoTrimestral = new URLSearchParams(location.search).get('relatorio') === 'trimestral';
   const students = useStudents();
   const payments = usePayments();
   const expenses = useExpenses();
@@ -36,11 +44,7 @@ export default function RelatoriosGerenciais() {
       const ano = filterYear ?? hoje.getFullYear();
       const mod = await import('../utils/relatorioMensal');
       const dados = { students, payments, expenses, leads, turmas, vendas, saldosBancarios, params: parametros, ano };
-      if (tipo === 'trimestral') {
-        await mod.gerarRelatorioTrimestralPDF({ ...dados, trimestre: Math.floor(mes / 3) });
-      } else {
-        await mod.gerarRelatorioMensalPDF({ ...dados, mes });
-      }
+      await mod.gerarRelatorioMensalPDF({ ...dados, mes });
     } catch (err) {
       console.error(`[RelatoriosGerenciais] Erro ao gerar o relatório ${tipo}:`, err);
       alert('Erro ao gerar o relatório. Tente novamente.');
@@ -64,16 +68,23 @@ export default function RelatoriosGerenciais() {
       </button>
 
       <button
-        onClick={() => baixar('trimestral')}
-        disabled={!!gerando}
-        className="flex items-center gap-2 px-4 py-2 border border-slate-300 text-slate-600 rounded-lg hover:bg-slate-100 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
-        title="Baixar o relatório trimestral em PDF (formato slides)"
+        onClick={() => {
+          const hoje = new Date();
+          const mes = filterMonth ?? hoje.getMonth();
+          const ano = filterYear ?? hoje.getFullYear();
+          navigate(`${location.pathname}?relatorio=trimestral&ano=${ano}&tri=${Math.floor(mes / 3)}`);
+        }}
+        className="flex items-center gap-2 px-4 py-2 border border-slate-300 text-slate-600 rounded-lg hover:bg-slate-100 transition-colors"
+        title="Relatório trimestral completo em folhas A4 para imprimir"
       >
         <FileBarChart2 size={16} />
-        <span className="text-sm font-medium">
-          {gerando === 'trimestral' ? 'Gerando PDF...' : 'Relatório trimestral (PDF)'}
-        </span>
+        <span className="text-sm font-medium">Relatório trimestral (A4)</span>
       </button>
+      {abertoTrimestral && (
+        <Suspense fallback={null}>
+          <RelatorioTrimestral />
+        </Suspense>
+      )}
     </>
   );
 }

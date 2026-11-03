@@ -840,7 +840,7 @@ export function planoDeAcao(relatorio, params = PARAMETROS_PADRAO) {
     acoes.push({
       prioridade: 1,
       area: 'Inadimplência',
-      acao: `Acionar cobrança dos ${(relatorio.parcelasInadimplentes || []).length} inadimplentes, priorizando os 90+ dias (${formatoBRL(a.aging?.['90+'] || 0)}).`,
+      acao: `Acionar cobrança dos ${new Set((relatorio.parcelasInadimplentes || []).map((p) => p.studentName)).size} inadimplentes, priorizando os 90+ dias (${formatoBRL(a.aging?.['90+'] || 0)}).`,
       porque: `${a.inadimplenciaMes.pct.toFixed(1)}% da receita prevista em atraso (meta ${params.metaInadimplenciaPct}%).`,
     });
   }
@@ -1184,7 +1184,7 @@ export function agregarTrimestre(dados, tri, ano) {
     margemOperacional: margemOperacionalPct(soma((m) => m.lucroOperacional), receitaRecebida),
     retiradaSocio: soma((m) => m.retiradaSocio),
     custoFixo,
-    pontoEquilibrio: pontoEquilibrio(custoFixo.valor ?? null, mensalidadeMedia),
+    pontoEquilibrio: pontoEquilibrio(custoFixo.valor == null ? null : custoFixo.valor / 3, mensalidadeMedia), // custo fixo MENSAL vs. mensalidade
     resultado: receitaRecebida - despesaTotal,
     // cobranças do trimestre = soma dos 3 meses
     cobrancas: {

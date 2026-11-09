@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import {
-  NOMES_DIAS_CURTOS, minutosParaHora, posicionarNoDia, faixaDeHoras, STATUS_OCORRENCIA,
+  NOMES_DIAS_CURTOS, minutosParaHora, posicionarNoDia, faixaDeHoras, STATUS_OCORRENCIA, rotuloSemAula,
 } from '../../utils/agendaProfessor';
 import { TIPOS_AVULSA } from '../../utils/aulasAvulsas';
 import { ESTILO_STATUS } from './estiloAgenda';
@@ -18,7 +18,7 @@ const detalheItem = (item) => {
   if (item.tipo === 'evento') return item.evento.aluno || 'Compromisso';
   if (item.tipo === 'avulsa') return (item.avulsa.alunos || []).map((a) => a.nome).filter(Boolean).join(', ') || 'Registrada';
   if (item.status === 'nao-letivo') return item.naoLetivo;
-  if (item.status === 'cancelada') return `Aula ${item.aula.status}`;
+  if (item.status === 'cancelada') return rotuloSemAula(item.aula);
   if (item.foraDaGrade) return 'Registrada em outro dia';
   return STATUS_OCORRENCIA[item.status];
 };

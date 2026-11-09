@@ -5,7 +5,7 @@
 import { normalizeNome } from './normalizeNome';
 import { horaEmMinutos } from './professorDashboard';
 import { resolverNomeProfessor } from './professores';
-import { DURACAO_PADRAO_MIN, faixaDaAula } from './agendaProfessor';
+import { DURACAO_PADRAO_MIN, faixaDaAula, rotuloSemAula } from './agendaProfessor';
 
 export const TIPOS_AVULSA = {
   reposicao: 'Reposição',
@@ -85,8 +85,6 @@ export function itensDeAvulsas(avulsas = [], dias = []) {
 
 // ── Relatório do mês ───────────────────────────────────────────────────────
 
-const ROTULO_SEM_AULA = { cancelada: 'Cancelada', feriado: 'Feriado', recesso: 'Recesso' };
-
 /**
  * Aulas que o professor deu em turmas que não existem mais (turma apagada no
  * fim do semestre, por exemplo). A grade atual não as alcança, então o
@@ -123,7 +121,7 @@ export function linhasDoRelatorio(ocorrencias = [], avulsas = [], orfas = []) {
       turmaNome: a.turmaNome || 'Turma apagada',
       tipo: 'regular',
       situacao: realizada ? 'dada' : 'sem-aula',
-      detalhe: realizada ? '' : ROTULO_SEM_AULA[a.status] || a.status,
+      detalhe: realizada ? '' : rotuloSemAula(a),
       presentes: chamadas.filter((c) => c.status === 'presente').length,
       total: chamadas.length,
       conteudo: a.conteudo || '',
@@ -144,7 +142,7 @@ export function linhasDoRelatorio(ocorrencias = [], avulsas = [], orfas = []) {
       turmaNome: o.turma.nome || 'Turma sem nome',
       tipo: 'regular',
       situacao,
-      detalhe: situacao === 'sem-aula' ? (o.aula ? ROTULO_SEM_AULA[o.aula.status] || o.aula.status : o.naoLetivo) : '',
+      detalhe: situacao === 'sem-aula' ? (o.aula ? rotuloSemAula(o.aula) : o.naoLetivo) : '',
       presentes: chamadas.filter((c) => c.status === 'presente').length,
       total: chamadas.length,
       conteudo: o.aula?.conteudo || '',

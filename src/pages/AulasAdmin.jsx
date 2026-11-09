@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { collection, onSnapshot, orderBy, query, getDocs } from 'firebase/firestore';
 import { db } from '../firebase';
+import { contarCanceladas, rotuloQuemCancelou } from '../utils/agendaProfessor';
 import { BookOpen, Printer, ChevronDown, BarChart3, AlertTriangle, Users } from 'lucide-react';
 
 // ── Diário de Classe ───────────────────────────────────────────────────────
@@ -250,7 +251,7 @@ function RelPedagogico({ aulas, filtroMes, filtroAno }) {
 
     const profStats = Object.entries(byProf).map(([nome, profAulas]) => {
       const realizadas = profAulas.filter(a => !a.status || a.status === 'realizada').length;
-      const canceladas = profAulas.filter(a => a.status === 'cancelada').length;
+      const { canceladas, canceladasProf, canceladasAluno } = contarCanceladas(profAulas);
       const outros = profAulas.filter(a => a.status === 'feriado' || a.status === 'recesso').length;
 
       const chamadas = profAulas.flatMap(a => a.chamadas || []);
@@ -267,7 +268,6 @@ function RelPedagogico({ aulas, filtroMes, filtroAno }) {
 
       const turmaStats = Object.values(turmaMap).map(({ nome: tNome, aulas: tAulas }) => {
         const tReal = tAulas.filter(a => !a.status || a.status === 'realizada').length;
-        const tCanc = tAulas.filter(a => a.status === 'cancelada').length;
         const tCham = tAulas.flatMap(a => a.chamadas || []);
         const tFreq = tCham.length > 0
           ? (tCham.filter(c => c.status === 'presente').length / tCham.length) * 100
@@ -291,10 +291,10 @@ function RelPedagogico({ aulas, filtroMes, filtroAno }) {
           freq: al.total > 0 ? (al.p / al.total) * 100 : null,
         }));
 
-        return { nome: tNome, realizadas: tReal, canceladas: tCanc, freq: tFreq, alunos };
+        return { nome: tNome, realizadas: tReal, ...contarCanceladas(tAulas), freq: tFreq, alunos };
       });
 
-      return { nome, realizadas, canceladas, outros, total: profAulas.length, freqMedia, turmaStats };
+      return { nome, realizadas, canceladas, canceladasProf, canceladasAluno, outros, total: profAulas.length, freqMedia, turmaStats };
     }).sort((a, b) => b.realizadas - a.realizadas);
 
     const emRisco = [];
@@ -390,15 +390,15 @@ function RelPedagogico({ aulas, filtroMes, filtroAno }) {
                     <td className="px-5 py-3.5 font-semibold text-slate-800">{prof.nome}</td>
                     <td className="px-4 py-3.5 text-center text-slate-600">{prof.turmaStats.length}</td>
                     <td className="px-4 py-3.5 text-center font-semibold text-emerald-600">{prof.realizadas}</td>
-                    <td className="px-4 py-3.5 text-center font-semibold text-red-500">{prof.canceladas || <span className="text-slate-300">—</span>}</td>
+                    <td className="px-4 py-3.5 text-center font-semibold text-red-500">{prof.canceladas || <span className="text-slate-300">—</span>}{prof.canceladas > 0 && <span className="block text-[11px] font-medium text-slate-500">{rotuloQuemCancelou(prof)}</span>}</td>
                     <td className={`px-4 py-3.5 text-center font-semibold ${freqColor(prof.freqMedia)}`}>
                       {prof.freqMedia !== null ? `${prof.freqMedia.toFixed(1)}%` : '—'}
                     </td>
                     <td className="px-4 py-3.5 text-center text-lg leading-none">
                       {freqBadge(prof.freqMedia)}
-                      {prof.canceladas > 2 && (
-                        <span className="ml-1.5 text-xs bg-red-50 text-red-500 px-1.5 py-0.5 rounded-full font-medium">
-                          {prof.canceladas} cancel.
+                      {prof.canceladasProf > 2 && (
+                        <span className="ml-1.5 text-xs bg-red-50 text-red-500 px-1.5 py-0.5 rounded-full font-medium" title="Aulas canceladas pelo professor no mês">
+                          {prof.canceladasProf} cancel. pelo prof.
                         </span>
                       )}
                     </td>
@@ -422,7 +422,7 @@ function RelPedagogico({ aulas, filtroMes, filtroAno }) {
                                 <span className="font-semibold text-slate-800 text-sm">{turma.nome}</span>
                                 <div className="flex gap-3 text-xs">
                                   <span className="text-emerald-600 font-medium">{turma.realizadas} realizadas</span>
-                                  {turma.canceladas > 0 && <span className="text-red-500 font-medium">{turma.canceladas} canceladas</span>}
+                                  {turma.canceladas > 0 && <span className="text-red-500 font-medium">{turma.canceladas} canceladas ({rotuloQuemCancelou(turma)})</span>}
                                   {turma.freq !== null && (
                                     <span className={`font-semibold ${freqColor(turma.freq)}`}>Freq: {turma.freq.toFixed(1)}%</span>
                                   )}

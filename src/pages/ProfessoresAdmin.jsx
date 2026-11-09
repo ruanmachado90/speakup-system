@@ -7,6 +7,7 @@ import { useProfessoresData } from '../hooks';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { normalizeNome } from '../utils/normalizeNome';
 import AvatarProfessor from '../components/agenda/AvatarProfessor';
+import VincularContasProfessores from '../components/professor/VincularContasProfessores';
 
 export default function ProfessoresAdmin() {
   const navigate = useNavigate();
@@ -167,6 +168,7 @@ export default function ProfessoresAdmin() {
           <h2 className="text-xl font-bold text-slate-800">Gerenciar Professores</h2>
         </div>
         <div className="flex items-center gap-2">
+          <VincularContasProfessores contas={professores} diretorio={diretorio} />
           <button
             onClick={handleCorrigirParcelas}
             disabled={fixingParcelas}

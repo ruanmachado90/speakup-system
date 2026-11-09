@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { collection, addDoc, onSnapshot, updateDoc, deleteDoc, doc, Timestamp, query, where } from 'firebase/firestore';
+import { collection, onSnapshot, updateDoc, deleteDoc, doc, runTransaction, Timestamp, query, where } from 'firebase/firestore';
 import { db } from '../firebase';
 import { normalizeNome } from '../utils/normalizeNome';
 
@@ -75,9 +75,19 @@ export function useAulas(professorNome, turmaIds = []) {
         updatedAt: Timestamp.now()
       };
 
-      const docRef = await addDoc(collection(db, 'aulas'), novaAula);
+      // Código fixo {turma}_{data} (06/11/2026, igual ao LMS): uma aula por
+      // turma por dia garantida pelo próprio Firestore, mesmo com duas pessoas
+      // salvando ao mesmo tempo. Aulas antigas têm código aleatório — por isso
+      // o ChamadaForm continua conferindo a data antes.
+      const ref = doc(db, 'aulas', `${aulaData.turmaId}_${aulaData.data}`);
+      await runTransaction(db, async (tx) => {
+        if ((await tx.get(ref)).exists()) {
+          throw new Error('Já existe uma aula registrada para esta turma nesta data.');
+        }
+        tx.set(ref, novaAula);
+      });
       // onSnapshot atualiza a lista automaticamente
-      return { success: true, id: docRef.id };
+      return { success: true, id: ref.id };
     } catch (err) {
       console.error('Erro ao registrar aula:', err);
       return { success: false, error: err.message };

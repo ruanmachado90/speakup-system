@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { X, ExternalLink, Send, Trash2, Users } from 'lucide-react';
 import {
-  TIPOS_EVENTO, validarEvento, minutosParaHora, alunosAtivosDaTurma, STATUS_OCORRENCIA, dataPorExtenso,
+  TIPOS_EVENTO, validarEvento, minutosParaHora, alunosAtivosDaTurma, STATUS_OCORRENCIA, dataPorExtenso, rotuloSemAula,
 } from '../../utils/agendaProfessor';
 import { horaEmMinutos } from '../../utils/professorDashboard';
 import { ESTILO_STATUS, campo, rotulo, botaoPrimario, botaoSecundario } from './estiloAgenda';
@@ -200,7 +200,7 @@ export function OcorrenciaDialog({ item, students, professorNome, onLembrar, onC
       <div className="space-y-4">
         <div className="flex flex-wrap items-center gap-2">
           <span className={`inline-flex items-center px-2.5 py-0.5 rounded-pill text-su-xs font-semibold border ${estilo.caixa}`}>
-            {status === 'nao-letivo' ? `Sem aula · ${item.naoLetivo}` : status === 'cancelada' ? `Sem aula · ${aula.status}` : STATUS_OCORRENCIA[status]}
+            {status === 'nao-letivo' ? `Sem aula · ${item.naoLetivo}` : status === 'cancelada' ? `Sem aula · ${rotuloSemAula(aula)}` : STATUS_OCORRENCIA[status]}
           </span>
           {turma.nivel && <span className="text-su-xs text-content-muted">Nível {turma.nivel}</span>}
         </div>

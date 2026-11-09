@@ -47,6 +47,9 @@ export default function ChamadaForm({ turma, alunosIniciais, professorNome, onSa
       .sort((a, b) => (b.data || '').localeCompare(a.data || ''))[0] || null;
   }, [aulasRecentes]);
   const [tipoAula, setTipoAula] = useState('realizada'); // realizada | cancelada | feriado | recesso
+  // Aula cancelada: quem cancelou ('professor' | 'aluno') — gravado em canceladaPor
+  // (o status continua 'cancelada'). O LMS grava o mesmo campo.
+  const [canceladaPor, setCanceladaPor] = useState('');
   // Chamada de aula que ainda não aconteceu não existe. Feriado/cancelada/recesso
   // com antecedência pode (e tira o dia dos alertas de pendência).
   const futuraRealizada = data > hoje && tipoAula === 'realizada';
@@ -155,6 +158,10 @@ export default function ChamadaForm({ turma, alunosIniciais, professorNome, onSa
       setSaveError('Informe o conteúdo da aula antes de salvar.');
       return;
     }
+    if (tipoAula === 'cancelada' && !canceladaPor) {
+      setSaveError('Informe quem cancelou a aula: o professor ou o aluno.');
+      return;
+    }
     setSaveError('');
 
     // Verificar duplicação: mesma turma + mesmo dia
@@ -197,6 +204,7 @@ export default function ChamadaForm({ turma, alunosIniciais, professorNome, onSa
       homework: tipoAula === 'realizada' ? homework : '',
       observacoes,
       status: tipoAula,
+      canceladaPor: tipoAula === 'cancelada' ? canceladaPor : null,
       chamadas: tipoAula === 'realizada' ? chamadaList : [],
     });
   };
@@ -264,6 +272,24 @@ export default function ChamadaForm({ turma, alunosIniciais, professorNome, onSa
                 <AlertCircle size={14} />
                 Esta data será registrada como <strong className="ml-1">{tipoAula}</strong>. A chamada não é necessária.
               </div>
+            )}
+            {tipoAula === 'cancelada' && (
+              <fieldset className="mt-3">
+                <legend className="block text-sm font-medium text-slate-600 mb-2">Quem cancelou?</legend>
+                <div className="grid grid-cols-2 gap-2">
+                  {[['professor', 'O professor'], ['aluno', 'O aluno']].map(([key, label]) => (
+                    <button
+                      key={key}
+                      type="button"
+                      aria-pressed={canceladaPor === key}
+                      onClick={() => setCanceladaPor(key)}
+                      className={`px-3 py-2 rounded-xl border-2 text-sm font-semibold transition-all ${canceladaPor === key ? 'bg-red-500 text-white border-red-500' : 'border-slate-300 text-slate-600 hover:border-red-400 hover:text-red-500'}`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </fieldset>
             )}
           </div>
 

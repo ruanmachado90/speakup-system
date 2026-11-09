@@ -190,6 +190,37 @@ export function criarDiaNaoLetivo(calendarioAno, anos = []) {
 
 // ── Ocorrências da semana ──────────────────────────────────────────────────
 
+/**
+ * Rótulo de aula registrada sem aula, com quem cancelou (canceladaPor,
+ * 06/11/2026): "Cancelada pelo professor" | "Cancelada pelo aluno" |
+ * "Cancelada" (registro antigo) | "Feriado" | "Recesso".
+ */
+export function rotuloSemAula(aula) {
+  if (!aula) return 'Sem aula';
+  if (aula.status === 'cancelada') {
+    if (aula.canceladaPor === 'professor') return 'Cancelada pelo professor';
+    if (aula.canceladaPor === 'aluno') return 'Cancelada pelo aluno';
+    return 'Cancelada';
+  }
+  return { feriado: 'Feriado', recesso: 'Recesso' }[aula.status] || aula.status || 'Sem aula';
+}
+
+/** Canceladas de um conjunto de aulas, separadas por quem cancelou (as antigas, sem canceladaPor, só no total). */
+export function contarCanceladas(aulas = []) {
+  const canc = aulas.filter((a) => a.status === 'cancelada');
+  return {
+    canceladas: canc.length,
+    canceladasProf: canc.filter((a) => a.canceladaPor === 'professor').length,
+    canceladasAluno: canc.filter((a) => a.canceladaPor === 'aluno').length,
+  };
+}
+
+/** "2 prof. · 1 aluno" (+ "· 1 sem registro" quando há canceladas antigas sem quem cancelou). */
+export function rotuloQuemCancelou({ canceladas = 0, canceladasProf = 0, canceladasAluno = 0 } = {}) {
+  const semInfo = canceladas - canceladasProf - canceladasAluno;
+  return [`${canceladasProf} prof.`, `${canceladasAluno} aluno`, ...(semInfo > 0 ? [`${semInfo} sem registro`] : [])].join(' · ');
+}
+
 export const STATUS_OCORRENCIA = {
   registrada: 'Registrada',
   cancelada: 'Sem aula',

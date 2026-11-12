@@ -13,10 +13,10 @@ import {
 
 const MM_PER_PT = 0.352778;
 
-const PREAMBULO =
+export const PREAMBULO =
   'As partes acima identificadas têm, entre si, justo e acertado o presente Contrato de Prestação de Serviços Educacionais, que se regerá pelas cláusulas seguintes e pelas condições de preço, forma e termo de pagamento descritas no presente.';
 
-const CLAUSULAS = [
+export const CLAUSULAS = [
   {
     titulo: 'CLÁUSULA PRIMEIRA — OBJETO DO CONTRATO E SUA VIGÊNCIA',
     itens: [
@@ -97,6 +97,49 @@ const formatCPF = (raw) => {
   return `${d.slice(0, 3)}.${d.slice(3, 6)}.${d.slice(6, 9)}-${d.slice(9)}`;
 };
 
+const reais = (centavos) => `R$ ${(Number(centavos || 0) / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+const dataBR = (iso) => (iso ? iso.split('-').reverse().join('/') : '—');
+
+/**
+ * Quadro resumo do contrato de um ano letivo (renovação): os valores vêm do
+ * plano escolhido no link (`contratos/{studentId}_{ano}`), não do cadastro.
+ */
+export function quadroDaRenovacao(r) {
+  const pagamento = r.pagamentos > 1
+    ? `${r.pagamentos}x de ${reais(r.valorPagamentoCentavos)}`
+    : `${reais(r.valorPagamentoCentavos)} (à vista)`;
+  const cond = r.desconto?.id === 'renovacao_no_prazo' ? r.desconto.condicao || {} : null;
+  const condicao = cond && [
+    cond.emDia && `${r.anoLetivo - 1} em dia`,
+    cond.primeiraParcelaPagaAte && `1ª paga até ${dataBR(cond.primeiraParcelaPagaAte)}`,
+  ].filter(Boolean).join(' e ');
+  return [
+    [['Contratante', escapeVazio(r.nome)], ['CPF do contratante', formatCPF(r.cpf)]],
+    [['Aluno(a)', escapeVazio(r.alunoNome)], ['Ano letivo', String(r.anoLetivo)]],
+    [['Curso', escapeVazio(r.cursoAtual)], ['Plano', escapeVazio(r.planoRotulo)]],
+    [['Mensalidade de referência', reais(r.mensalidadeCentavos)], ['Pagamento', pagamento]],
+    [['Desconto', r.desconto ? `${r.desconto.nome} (${String(r.desconto.pct).replace('.', ',')}%)` : 'Sem desconto'], ['Total do ano', reais(r.totalCentavos)]],
+    [['Vencimento', `dia ${r.diaVencimento} · 1º em ${dataBR(r.vencimentos?.[0])}`], ['Forma de pagamento', escapeVazio(r.formaPagamento)]],
+    ...(condicao ? [[['Condição do desconto', condicao], ['', '']]] : []),
+  ];
+}
+
+const escaparHtml = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[c]));
+
+/** Contrato da renovação em HTML simples, para a cópia por e-mail. */
+export function htmlDoContratoRenovacao(r) {
+  const linhas = quadroDaRenovacao(r).flat().filter(([rotulo]) => rotulo)
+    .map(([rotulo, valor]) => `<p style="margin:2px 0"><strong>${escaparHtml(rotulo)}:</strong> ${escaparHtml(valor)}</p>`).join('');
+  const clausulas = CLAUSULAS.map((c) => `<h3 style="font-size:12px;margin:10px 0 3px">${escaparHtml(c.titulo)}</h3>${
+    c.itens.map((i) => `<p style="margin:2px 0">${escaparHtml(i)}</p>`).join('')}`).join('');
+  return `<div style="font-family:Arial,sans-serif;font-size:12px;color:${BRAND.ink};line-height:1.4">
+<h1 style="font-size:16px">CONTRATO DE PRESTAÇÃO DE SERVIÇOS EDUCACIONAIS · ANO LETIVO ${escaparHtml(r.anoLetivo)}</h1>
+<div style="background:${BRAND.panel};border:1px solid ${BRAND.hair};padding:8px;margin:8px 0">${linhas}</div>
+<p>${escaparHtml(PREAMBULO)}</p>${clausulas}
+<p style="margin-top:12px;color:${BRAND.muted}">Assinado digitalmente por <strong>${escaparHtml(r.nome)}</strong> (CPF ${escaparHtml(formatCPF(r.cpf))}) em ${escaparHtml(r.timestamp)}${r.ip ? ` · IP ${escaparHtml(r.ip)}` : ''}.</p>
+</div>`;
+}
+
 /**
  * Gera (e baixa, salvo se `retornarBlob`) o contrato em PDF.
  *
@@ -104,11 +147,13 @@ const formatCPF = (raw) => {
  *                         responsibleName, responsibleCpf, responsibleContact, contact, dueDate)
  * @param {object} [opts]
  * @param {{nome:string,cpf:string,timestamp:string,ip?:string}} [opts.assinatura]  assinatura digital registrada
+ * @param {object} [opts.renovacao]  contrato de um ano letivo (`contratos/{studentId}_{ano}`):
+ *                                   o quadro resumo sai dele, e não do cadastro do aluno
  * @param {boolean} [opts.retornarBlob]  se true, resolve com um Blob em vez de baixar
  * @returns {Promise<Blob|void>}
  */
 export async function gerarContratoPDF(aluno, opts = {}) {
-  const { assinatura = null, retornarBlob = false } = opts;
+  const { assinatura = null, renovacao = null, retornarBlob = false } = opts;
   const { jsPDF } = await import('jspdf');
   const logoData = await carregarLogo();
   const doc = new jsPDF({ unit: 'mm', format: 'a4' });
@@ -194,7 +239,7 @@ export async function gerarContratoPDF(aluno, opts = {}) {
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(8.5);
   setText(BRAND.faint);
-  doc.text(`Emitido em ${hoje}`, MARGIN, y);
+  doc.text(renovacao ? `Ano letivo ${renovacao.anoLetivo} · emitido em ${hoje}` : `Emitido em ${hoje}`, MARGIN, y);
   y += 9;
 
   // ---- Quadro Resumo ----
@@ -204,7 +249,7 @@ export async function gerarContratoPDF(aluno, opts = {}) {
   doc.text('QUADRO RESUMO', MARGIN, y, { charSpace: 0.6 });
   y += 4;
 
-  const quadro = [
+  const quadro = renovacao ? quadroDaRenovacao(renovacao) : [
     [['Contratante', contratanteNome], ['CPF do contratante', contratanteCpf]],
     [['Aluno(a)', alunoNome], ['Contato', contratanteContato]],
     [['Curso', curso], ['Professor(a)', professor]],
@@ -310,7 +355,7 @@ export async function gerarContratoPDF(aluno, opts = {}) {
     });
   }
 
-  const nome = `Contrato-${nomeArquivo(alunoNome)}${assinatura ? '-assinado' : ''}.pdf`;
+  const nome = `Contrato-${renovacao ? `${renovacao.anoLetivo}-` : ''}${nomeArquivo(alunoNome)}${assinatura ? '-assinado' : ''}.pdf`;
   if (retornarBlob) return doc.output('blob');
   doc.save(nome);
 }

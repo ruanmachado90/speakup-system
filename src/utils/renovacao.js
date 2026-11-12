@@ -60,11 +60,17 @@ export function descontoAplicavel({ campanha, planoId, respondidaEm, irmao = fal
     noPrazo?.pct > 0 && (noPrazo.planos || []).includes(planoId) &&
     respondidaEm != null && ate && diaEmBrasilia(respondidaEm) <= ate
   ) {
+    // Condições conferidas depois (efetivação e etapa 7b); `emDia` vale salvo
+    // se a campanha desligar (campanhas antigas não têm o campo).
+    const condicao = {
+      ...(noPrazo.primeiraParcelaPagaAte ? { primeiraParcelaPagaAte: noPrazo.primeiraParcelaPagaAte } : {}),
+      ...(noPrazo.exigeEmDia !== false ? { emDia: true } : {}),
+    };
     candidatos.push({
       id: 'renovacao_no_prazo',
       nome: 'Renovação no prazo',
       pct: noPrazo.pct,
-      condicao: noPrazo.primeiraParcelaPagaAte ? { primeiraParcelaPagaAte: noPrazo.primeiraParcelaPagaAte } : null,
+      condicao: Object.keys(condicao).length ? condicao : null,
     });
   }
 

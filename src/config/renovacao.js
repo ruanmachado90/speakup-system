@@ -3,6 +3,17 @@
 // salvo (editável na tela de configuração). Decisões do Ruan em 14/10/2026 —
 // ver docs/rematricula/PLANO.md, seção 11.
 
+/**
+ * Textos da página da família (`/renovar/:codigo`), editáveis na configuração.
+ * Campanhas criadas antes do campo existir usam estes.
+ */
+export const PAGINA_FAMILIA_PADRAO = {
+  apresentacao: 'A renovação dentro do prazo é importante para o planejamento do próximo ano: a organização das turmas, o ajuste da grade horária e a preparação dos nossos professores, para manter e elevar a qualidade do ensino que você já conhece.',
+  atendimento: 'De segunda a sexta-feira, das 13h às 17h20.',
+  whatsapp: '32999414548',
+  assinatura: 'A direção',
+};
+
 export const CAMPANHA_PADRAO_2027 = {
   anoLetivo: 2027,
   status: 'rascunho',
@@ -21,6 +32,10 @@ export const CAMPANHA_PADRAO_2027 = {
     planos: ['12x'],
     respostaAte: null,                       // = encerramento da campanha
     primeiraParcelaPagaAte: '2027-01-10',    // senão, valor cheio no ano (etapa 7b)
+    // Só para quem está em dia com as mensalidades do ano atual (decisão de
+    // 23/10/2026, como na carta de 2026). Negociável: a secretaria pode manter
+    // o desconto na efetivação.
+    exigeEmDia: true,
   },
   descontoIrmao: { pct: 10 },                // marcado à mão pela secretaria
   formasPagamento: ['PIX', 'Boleto', 'Dinheiro'],
@@ -29,6 +44,7 @@ export const CAMPANHA_PADRAO_2027 = {
   // da secretaria antes do envio.
   faixaMensalidadeRegular: { min: 100, max: 400 },
   cursosRevisaoManual: ['VIP', 'COMPANY'],   // trecho no nome do curso, sem acento/caixa
+  paginaFamilia: PAGINA_FAMILIA_PADRAO,
   // Texto do WhatsApp (editável). Campos: {responsavel} {alunos} {ano} {prazo} {links}
   mensagemWhatsApp: [
     'Olá, {responsavel}!',

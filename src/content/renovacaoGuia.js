@@ -166,7 +166,7 @@ export const AVISO_PROFESSORES = 'Os professores não tratam de valores, descont
 export const SITUACOES = [
   {
     titulo: 'Responsável com parcela vencida',
-    texto: 'Ele pode garantir a vaga pelo link, mas a renovação fica em **Aguardando regularização**. A secretaria negocia, recebe, dá baixa nas parcelas no Financeiro e só então efetiva a renovação. As parcelas de {ano} são geradas na efetivação.',
+    texto: 'Ele pode garantir a vaga pelo link, mas a renovação fica em **Aguardando regularização** e o desconto de renovação no prazo vale só para quem está em dia. A secretaria negocia, recebe, dá baixa nas parcelas no Financeiro e só então efetiva a renovação. Sem regularizar, a renovação segue sem esse desconto, salvo acordo: na efetivação, a secretaria pode **manter o desconto** quando houver negociação. As parcelas de {ano} são geradas na efetivação.',
   },
   {
     titulo: 'Renovação presencial',
@@ -231,10 +231,19 @@ export const MENSAGENS = [
     ].join('\n'),
   },
   {
+    id: 'lembrete-pagamento',
+    titulo: 'Lembrete do 1º pagamento (início de janeiro)',
+    texto: [
+      'Olá, {responsavel}! A 1ª mensalidade de {ano} de {aluno} já está disponível. Para manter o desconto de renovação, o pagamento precisa ser feito até {pagamentoBeneficio}.',
+      'Qualquer dúvida, estamos à disposição.',
+      'Equipe SpeakUp',
+    ].join('\n'),
+  },
+  {
     id: 'pendencia',
     titulo: 'Pendência',
     texto: [
-      'Olá, {responsavel}! Recebemos a renovação de {aluno} para {ano}. Para concluirmos, precisamos regularizar as mensalidades em aberto. Podemos conversar sobre a melhor forma?',
+      'Olá, {responsavel}! Recebemos a renovação de {aluno} para {ano}. Para concluirmos e garantir o desconto de renovação, precisamos regularizar as mensalidades em aberto. Podemos conversar sobre a melhor forma?',
       'Equipe SpeakUp',
     ].join('\n'),
   },

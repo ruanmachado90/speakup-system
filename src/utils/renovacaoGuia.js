@@ -33,7 +33,8 @@ export function descontosDaCampanha(campanha) {
       .map((id) => campanha.planos?.find((p) => p.id === id)?.rotulo || id);
     const pago = dataBR(prazo.primeiraParcelaPagaAte);
     linhas.push(`Renovação no prazo: ${pct(prazo.pct)}${planos.length ? ` em ${listaPorExtenso(planos)}` : ''}`
-      + `${ate ? `, para quem concluir até ${ate}` : ''}${pago ? ` e pagar a 1ª mensalidade até ${pago}` : ''}`);
+      + `${ate ? `, para quem concluir até ${ate}` : ''}${pago ? ` e pagar a 1ª mensalidade até ${pago}` : ''}`
+      + `${prazo.exigeEmDia !== false && campanha.anoLetivo ? `, estando em dia com as mensalidades de ${campanha.anoLetivo - 1}` : ''}`);
   }
   (campanha.planos || []).filter((p) => p.descontoPct > 0)
     .forEach((p) => linhas.push(`${p.rotulo}: ${pct(p.descontoPct)}`));

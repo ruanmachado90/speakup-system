@@ -352,6 +352,9 @@ Calendário: etapas 0 a 5 até o início de novembro, para abrir a campanha no m
 | 9 | VIP, In Company e alguns adultos | Valor revisado à mão |
 | 10 | Datas | Do meio de novembro ao meio de dezembro |
 | 11 | Contrato | Online, com a ferramenta que já existe; impresso só se alguém pedir na secretaria |
+| 12 | Em dia com 2026 (23/10) | O desconto de renovação no prazo exige estar em dia com as mensalidades de 2026 (como na carta de 2026). **Negociável**: na efetivação (etapa 5) a secretaria pode manter o desconto. Os descontos de plano (semestralidade, à vista) não dependem disso. Configurável (`descontoRenovacaoNoPrazo.exigeEmDia`) |
+| 13 | Prazo do 1º pagamento (23/10) | Fica em **10/01/2027**: em jan/2026 entraram R$ 34,2 mil contra R$ 15,6 mil de despesas, e essa entrada é a 1ª parcela de quem renova; adiantar para dezembro esvaziaria janeiro |
+| 14 | Página da família (23/10) | Segue a carta de renovação: prazo em destaque, apresentação, quadro "com x sem renovação antecipada", condições numeradas, "pague a 1ª só em janeiro", atendimento e WhatsApp da secretaria (32) 99941-4548, assinatura "A direção" — textos editáveis em `paginaFamilia` |
 
 ### Ainda em aberto (não bloqueiam as etapas 0 e 1)
 

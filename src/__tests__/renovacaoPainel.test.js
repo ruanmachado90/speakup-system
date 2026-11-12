@@ -88,6 +88,13 @@ describe('validação da configuração', () => {
     expect(validarCampanha(campanha)).toEqual([]);
   });
 
+  it('recusa desconto próprio do 12x que anula o de renovação no prazo', () => {
+    const comDesconto = (pct) => ({ ...campanha, planos: campanha.planos.map((p) => (p.id === '12x' ? { ...p, descontoPct: pct } : p)) });
+    expect(validarCampanha(comDesconto(3.5)).join()).toMatch(/anula o de renovação no prazo/);
+    expect(validarCampanha(comDesconto(5)).join()).toMatch(/anula o de renovação no prazo/);
+    expect(validarCampanha(comDesconto(2))).toEqual([]);
+  });
+
   it('recusa valores absurdos e datas trocadas', () => {
     expect(validarCampanha({ ...campanha, reajustePct: 700 })).toContain('Reajuste deve ficar entre 0% e 50%.');
     expect(validarCampanha({ ...campanha, abertura: '2026-12-20' })).toContain('A abertura precisa vir antes do encerramento.');

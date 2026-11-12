@@ -43,8 +43,11 @@ describe('desconto: vale um só, o maior', () => {
     expect(descontoAplicavel({ campanha, planoId: '12x' })).toBeNull();
   });
 
-  it('renovação no prazo leva a condição de pagar a 1ª até 10/01', () => {
+  it('renovação no prazo leva as condições: em dia e pagar a 1ª até 10/01', () => {
     expect(descontoAplicavel({ campanha, planoId: '12x', respondidaEm: noPrazo }).condicao)
+      .toEqual({ primeiraParcelaPagaAte: '2027-01-10', emDia: true });
+    const semEmDia = { ...campanha, descontoRenovacaoNoPrazo: { ...campanha.descontoRenovacaoNoPrazo, exigeEmDia: false } };
+    expect(descontoAplicavel({ campanha: semEmDia, planoId: '12x', respondidaEm: noPrazo }).condicao)
       .toEqual({ primeiraParcelaPagaAte: '2027-01-10' });
   });
 

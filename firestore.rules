@@ -157,10 +157,93 @@ service cloud.firestore {
     // Assinaturas de contrato: qualquer um pode criar (assinar) e ler (verificar se já assinou), só auth pode alterar/deletar.
     // SEGURANÇA: "get" em vez de "read" — evita listar todos os contratos assinados (CPF, IP, timestamp).
     // "list" fica restrito a admin/secretaria (usado em Students.jsx para status de contratos assinados).
+    //
+    // Contrato de um ANO (`{studentId}_2027`, renovação): só nasce junto com a
+    // resposta do convite, no mesmo lote (ver renovacoes abaixo) — ninguém cria
+    // contrato de renovação para outro aluno nem sem responder. O contrato sem
+    // ano (`{studentId}`) continua como sempre.
     match /artifacts/{appId}/public/data/contratos/{docId} {
-      allow get, create: if true;
+      allow get: if true;
+      allow create: if !docId.matches('.*_[0-9]{4}$');
+      allow create: if docId.matches('.*_[0-9]{4}$') && contratoDeRenovacaoValido(appId, docId);
       allow list: if isAdminOrSecretaria();
       allow update, delete: if isEquipe();
+    }
+
+    function contratoDeRenovacaoValido(appId, docId) {
+      let c = request.resource.data;
+      let caminho = /databases/$(database)/documents/artifacts/$(appId)/public/data/renovacoes/$(c.renovacaoId);
+      let antes = get(caminho).data;
+      let depois = getAfter(caminho).data;
+      return c.renovacaoId is string
+        && exists(caminho)
+        && antes.status in ['gerada', 'enviada', 'aberta']
+        && depois.status == 'respondida'
+        && docId == depois.studentId + '_' + string(depois.anoLetivo)
+        && c.alunoId == depois.studentId
+        && c.anoLetivo == depois.anoLetivo
+        && c.planoId == depois.resposta.planoId
+        && c.formaPagamento == depois.resposta.formaPagamento
+        && c.diaVencimento == depois.resposta.diaVencimento
+        && c.nome is string && c.nome.size() >= 3 && c.nome.size() <= 150
+        && c.cpf is string && c.cpf.matches('[0-9]{11}');
+    }
+
+    // ── Renovação de matrícula (docs/rematricula/PLANO.md, seção 7) ───────
+    // Campanha: a página da família lê (sem dado pessoal). Só admin configura;
+    // a secretaria só marca o checklist da aba "Como funciona" (`guia`).
+    match /artifacts/{appId}/public/data/renovacao-campanhas/{ano} {
+      allow get: if true;
+      allow list: if isAdminOrSecretaria();
+      allow create, delete: if isAdmin();
+      allow update: if isAdmin();
+      allow update: if isAdminOrSecretaria()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['guia']);
+    }
+
+    // Convites: quem tem o código lê o SEU convite (`get`), ninguém lista sem
+    // login. Sem login, só duas gravações, e nenhum outro campo:
+    //  1. abrir: gerada/enviada → aberta, com `abertaEm` = horário do servidor;
+    //  2. responder: uma vez, com a campanha aberta, escolhas que existem na
+    //     campanha, `respondidaEm` = horário do servidor e o contrato do ano
+    //     criado no MESMO lote.
+    // Valores, aluno e status de equipe só a equipe muda.
+    match /artifacts/{appId}/public/data/renovacoes/{codigo} {
+      allow get: if true;
+      allow list, create, update: if isAdminOrSecretaria();
+      allow delete: if isAdmin();
+      allow update: if familiaAbrindo();
+      allow update: if familiaRespondendo(appId);
+    }
+
+    function camposMudados() {
+      return request.resource.data.diff(resource.data).affectedKeys();
+    }
+
+    function familiaAbrindo() {
+      return resource.data.status in ['gerada', 'enviada']
+        && request.resource.data.status == 'aberta'
+        && camposMudados().hasOnly(['status', 'abertaEm'])
+        && request.resource.data.abertaEm == request.time;
+    }
+
+    function familiaRespondendo(appId) {
+      let r = request.resource.data.resposta;
+      let campanha = get(/databases/$(database)/documents/artifacts/$(appId)/public/data/renovacao-campanhas/$(string(resource.data.anoLetivo))).data;
+      return resource.data.status in ['gerada', 'enviada', 'aberta']
+        && !('resposta' in resource.data)
+        && request.resource.data.status == 'respondida'
+        && camposMudados().hasOnly(['status', 'resposta'])
+        && campanha.status == 'aberta'
+        && r.keys().hasOnly(['planoId', 'formaPagamento', 'diaVencimento', 'respondidaEm', 'canal'])
+        && r.keys().hasAll(['planoId', 'formaPagamento', 'diaVencimento', 'respondidaEm', 'canal'])
+        && r.respondidaEm == request.time
+        && r.canal == 'link'
+        // Os ids dos planos são fixos (a configuração só muda o desconto de cada um).
+        && r.planoId in ['12x', 'semestral', 'avista']
+        && r.formaPagamento in campanha.formasPagamento
+        && r.diaVencimento in campanha.diasVencimento
+        && existsAfter(/databases/$(database)/documents/artifacts/$(appId)/public/data/contratos/$(resource.data.studentId + '_' + string(resource.data.anoLetivo)));
     }
 
     // ── Pré-cadastros (formulário público) ───────────────────────────────
@@ -264,8 +347,10 @@ service cloud.firestore {
     // `students` fica de fora: senão esta regra geral liberaria o delete que a
     // regra específica acima restringe a admin (regras do Firestore somam).
     // `expenses` idem: o catch-all anularia a validação e a trava de pró-labore.
+    // `renovacao-campanhas` e `renovacoes` idem: têm regras próprias acima.
     match /artifacts/{appId}/public/data/{collection}/{docId} {
-      allow read, write: if isAdminOrSecretaria() && !(collection in ['students', 'certificados', 'expenses']);
+      allow read, write: if isAdminOrSecretaria()
+        && !(collection in ['students', 'certificados', 'expenses', 'renovacao-campanhas', 'renovacoes']);
     }
 
     // ── Link de pagamento público (acesso por clientes sem login) ─────────

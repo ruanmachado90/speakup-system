@@ -62,6 +62,7 @@ const Agenda = lazy(() => import('./pages/Agenda'));
 const Turmas = lazy(() => import('./pages/Turmas'));
 const ParametrosPage = lazy(() => import('./pages/ParametrosPage'));
 const Renovacao = lazy(() => import('./pages/Renovacao'));
+const RenovarMatricula = lazy(() => import('./pages/RenovarMatricula'));
 const ProfessorDashboard = lazy(() => import('./pages/ProfessorDashboard'));
 const Notas = lazy(() => import('./pages/Notas'));
 const LoginPage = lazy(() => import('./pages/LoginPage'));
@@ -730,6 +731,7 @@ export default function App() {
             <Route path="/verificar" element={<VerificarCertificado />} />
             <Route path="/verificar/:codigo" element={<VerificarCertificado />} />
             <Route path="/contrato/:id" element={<ContratoAssinatura />} />
+            <Route path="/renovar/:codigo" element={<RenovarMatricula />} />
             <Route path="/recibo/:id" element={<Recibo />} />
             <Route path="/pagamento/:paymentId" element={<PaymentLink />} />
             <Route path="/notas/view/:turmaId/:semestre" element={<Notas readOnly={true} />} />

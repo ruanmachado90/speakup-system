@@ -44,12 +44,12 @@
     "src/utils/timbre.js": 9
   },
   "linhas": {
-    "src/App.jsx": 782,
+    "src/App.jsx": 775,
     "src/pages/AIManager.jsx": 638,
     "src/pages/AulasAdmin.jsx": 698,
     "src/pages/Finance.jsx": 979,
     "src/pages/ProfessorDashboard.jsx": 1757,
-    "src/pages/Students.jsx": 1040,
+    "src/pages/Students.jsx": 1035,
     "src/pages/Turmas.jsx": 694,
     "src/pages/Vendas.jsx": 1575,
     "src/utils/aiUtils.js": 638,

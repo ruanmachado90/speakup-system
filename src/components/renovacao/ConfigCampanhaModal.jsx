@@ -3,6 +3,7 @@ import { SlidersHorizontal } from 'lucide-react';
 import { ModalShell } from '../students/MatriculaModals';
 import { validarCampanha } from '../../utils/renovacaoPainel';
 import { MENSAGEM_PADRAO } from '../../utils/renovacaoEnvio';
+import { PAGINA_FAMILIA_PADRAO } from '../../config/renovacao';
 
 const FORMAS = ['PIX', 'Boleto', 'Dinheiro', 'Cartão de crédito'];
 const DIAS = [5, 10, 15, 20, 25];
@@ -23,6 +24,9 @@ export default function ConfigCampanhaModal({ campanha, onSalvar, onClose }) {
   const set = (patch) => setC((atual) => ({ ...atual, ...patch }));
   const setPlano = (id, patch) => set({ planos: c.planos.map((p) => (p.id === id ? { ...p, ...patch } : p)) });
   const setNoPrazo = (patch) => set({ descontoRenovacaoNoPrazo: { ...c.descontoRenovacaoNoPrazo, ...patch } });
+  // Valor bruto (sem aparar) para digitar à vontade; a página usa o padrão no que ficar vazio.
+  const pagina = { ...PAGINA_FAMILIA_PADRAO, ...(c.paginaFamilia || {}) };
+  const setPagina = (patch) => set({ paginaFamilia: { ...pagina, ...patch } });
   const alternar = (lista, item) => (lista.includes(item) ? lista.filter((x) => x !== item) : [...lista, item]);
 
   const enviar = async (e) => {
@@ -93,6 +97,11 @@ export default function ConfigCampanhaModal({ campanha, onSalvar, onClose }) {
             <label className="block"><span className={labelCls}>Pagar a 1ª parcela até</span>
               <input type="date" className={inputCls} value={c.descontoRenovacaoNoPrazo.primeiraParcelaPagaAte || ''} onChange={(e) => setNoPrazo({ primeiraParcelaPagaAte: e.target.value || null })} /></label>
           </div>
+          <label className="flex items-start gap-2 text-su-sm text-content-body">
+            <input type="checkbox" className="mt-0.5 accent-accent" checked={c.descontoRenovacaoNoPrazo.exigeEmDia !== false}
+              onChange={(e) => setNoPrazo({ exigeEmDia: e.target.checked })} />
+            <span>Só para quem está em dia com as mensalidades de {c.anoLetivo - 1} <span className="text-content-muted">(a secretaria pode manter o desconto na efetivação, se negociar)</span></span>
+          </label>
           <label className="block w-1/2 pr-1.5"><span className={labelCls}>Desconto de irmão (%) — marcado aluno a aluno</span>
             <input type="number" step="0.5" min="0" className={inputCls} value={c.descontoIrmao?.pct ?? 0} onChange={(e) => set({ descontoIrmao: { pct: numero(e.target.value) } })} /></label>
         </div>
@@ -141,6 +150,21 @@ export default function ConfigCampanhaModal({ campanha, onSalvar, onClose }) {
           </p>
           <textarea rows={8} className={`${inputCls} font-mono text-su-xs`} aria-label="Mensagem do WhatsApp"
             value={c.mensagemWhatsApp ?? MENSAGEM_PADRAO} onChange={(e) => set({ mensagemWhatsApp: e.target.value })} />
+        </div>
+
+        <div className={secaoCls}>
+          <p className={tituloCls}>Página da família (link)</p>
+          <p className="text-su-xs text-content-muted">O prazo, os valores e as condições do desconto saem da configuração acima.</p>
+          <label className="block"><span className={labelCls}>Apresentação (por que renovar no prazo)</span>
+            <textarea rows={4} className={inputCls} value={pagina.apresentacao} onChange={(e) => setPagina({ apresentacao: e.target.value })} /></label>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <label className="block"><span className={labelCls}>WhatsApp da secretaria</span>
+              <input type="tel" className={inputCls} value={pagina.whatsapp} onChange={(e) => setPagina({ whatsapp: e.target.value })} placeholder="(32) 99999-9999" /></label>
+            <label className="block"><span className={labelCls}>Assinatura</span>
+              <input type="text" className={inputCls} value={pagina.assinatura} onChange={(e) => setPagina({ assinatura: e.target.value })} /></label>
+          </div>
+          <label className="block"><span className={labelCls}>Horário de atendimento</span>
+            <input type="text" className={inputCls} value={pagina.atendimento} onChange={(e) => setPagina({ atendimento: e.target.value })} /></label>
         </div>
 
         {erros.length > 0 && (

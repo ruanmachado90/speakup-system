@@ -20,6 +20,7 @@ import { alunosComMesmoCpf, turmasDoAluno, paraISODia } from '../utils/matricula
 import InserirEmTurmaModal from '../components/students/InserirEmTurmaModal';
 import BoletimModal from '../components/students/BoletimModal';
 import EmitirCertificadoModal from '../components/students/EmitirCertificadoModal';
+import ContratoDoAno from '../components/students/ContratoDoAno';
 
 export const Students = ({
   students,
@@ -424,15 +425,8 @@ export const Students = ({
     [students, alunosEmTurma]
   );
 
-  const contratoPendenteCount = useMemo(() =>
-    students.filter(s => s.status !== 'cancelado' && !contratosAssinados[s.id]).length,
-    [students, contratosAssinados]
-  );
-
-  const contratoAssinadoCount = useMemo(() =>
-    students.filter(s => s.status !== 'cancelado' && contratosAssinados[s.id]).length,
-    [students, contratosAssinados]
-  );
+  const contratoPendenteCount = useMemo(() => students.filter(s => s.status !== 'cancelado' && !contratosAssinados[s.id]).length, [students, contratosAssinados]);
+  const contratoAssinadoCount = useMemo(() => students.filter(s => s.status !== 'cancelado' && contratosAssinados[s.id]).length, [students, contratosAssinados]);
 
   const filteredStudents = useMemo(() => {
     const q = searchTerm.toLowerCase();
@@ -860,6 +854,7 @@ export const Students = ({
                   <FileMinus size={13}/> Não enviado
                 </span>
               )}
+              <ContratoDoAno studentId={s.id} cancelado={s.status === 'cancelado'} contratos={contratosAssinados} />
             </td>
             <td key="actions" className="px-6 py-3">
               <div className="flex items-center gap-3">

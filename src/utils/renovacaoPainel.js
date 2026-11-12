@@ -144,7 +144,13 @@ export function validarCampanha(c) {
   const noPrazo = c.descontoRenovacaoNoPrazo || {};
   if (!ehPct(noPrazo.pct)) erros.push('Desconto de renovação no prazo entre 0% e 100%.');
   (noPrazo.planos || []).forEach((id) => {
-    try { planoDaCampanha(c, id); } catch { erros.push(`Desconto de renovação aponta para um plano que não existe (${id}).`); }
+    let plano;
+    try { plano = planoDaCampanha(c, id); } catch { erros.push(`Desconto de renovação aponta para um plano que não existe (${id}).`); return; }
+    // Desconto próprio do plano igual ou maior vence sempre (nenhum acumula)
+    // e não tem condição: a regra de pagar a 1ª até a data-limite sumiria.
+    if (noPrazo.pct > 0 && plano.descontoPct >= noPrazo.pct) {
+      erros.push(`${plano.rotulo || plano.id}: o desconto próprio do plano (${plano.descontoPct}%) anula o de renovação no prazo (${noPrazo.pct}%). Deixe o plano em 0% ou com menos que ${noPrazo.pct}%.`);
+    }
   });
   if (noPrazo.primeiraParcelaPagaAte && !ehData(noPrazo.primeiraParcelaPagaAte)) erros.push('Data-limite de pagamento da 1ª parcela inválida.');
   if (!ehPct(c.descontoIrmao?.pct ?? 0)) erros.push('Desconto de irmão entre 0% e 100%.');
@@ -162,5 +168,7 @@ export function validarCampanha(c) {
   const faixa = c.faixaMensalidadeRegular || {};
   if (faixa.min != null && faixa.max != null && Number(faixa.min) > Number(faixa.max)) erros.push('Na faixa de mensalidade regular, o mínimo passa do máximo.');
   if (c.mensagemWhatsApp != null && !String(c.mensagemWhatsApp).includes('{links}')) erros.push('A mensagem do WhatsApp precisa conter {links}, onde entra o link de cada aluno.');
+  const zap = String(c.paginaFamilia?.whatsapp || '').replace(/\D/g, '');
+  if (zap && ![10, 11, 12, 13].includes(zap.length)) erros.push('WhatsApp da secretaria: informe DDD e número, como (32) 99999-9999.');
   return erros;
 }

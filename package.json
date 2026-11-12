@@ -8,6 +8,7 @@
     "dev:producao": "vite",
     "emuladores": "firebase emulators:start --only auth,firestore --project demo-speakup",
     "emuladores:dados": "node scripts/emulador/popular.mjs",
+    "emuladores:regras": "node scripts/emulador/testarRegrasRenovacao.mjs",
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",

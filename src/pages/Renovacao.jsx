@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { collection, getDocs } from 'firebase/firestore';
-import { Settings2, Info, Download, LayoutList, BookOpen } from 'lucide-react';
+import { Settings2, Info, Download, LayoutList, BookOpen, AlertTriangle } from 'lucide-react';
 import { db } from '../firebase';
 import { KPI } from '../components';
 import { useData } from '../context/DataContext';
@@ -125,6 +125,11 @@ export default function Renovacao() {
   const periodo = campanha.abertura && campanha.encerramento
     ? `de ${dataBR(campanha.abertura)} a ${dataBR(campanha.encerramento)}`
     : 'datas ainda não definidas';
+  // Mesma regra do link da família (situacaoDoLink): fechado se não está
+  // "aberta" ou se o encerramento já passou (dia de Brasília).
+  const hoje = new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Sao_Paulo' });
+  const prazoPassou = campanha.status === 'aberta' && Boolean(campanha.encerramento) && hoje > campanha.encerramento;
+  const linkFechado = campanha.status !== 'aberta' || prazoPassou;
 
   return (
     <div className="p-4 md:p-6 space-y-5">
@@ -171,12 +176,31 @@ export default function Renovacao() {
 
       {aba === 'painel' && (
       <div role="tabpanel" id="painel-painel" aria-labelledby="aba-painel" className="space-y-5">
+      {linkFechado && (
+        <div role="status" className="flex flex-wrap items-center gap-3 rounded-su-md border border-amber-300 bg-amber-50 p-4 text-su-sm text-amber-900">
+          <AlertTriangle size={20} className="flex-shrink-0" aria-hidden="true" />
+          <p className="flex-1 min-w-[16rem]">
+            <strong className="font-semibold">
+              {prazoPassou ? `O prazo da campanha terminou em ${dataBR(campanha.encerramento)}.` : 'A campanha ainda está em preparação.'}
+            </strong>{' '}
+            Quem abrir um link agora vê "A renovação pelo link não está aberta" e não consegue responder.
+            {ehAdmin
+              ? (prazoPassou ? ' Para reabrir, mude o encerramento.' : ' Para liberar, defina abertura e encerramento e mude a situação para "Aberta".')
+              : ' Peça à direção para abrir a campanha.'}
+          </p>
+          {ehAdmin && (
+            <button type="button" onClick={() => setConfigurando(true)}
+              className="px-4 py-2 rounded-su-sm bg-accent text-white text-su-sm font-semibold hover:bg-accent-hover">
+              {prazoPassou ? 'Mudar o encerramento' : 'Abrir a campanha'}
+            </button>
+          )}
+        </div>
+      )}
       <div className="flex items-start gap-3 rounded-su-md border border-blue-200 bg-blue-50 p-3 text-su-sm text-blue-900">
         <Info size={18} className="flex-shrink-0 mt-0.5" aria-hidden="true" />
         <p>
           Selecione os alunos e gere os convites; gerar não envia nada. Confira os marcados com "Revisar valor"
           (lápis na coluna Convite) e envie pelo WhatsApp quando a campanha estiver aberta.
-          {!acoes.aberta && ' A campanha ainda está em preparação, então o envio fica bloqueado.'}
           {' '}Passo a passo completo na aba{' '}
           <button type="button" onClick={() => setAba('como-funciona')} className="font-semibold underline underline-offset-2">Como funciona</button>.
         </p>
